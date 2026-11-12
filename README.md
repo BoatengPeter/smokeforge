@@ -8,11 +8,11 @@ fullstack projects for clients. Pick a stack, compose the features you need
 monorepo — reproducibly, from a pinned template registry.
 
 > **Status:** M1/M2 generation, the M4 lifecycle, and M5 release engineering are
-> complete. `smokeforge new`, `add`, and `remove` work for single-target
-> projects with drift detection, backups, and rollback. Cross-platform archives,
-> checksums, version metadata, and a draft release workflow are prepared.
-> Publishing and M3 registry content remain pending; fullstack and `install`
-> are planned. See the [roadmap](docs/development/roadmap.md).
+> complete. M3 is now in progress, starting with the Next.js frontend template.
+> `smokeforge new`, `add`, and `remove` work for single-target projects with
+> drift detection, backups, and rollback. Publishing, fullstack, and `install`
+> remain pending. See the [stack catalog](STACKS.md) and
+> [roadmap](docs/development/roadmap.md).
 
 ---
 
@@ -29,40 +29,38 @@ monorepo — reproducibly, from a pinned template registry.
 - **Safe by design** — templates are declarative data. No template shell hooks,
   no arbitrary code execution, checksum-verified downloads.
 - **Agent- and CI-friendly** — the interactive wizard has full flag parity.
+- **Project-scoped agent skills** — generated frontend apps receive their own
+  Next.js/React/Tailwind/Zod/robots skills, `AGENTS.md`, and `CLAUDE.md`.
 
 ---
 
 ## Supported stacks (v1)
 
-> **Open decision:** the frameworks, libraries, and package choices used
-> *inside generated apps* (routers, ORMs, auth/cache/queue clients, migration
-> tooling) are **not finalized**. Stack IDs below are provisional names for
-> discussion; templates will be built only after those internals are agreed.
+Next.js decisions are recorded in the [stack catalog](STACKS.md); backend,
+mobile, desktop, and remaining feature internals are still provisional.
 
-| Kind | Stack ID (provisional) | Language / platform |
-| --- | --- | --- |
-| Backend | `go/chi` | Go — HTTP framework TBD |
-| Backend | `rust/axum` | Rust — HTTP framework TBD |
-| Backend | `python/fastapi` | Python — HTTP framework TBD |
-| Frontend | `next` | Next.js / React |
-| Mobile | `ios/swiftui` | Swift — UI approach TBD |
-| Mobile | `android/compose` | Kotlin — UI approach TBD |
-| Desktop | `desktop/gpui` | Rust — GPUI under consideration |
-| Desktop | `desktop/egui` | Rust — EGUI under consideration |
-| Workspace | `workspace/fullstack` | Monorepo root for multi-target projects |
-
-Feature implementation internals (database driver/ORM, Redis client, queue
-client, JWT/TOTP libraries, migration tool) are also pending discussion.
+| Kind | Stack ID | Language / platform | Status |
+| --- | --- | --- | --- |
+| Backend | `go/chi` | Go — HTTP framework TBD | Provisional |
+| Backend | `rust/axum` | Rust — HTTP framework TBD | Provisional |
+| Backend | `python/fastapi` | Python — HTTP framework TBD | Provisional |
+| Frontend | `next` | Next.js 16 / React 19 / TypeScript | M3 in progress |
+| Mobile | `ios/swiftui` | Swift — UI approach TBD | Provisional |
+| Mobile | `android/compose` | Kotlin — UI approach TBD | Provisional |
+| Desktop | `desktop/gpui` | Rust — GPUI candidate | Provisional |
+| Desktop | `desktop/egui` | Rust — EGUI candidate | Provisional |
+| Workspace | `workspace/fullstack` | Monorepo root for multi-target projects | Provisional |
 
 ## Supported features (v1)
 
 | Feature | Variants | Applies to |
 | --- | --- | --- |
-| `database` | `postgres` | Backends |
-| `cache` | `redis` | Backends |
-| `queue` | `rabbitmq` | Backends |
-| `auth` | `jwt` | Backends |
-| `totp` | — (requires `auth:jwt`) | Backends |
+| `database` | `postgres` | Backends; Next (in progress) |
+| `cache` | `redis` | Backends; Next later |
+| `queue` | `rabbitmq` | Backends; unsupported for Next |
+| `auth` | `jwt`, `session` | Backends; Next uses `session` (in progress) |
+| `totp` | — (requires `auth`) | Backends; Next (in progress) |
+| `analytics` | `posthog` | Next (in progress) |
 | `docker` | — | Repo root |
 | `ci` | `github` | Repo root |
 
@@ -249,6 +247,7 @@ Registry layout, manifest fields, and validation rules are documented in
 ## Documentation
 
 - [Documentation index](docs/README.md)
+- [Stack catalog and versions](STACKS.md)
 - **Agent guides** — [AGENTS.md](AGENTS.md) (full mindmap) and
   [CLAUDE.md](CLAUDE.md) (quick operating guide)
 - **Architecture**
@@ -264,6 +263,10 @@ Registry layout, manifest fields, and validation rules are documented in
 - **Development**
   - [Local setup](docs/development/setup.md)
   - [Testing strategy](docs/development/testing.md)
+  - [Release guide](docs/development/release.md)
+  - [Publishing checklist](PUBLISHING.md)
+  - [Security](SECURITY.md)
+  - [Cross-platform](docs/development/cross-platform.md)
   - [Roadmap](docs/development/roadmap.md)
 - **Design records**
   - [Design spec](docs/superpowers/specs/2026-11-12-smokeforge-design.md)
@@ -279,11 +282,15 @@ Registry layout, manifest fields, and validation rules are documented in
 make build            # build ./bin/smokeforge
 make test             # go test ./...
 make test-integration # go test -tags=integration ./...
-make lint      # golangci-lint run
-make fmt       # gofmt -w .
+make lint             # golangci-lint run ./...
+make fmt              # golangci-lint fmt ./...
+make vulncheck        # govulncheck
+make release-check    # goreleaser check
+make release-snapshot # build dist/ archives for all platforms
 ```
 
-CI runs the test suite and golangci-lint on every push and pull request.
+CI tests Linux, macOS, and Windows, cross-compiles all six release targets, and
+runs `govulncheck`.
 Production code is written test-first. See
 [development/setup.md](docs/development/setup.md) and
 [development/testing.md](docs/development/testing.md).
@@ -293,7 +300,6 @@ Production code is written test-first. See
 ```text
 cmd/smokeforge/        entrypoint
 internal/cli/          Cobra commands and flags
-internal/tui/          interactive wizard (planned)
 internal/manifest/     registry schema, loading, validation
 internal/registry/     local/remote sources, checksums, cache
 internal/resolve/      selection -> ordered generation plan
@@ -304,7 +310,9 @@ internal/project/      project state and lockfile
 internal/tui/          wizard and terminal styling
 internal/install/      per-stack dependency installation (planned)
 internal/version/      build version metadata
+STACKS.md              stack catalog, versions, defaults, status
 docs/                  design, architecture, registry, and development docs
+# separate registry repo: github.com/BoatengPeter/smokeforge-registry
 ```
 
 ---
@@ -318,7 +326,7 @@ docs/                  design, architecture, registry, and development docs
 3. **Lifecycle** — `add`/`remove`, drift detection, backups, automatic
    rollback, project-aware `doctor`. _(complete)_
 4. **Registry content** — official stack templates and feature overlays.
-   _(deferred pending generated-app decisions)_
+   Next.js base, overlays, and project-scoped skills. _(in progress)_
 5. **Full matrix** — fullstack composition, `install`, client wiring.
 6. **Release** — goreleaser, checksums, draft release workflow, install/release
    docs. _(engineering complete; publishing pending)_

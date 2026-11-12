@@ -261,7 +261,18 @@ func (w *Wizard) askVariables(ctx context.Context, stack manifest.Stack) (map[st
 	for index, variable := range tmpl.Variables {
 		values[index] = variable.Default
 		if provided := w.Result.Variables[variable.Name]; provided != "" {
-			values[index] = provided
+			if len(variable.Choices) == 0 || slices.Contains(variable.Choices, provided) {
+				values[index] = provided
+			}
+		}
+
+		if len(variable.Choices) > 0 {
+			fields = append(fields, huh.NewSelect[string]().
+				Title(variable.Prompt).
+				Options(huh.NewOptions(variable.Choices...)...).
+				Value(&values[index]))
+
+			continue
 		}
 
 		fields = append(fields, huh.NewInput().

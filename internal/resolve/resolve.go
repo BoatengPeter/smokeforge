@@ -178,37 +178,80 @@ func Variables(
 	tmpl manifest.Template,
 	provided map[string]string,
 ) (map[string]string, error) {
-	defaults := make(map[string]string, len(tmpl.Variables))
-	for _, variable := range tmpl.Variables {
-		defaults[variable.Name] = variable.Default
+	defaults, choices := templateVariables(tmpl)
+
+	if err := validateDeclaredVariables(stack, defaults); err != nil {
+		return nil, err
 	}
 
+	declared := variableSet(stack)
+	if err := validateProvidedVariables(provided, declared); err != nil {
+		return nil, err
+	}
+
+	return resolveVariableValues(stack, defaults, choices, provided)
+}
+
+func templateVariables(tmpl manifest.Template) (map[string]string, map[string][]string) {
+	defaults := make(map[string]string, len(tmpl.Variables))
+	choices := make(map[string][]string, len(tmpl.Variables))
+
+	for _, variable := range tmpl.Variables {
+		defaults[variable.Name] = variable.Default
+		choices[variable.Name] = variable.Choices
+	}
+
+	return defaults, choices
+}
+
+func variableSet(stack manifest.Stack) map[string]bool {
 	declared := make(map[string]bool, len(stack.Variables))
 	for _, name := range stack.Variables {
 		declared[name] = true
+	}
+
+	return declared
+}
+
+func validateDeclaredVariables(stack manifest.Stack, defaults map[string]string) error {
+	for _, name := range stack.Variables {
 		if _, ok := defaults[name]; !ok {
-			return nil, fmt.Errorf("variables mismatch: stack %q declares %q", stack.ID, name)
+			return fmt.Errorf("variables mismatch: stack %q declares %q", stack.ID, name)
 		}
 	}
 
 	for name := range defaults {
-		if !declared[name] {
-			return nil, fmt.Errorf(
+		if !slices.Contains(stack.Variables, name) {
+			return fmt.Errorf(
 				"variables mismatch: template declares undeclared variable %q",
 				name,
 			)
 		}
 	}
 
+	return nil
+}
+
+func validateProvidedVariables(provided map[string]string, declared map[string]bool) error {
 	for name := range provided {
 		if !declared[name] {
-			return nil, fmt.Errorf("unknown variable %q", name)
+			return fmt.Errorf("unknown variable %q", name)
 		}
 	}
 
+	return nil
+}
+
+func resolveVariableValues(
+	stack manifest.Stack,
+	defaults map[string]string,
+	choices map[string][]string,
+	provided map[string]string,
+) (map[string]string, error) {
 	values := make(map[string]string, len(stack.Variables))
 
 	missing := make([]string, 0, len(stack.Variables))
+
 	for _, name := range stack.Variables {
 		value, ok := provided[name]
 		if !ok || value == "" {
@@ -219,6 +262,14 @@ func Variables(
 			missing = append(missing, name)
 
 			continue
+		}
+
+		if len(choices[name]) > 0 && !slices.Contains(choices[name], value) {
+			return nil, fmt.Errorf(
+				"variable %q must be one of %s",
+				name,
+				strings.Join(choices[name], ", "),
+			)
 		}
 
 		values[name] = value
@@ -260,7 +311,7 @@ func selectFeatures(
 			return nil, err
 		}
 
-		variant, resolvedVariantID, err := selectVariant(feature, variantID)
+		variant, resolvedVariantID, err := selectVariant(feature, stack, variantID)
 		if err != nil {
 			return nil, err
 		}
@@ -319,17 +370,40 @@ func ensureSupported(feature manifest.Feature, stack manifest.Stack) error {
 
 func selectVariant(
 	feature manifest.Feature,
+	stack manifest.Stack,
 	variantID string,
 ) (*manifest.Variant, string, error) {
-	if variantID != "" {
-		if len(feature.Variants) == 0 {
+	if len(feature.Variants) == 0 {
+		if variantID != "" {
 			return nil, "", fmt.Errorf("feature %q has no variants", feature.ID)
 		}
 
+		return nil, "", nil
+	}
+
+	compatible := make([]*manifest.Variant, 0, len(feature.Variants))
+	for index := range feature.Variants {
+		if variantSupportsStack(feature.Variants[index], stack) {
+			compatible = append(compatible, &feature.Variants[index])
+		}
+	}
+
+	if variantID != "" {
 		for index := range feature.Variants {
-			if feature.Variants[index].ID == variantID {
-				return &feature.Variants[index], variantID, nil
+			if feature.Variants[index].ID != variantID {
+				continue
 			}
+
+			if !variantSupportsStack(feature.Variants[index], stack) {
+				return nil, "", fmt.Errorf(
+					"feature %q: variant %q does not support stack %q",
+					feature.ID,
+					variantID,
+					stack.ID,
+				)
+			}
+
+			return &feature.Variants[index], variantID, nil
 		}
 
 		return nil, "", fmt.Errorf(
@@ -339,17 +413,36 @@ func selectVariant(
 		)
 	}
 
-	if len(feature.Variants) == 0 {
-		return nil, "", nil
-	}
-
-	for index := range feature.Variants {
-		if feature.Variants[index].Default {
-			return &feature.Variants[index], feature.Variants[index].ID, nil
+	for _, variant := range compatible {
+		if variant.Default {
+			return variant, variant.ID, nil
 		}
 	}
 
-	return nil, "", fmt.Errorf("feature %q requires an explicit variant", feature.ID)
+	switch len(compatible) {
+	case 1:
+		return compatible[0], compatible[0].ID, nil
+	case 0:
+		return nil, "", fmt.Errorf(
+			"feature %q has no variant for stack %q",
+			feature.ID,
+			stack.ID,
+		)
+	default:
+		return nil, "", fmt.Errorf(
+			"feature %q requires an explicit variant for stack %q",
+			feature.ID,
+			stack.ID,
+		)
+	}
+}
+
+func variantSupportsStack(variant manifest.Variant, stack manifest.Stack) bool {
+	if len(variant.Stacks) > 0 && !slices.Contains(variant.Stacks, stack.ID) {
+		return false
+	}
+
+	return strings.TrimSpace(variant.Overlays[stack.ID]) != ""
 }
 
 func validateRelationships(selections []*selection) error {
@@ -359,7 +452,7 @@ func validateRelationships(selections []*selection) error {
 	}
 
 	for _, entry := range selections {
-		for _, ref := range entry.feature.Requires {
+		for _, ref := range requirements(entry) {
 			id, variantID := splitReference(ref)
 
 			required, ok := byID[id]
@@ -377,7 +470,7 @@ func validateRelationships(selections []*selection) error {
 			}
 		}
 
-		for _, ref := range entry.feature.Conflicts {
+		for _, ref := range conflicts(entry) {
 			id, variantID := splitReference(ref)
 
 			conflicting, ok := byID[id]
@@ -396,6 +489,24 @@ func validateRelationships(selections []*selection) error {
 	}
 
 	return nil
+}
+
+func requirements(entry *selection) []string {
+	refs := append([]string{}, entry.feature.Requires...)
+	if entry.variant != nil {
+		refs = append(refs, entry.variant.Requires...)
+	}
+
+	return refs
+}
+
+func conflicts(entry *selection) []string {
+	refs := append([]string{}, entry.feature.Conflicts...)
+	if entry.variant != nil {
+		refs = append(refs, entry.variant.Conflicts...)
+	}
+
+	return refs
 }
 
 func splitReference(ref string) (string, string) {
@@ -424,7 +535,7 @@ func orderFeatures(selections []*selection) ([]*selection, error) {
 		}
 
 		state[entry.feature.ID] = 1
-		for _, ref := range entry.feature.Requires {
+		for _, ref := range requirements(entry) {
 			id, _ := splitReference(ref)
 			if dependency, ok := byID[id]; ok {
 				if err := visit(dependency); err != nil {

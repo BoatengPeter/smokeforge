@@ -157,37 +157,15 @@ func removeBlock(content, marker string) (string, error) {
 		return "", errors.New("marker must not be empty")
 	}
 
-	beginToken := "smokeforge:begin " + marker
-	endToken := "smokeforge:end " + marker
 	lines := strings.Split(content, "\n")
 
-	begin := -1
-	end := -1
-
-	for index, line := range lines {
-		if strings.Contains(line, beginToken) {
-			if begin >= 0 {
-				return "", fmt.Errorf("marker %q appears more than once", marker)
-			}
-
-			begin = index
-		}
-
-		if strings.Contains(line, endToken) {
-			if end >= 0 {
-				return "", fmt.Errorf("marker %q end appears more than once", marker)
-			}
-
-			end = index
-		}
+	begin, end, err := markerBounds(lines, marker)
+	if err != nil {
+		return "", err
 	}
 
-	if begin == -1 && end == -1 {
+	if begin == -1 {
 		return content, nil
-	}
-
-	if begin == -1 || end == -1 || end < begin {
-		return "", fmt.Errorf("marker %q is malformed", marker)
 	}
 
 	result := make([]string, 0, len(lines)-(end-begin+1))
@@ -195,4 +173,37 @@ func removeBlock(content, marker string) (string, error) {
 	result = append(result, lines[end+1:]...)
 
 	return strings.Join(result, "\n"), nil
+}
+
+func markerBounds(lines []string, marker string) (int, int, error) {
+	begin := -1
+	end := -1
+
+	for index, line := range lines {
+		if token, ok := lineToken(line, "smokeforge:begin "); ok && token == marker {
+			if begin >= 0 {
+				return -1, -1, fmt.Errorf("marker %q appears more than once", marker)
+			}
+
+			begin = index
+		}
+
+		if token, ok := lineToken(line, "smokeforge:end "); ok && token == marker {
+			if end >= 0 {
+				return -1, -1, fmt.Errorf("marker %q end appears more than once", marker)
+			}
+
+			end = index
+		}
+	}
+
+	if begin == -1 && end == -1 {
+		return -1, -1, nil
+	}
+
+	if begin == -1 || end == -1 || end < begin {
+		return -1, -1, fmt.Errorf("marker %q is malformed", marker)
+	}
+
+	return begin, end, nil
 }

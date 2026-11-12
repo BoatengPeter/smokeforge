@@ -22,9 +22,10 @@ type Template struct {
 
 // TemplateVariable declares one template input, its prompt, and its default.
 type TemplateVariable struct {
-	Name    string `yaml:"name"`
-	Prompt  string `yaml:"prompt"`
-	Default string `yaml:"default"`
+	Name    string   `yaml:"name"`
+	Prompt  string   `yaml:"prompt"`
+	Default string   `yaml:"default"`
+	Choices []string `yaml:"choices"`
 }
 
 // LoadTemplateFile reads and parses a template metadata file.
@@ -81,6 +82,49 @@ func (t *Template) Validate() error {
 		}
 
 		seen[variable.Name] = true
+
+		if err := validateChoices(t.ID, variable); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validateChoices(templateID string, variable TemplateVariable) error {
+	if len(variable.Choices) == 0 {
+		return nil
+	}
+
+	seen := make(map[string]bool, len(variable.Choices))
+	for _, choice := range variable.Choices {
+		if strings.TrimSpace(choice) == "" {
+			return fmt.Errorf(
+				"template %q: variable %q has an empty choice",
+				templateID,
+				variable.Name,
+			)
+		}
+
+		if seen[choice] {
+			return fmt.Errorf(
+				"template %q: variable %q has duplicate choice %q",
+				templateID,
+				variable.Name,
+				choice,
+			)
+		}
+
+		seen[choice] = true
+	}
+
+	if variable.Default == "" || !seen[variable.Default] {
+		return fmt.Errorf(
+			"template %q: variable %q default %q must be one of its choices",
+			templateID,
+			variable.Name,
+			variable.Default,
+		)
 	}
 
 	return nil

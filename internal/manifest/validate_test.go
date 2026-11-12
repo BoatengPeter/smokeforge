@@ -271,3 +271,128 @@ func TestValidateRejectsReferences(t *testing.T) {
 		},
 	})
 }
+
+func variantManifest() *Manifest {
+	return &Manifest{
+		SchemaVersion: 1,
+		Name:          "variant-test",
+		Kinds: map[string]Kind{
+			"backend":  {Max: 1},
+			"frontend": {Max: 1},
+		},
+		Stacks: []Stack{
+			{ID: "go/chi", Kind: "backend", Name: "Go", Template: "templates/go", Variables: []string{"module_path"}},
+			{ID: "next", Kind: "frontend", Name: "Next", Template: "templates/next", Variables: []string{"package_manager"}},
+		},
+		Features: []Feature{
+			{
+				ID:    "database",
+				Name:  "Database",
+				Kinds: []string{"backend", "frontend"},
+				Variants: []Variant{
+					{
+						ID:      "postgres",
+						Default: true,
+						Overlays: map[string]string{
+							"go/chi": "overlays/go/database/postgres",
+							"next":   "overlays/next/database/postgres",
+						},
+					},
+				},
+			},
+			{
+				ID:    "auth",
+				Name:  "Auth",
+				Kinds: []string{"backend", "frontend"},
+				Variants: []Variant{
+					{
+						ID:       "jwt",
+						Default:  true,
+						Stacks:   []string{"go/chi"},
+						Overlays: map[string]string{"go/chi": "overlays/go/auth/jwt"},
+					},
+					{
+						ID:       "session",
+						Stacks:   []string{"next"},
+						Requires: []string{"database:postgres"},
+						Overlays: map[string]string{"next": "overlays/next/auth/session"},
+					},
+				},
+			},
+			{
+				ID:       "totp",
+				Name:     "TOTP",
+				Kinds:    []string{"backend", "frontend"},
+				Requires: []string{"auth"},
+				Overlays: map[string]string{
+					"go/chi": "overlays/go/totp",
+					"next":   "overlays/next/totp",
+				},
+			},
+		},
+	}
+}
+
+func TestValidateVariantScopes(t *testing.T) {
+	t.Parallel()
+
+	if err := variantManifest().Validate(); err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+
+	tests := []struct {
+		name   string
+		mutate func(*Manifest)
+		want   string
+	}{
+		{
+			name: "unknown variant stack",
+			mutate: func(m *Manifest) {
+				m.Features[1].Variants[1].Stacks = []string{"nope"}
+			},
+			want: "unknown stack",
+		},
+		{
+			name: "variant stack outside feature scope",
+			mutate: func(m *Manifest) {
+				m.Features[1].Stacks = []string{"go/chi"}
+			},
+			want: "not declared",
+		},
+		{
+			name: "variant overlay outside scope",
+			mutate: func(m *Manifest) {
+				m.Features[1].Variants[1].Overlays["go/chi"] = "overlays/go/auth/session"
+			},
+			want: "unsupported stack",
+		},
+		{
+			name: "variant missing overlay",
+			mutate: func(m *Manifest) {
+				m.Features[1].Variants[1].Overlays = map[string]string{}
+			},
+			want: "overlay required",
+		},
+		{
+			name: "variant unknown requirement",
+			mutate: func(m *Manifest) {
+				m.Features[1].Variants[1].Requires = []string{"nope"}
+			},
+			want: "unknown feature",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			m := variantManifest()
+			tt.mutate(m)
+
+			err := m.Validate()
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("error = %v, want %q", err, tt.want)
+			}
+		})
+	}
+}

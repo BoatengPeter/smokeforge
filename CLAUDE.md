@@ -2,14 +2,18 @@
 
 This file is the quick operating guide for Claude-based agents. Read
 [AGENTS.md](AGENTS.md) for the complete mindmap,
+[STACKS.md](STACKS.md) for stack versions/defaults,
 [docs/architecture.md](docs/architecture.md) for Mermaid diagrams, and
 [docs/README.md](docs/README.md) for the documentation index.
 
-Project-scoped Go skills live in `.claude/skills/` and `.agents/skills/`. Apply
-the relevant skill for every Go change: code style, testing, error handling,
-security, safety, context, naming, documentation, design patterns,
-structs/interfaces, performance, concurrency, lint, benchmark, troubleshooting,
-viper, and swagger.
+Project-scoped Go skills live in this CLI repo under `.claude/skills/` and
+`.agents/skills/`. Apply the relevant skill for every Go change: code style,
+testing, error handling, security, safety, context, naming, documentation,
+design patterns, structs/interfaces, performance, concurrency, lint, benchmark,
+troubleshooting, viper, and swagger.
+
+Frontend skills (Next.js, React, Tailwind, Zod, robots, design) are scoped to
+generated Next apps from the registry template, not this CLI repo.
 
 ## Project
 
@@ -20,8 +24,9 @@ feature overlays.
 
 Module: `github.com/BoatengPeter/smokeforge`
 Status: M1, M2, the M4 lifecycle (add/remove, drift, backups), and M5 release
-engineering are complete. M3 registry content and actual publishing are pending.
-See [docs/development/roadmap.md](docs/development/roadmap.md) and
+engineering are complete. M3 is in progress, starting with the Next.js template;
+publishing remains pending. See [STACKS.md](STACKS.md),
+[docs/development/roadmap.md](docs/development/roadmap.md), and
 [docs/development/release.md](docs/development/release.md).
 
 ## Non-negotiables

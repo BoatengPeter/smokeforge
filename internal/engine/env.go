@@ -40,27 +40,40 @@ func writeEnvFiles(root *os.Root, entries []patch.Env) error {
 		return err
 	}
 
-	lines := splitConfigLines(example)
-	index := configLineIndex(lines)
+	exampleLines := splitConfigLines(example)
+	exampleIndex := configLineIndex(exampleLines)
 
 	for _, entry := range entries {
-		if _, exists := index[entry.Key]; exists {
+		if _, exists := exampleIndex[entry.Key]; exists {
 			continue
 		}
 
-		lines = append(lines, entry.Key+"="+entry.Example)
-		index[entry.Key] = len(lines) - 1
+		exampleLines = append(exampleLines, entry.Key+"="+entry.Example)
+		exampleIndex[entry.Key] = len(exampleLines) - 1
 	}
 
-	exampleContent := renderLines(lines)
+	exampleContent := renderLines(exampleLines)
 	if err := writeRootFile(root, ".env.example", []byte(exampleContent), 0o644); err != nil {
 		return err
 	}
 
-	envLines := splitConfigLines(exampleContent)
+	env, err := readRootFile(root, ".env")
+	if err != nil {
+		return err
+	}
+
+	envLines := splitConfigLines(env)
+	if len(envLines) == 0 {
+		envLines = splitConfigLines(exampleContent)
+	}
+
 	envIndex := configLineIndex(envLines)
 
 	for _, entry := range entries {
+		if _, exists := envIndex[entry.Key]; exists {
+			continue
+		}
+
 		value := entry.Example
 		if entry.Secret {
 			value, err = randomSecret()
@@ -69,14 +82,7 @@ func writeEnvFiles(root *os.Root, entries []patch.Env) error {
 			}
 		}
 
-		line := entry.Key + "=" + value
-		if position, exists := envIndex[entry.Key]; exists {
-			envLines[position] = line
-
-			continue
-		}
-
-		envLines = append(envLines, line)
+		envLines = append(envLines, entry.Key+"="+value)
 		envIndex[entry.Key] = len(envLines) - 1
 	}
 

@@ -25,17 +25,15 @@ func insertBlock(req insertRequest) (string, error) {
 		return "", errors.New("marker must not be empty")
 	}
 
-	if strings.Contains(req.content, "smokeforge:begin "+req.marker) {
+	if hasMarkerLine(req.content, "smokeforge:begin ", req.marker) {
 		return req.content, nil
 	}
 
 	lines := strings.Split(req.content, "\n")
-	anchorToken := "smokeforge:anchor " + req.anchor
-
 	matches := make([]int, 0, 1)
 
 	for index, line := range lines {
-		if strings.Contains(line, anchorToken) {
+		if token, ok := lineToken(line, "smokeforge:anchor "); ok && token == req.anchor {
 			matches = append(matches, index)
 		}
 	}
@@ -51,7 +49,7 @@ func insertBlock(req insertRequest) (string, error) {
 
 	anchorIndex := matches[0]
 	indent := leadingWhitespace(lines[anchorIndex])
-	prefix, suffix := commentStyle(req.file)
+	prefix, suffix := commentStyleForAnchor(req.file, lines[anchorIndex])
 
 	blockLines := []string{
 		indent + markerLine(prefix, suffix, "smokeforge:begin "+req.marker),
@@ -83,6 +81,30 @@ func insertBlock(req insertRequest) (string, error) {
 	return strings.Join(result, "\n"), nil
 }
 
+func hasMarkerLine(content, prefix, marker string) bool {
+	for line := range strings.SplitSeq(content, "\n") {
+		if token, ok := lineToken(line, prefix); ok && token == marker {
+			return true
+		}
+	}
+
+	return false
+}
+
+func lineToken(line, prefix string) (string, bool) {
+	_, rest, found := strings.Cut(line, prefix)
+	if !found {
+		return "", false
+	}
+
+	fields := strings.Fields(rest)
+	if len(fields) == 0 {
+		return "", true
+	}
+
+	return fields[0], true
+}
+
 func leadingWhitespace(line string) string {
 	for index, r := range line {
 		if r != ' ' && r != '\t' {
@@ -99,6 +121,19 @@ func markerLine(prefix, suffix, token string) string {
 	}
 
 	return prefix + " " + token + " " + suffix
+}
+
+func commentStyleForAnchor(file, anchorLine string) (prefix, suffix string) {
+	trimmed := strings.TrimSpace(anchorLine)
+
+	switch {
+	case strings.HasPrefix(trimmed, "{/*"):
+		return "{/*", "*/}"
+	case strings.HasPrefix(trimmed, "<!--"):
+		return "<!--", "-->"
+	default:
+		return commentStyle(file)
+	}
 }
 
 func commentStyle(file string) (prefix, suffix string) {

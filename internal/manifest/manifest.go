@@ -51,10 +51,13 @@ type Feature struct {
 
 // Variant selects an implementation of a feature.
 type Variant struct {
-	ID       string            `yaml:"id"`
-	Name     string            `yaml:"name"`
-	Default  bool              `yaml:"default"`
-	Overlays map[string]string `yaml:"overlays"`
+	ID        string            `yaml:"id"`
+	Name      string            `yaml:"name"`
+	Default   bool              `yaml:"default"`
+	Stacks    []string          `yaml:"stacks"`
+	Requires  []string          `yaml:"requires"`
+	Conflicts []string          `yaml:"conflicts"`
+	Overlays  map[string]string `yaml:"overlays"`
 }
 
 // Parse decodes a single YAML manifest document and rejects unknown fields.

@@ -1,6 +1,6 @@
 # Roadmap
 
-**Status:** M1, M2, the M4 lifecycle, and M5 release engineering are complete. M3 registry content is deferred; publishing and v1.0.0 remain pending.
+**Status:** M1, M2, the M4 lifecycle, and M5 release engineering are complete. M3 is in progress with the Next.js template and project-scoped frontend skills; backend/mobile/desktop templates and publishing remain pending.
 
 ## Milestones
 
@@ -35,10 +35,12 @@ usable offline.
 **Acceptance met:** a single-target project is generated atomically with state,
 lockfile, `.env`, optional git initialization, and a buildable Go fixture.
 
-### M3 — Registry content and overlays _(deferred)_
+### M3 — Registry content and overlays _(in progress)_
 
-Deferred by decision on 2026-11-12; work continues on unblocked milestones and
-returns here after generated-app internals are agreed.
+The Next.js slice started on 2026-11-12. The registry repository, base template,
+DB/auth/TOTP/PostHog/Docker/CI overlays, and project-scoped frontend skills are
+being added. Backend/mobile/desktop templates remain deferred until their
+internals are agreed.
 
 - [ ] Registry repo governance, layout, release process
 - [ ] Base templates: `go/chi`, `rust/axum`, `python/fastapi`, `next`,
@@ -96,7 +98,7 @@ tag, release review, Homebrew tap, and the remaining v1 scope.
 | Features | Postgres, Redis cache, RabbitMQ queue, JWT auth, TOTP, Docker, GitHub Actions CI |
 | Lifecycle | new, add, remove, install, list, registry, doctor |
 
-## Pending decisions (blocking M3 templates)
+## Pending decisions (backend/mobile/desktop templates)
 
 These are deliberately not decided yet and must be discussed before any
 generated-app template or overlay is written:

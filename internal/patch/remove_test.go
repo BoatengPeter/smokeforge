@@ -149,3 +149,18 @@ func TestApplyRemoveRoundTrip(t *testing.T) {
 		t.Fatalf("second remove should be idempotent: %v", err)
 	}
 }
+
+func TestRemoveBlockMarkerPrefixIsNotRemoved(t *testing.T) {
+	t.Parallel()
+
+	content := "package main\n// smokeforge:begin logging:extra\nx\n// smokeforge:end logging:extra\n"
+
+	got, err := removeBlock(content, "logging")
+	if err != nil {
+		t.Fatalf("remove block: %v", err)
+	}
+
+	if got != content {
+		t.Fatalf("prefix marker was removed:\n%s", got)
+	}
+}

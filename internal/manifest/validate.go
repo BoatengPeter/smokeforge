@@ -165,14 +165,17 @@ func validateFeature(
 		}
 	}
 
-	if err := validateVariants(feature); err != nil {
+	if err := validateVariants(feature, stackByID); err != nil {
 		return err
 	}
 
 	return validateFeatureOverlays(feature, stackByID)
 }
 
-func validateVariants(feature Feature) error {
+func validateVariants(
+	feature Feature,
+	stackByID map[string]Stack,
+) error {
 	seen := make(map[string]bool, len(feature.Variants))
 	defaultCount := 0
 
@@ -188,6 +191,37 @@ func validateVariants(feature Feature) error {
 		seen[variant.ID] = true
 		if variant.Default {
 			defaultCount++
+		}
+
+		for _, stackID := range variant.Stacks {
+			stack, ok := stackByID[stackID]
+			if !ok {
+				return fmt.Errorf(
+					"feature %q: variant %q references unknown stack %q",
+					feature.ID,
+					variant.ID,
+					stackID,
+				)
+			}
+
+			if len(feature.Kinds) > 0 && !slices.Contains(feature.Kinds, stack.Kind) {
+				return fmt.Errorf(
+					"feature %q: variant %q stack %q has incompatible kind %q",
+					feature.ID,
+					variant.ID,
+					stackID,
+					stack.Kind,
+				)
+			}
+
+			if len(feature.Stacks) > 0 && !slices.Contains(feature.Stacks, stackID) {
+				return fmt.Errorf(
+					"feature %q: variant %q stack %q is not declared by the feature",
+					feature.ID,
+					variant.ID,
+					stackID,
+				)
+			}
 		}
 	}
 
@@ -207,8 +241,13 @@ func validateFeatureReferences(features []Feature) error {
 	for _, feature := range features {
 		refs := make([]string, 0, len(feature.Requires)+len(feature.Conflicts))
 		refs = append(refs, feature.Requires...)
-
 		refs = append(refs, feature.Conflicts...)
+
+		for _, variant := range feature.Variants {
+			refs = append(refs, variant.Requires...)
+			refs = append(refs, variant.Conflicts...)
+		}
+
 		for _, ref := range refs {
 			if err := validateReference(feature, ref, byID); err != nil {
 				return err
@@ -261,17 +300,29 @@ func validateFeatureOverlays(feature Feature, stackByID map[string]Stack) error 
 	}
 
 	if len(feature.Variants) == 0 {
-		if err := validateOverlaySet(feature.ID, "", feature.Overlays, supported, stackByID); err != nil {
-			return err
-		}
+		return validateOverlaySet(
+			feature.ID,
+			"",
+			feature.Overlays,
+			supported,
+			stackByID,
+		)
 	}
 
 	for _, variant := range feature.Variants {
+		variantSupported := supported
+		if len(variant.Stacks) > 0 {
+			variantSupported = make(map[string]bool, len(variant.Stacks))
+			for _, stackID := range variant.Stacks {
+				variantSupported[stackID] = true
+			}
+		}
+
 		if err := validateOverlaySet(
 			feature.ID,
 			variant.ID,
 			variant.Overlays,
-			supported,
+			variantSupported,
 			stackByID,
 		); err != nil {
 			return err

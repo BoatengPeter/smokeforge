@@ -9,16 +9,17 @@ behavior from **planned** behavior where relevant.
 New to the project? Read in this order:
 
 1. [Root README](../README.md) — overview, supported stacks/features, quick start.
-2. [Visual architecture](architecture.md) — Mermaid diagrams of the system, flows, and trust boundaries.
-3. [Architecture overview](architecture/overview.md) — components and data flow.
-4. [CLI and lifecycle](architecture/cli.md) — commands, wizard, project lifecycle.
-5. [Registry manifest](registry/manifest.md) — registry schema and validation.
-6. [Overlay and patch model](registry/overlays.md) — how features compose.
-7. [Project state](architecture/project-state.md) — lockfiles, hashes, recovery.
-8. [Testing](development/testing.md) — verification strategy.
-9. [Release guide](development/release.md) — versioning and publishing.
-10. [Security](development/security.md) — threat model and controls.
-11. [Cross-platform compatibility](development/cross-platform.md) — supported matrix and rules.
+2. [Stack catalog](../STACKS.md) — versions, defaults, and milestone status.
+3. [Visual architecture](architecture.md) — Mermaid diagrams of the system, flows, and trust boundaries.
+4. [Architecture overview](architecture/overview.md) — components and data flow.
+5. [CLI and lifecycle](architecture/cli.md) — commands, wizard, project lifecycle.
+6. [Registry manifest](registry/manifest.md) — registry schema and validation.
+7. [Overlay and patch model](registry/overlays.md) — how features compose.
+8. [Project state](architecture/project-state.md) — lockfiles, hashes, recovery.
+9. [Testing](development/testing.md) — verification strategy.
+10. [Release guide](development/release.md) — versioning and publishing.
+11. [Security](development/security.md) — threat model and controls.
+12. [Cross-platform compatibility](development/cross-platform.md) — supported matrix and rules.
 
 ## Structure
 

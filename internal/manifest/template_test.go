@@ -109,3 +109,64 @@ func TestTemplate_Validate(t *testing.T) {
 		})
 	}
 }
+
+func TestTemplate_ValidateChoices(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		choices []string
+		def     string
+		want    string
+	}{
+		{
+			name:    "valid",
+			choices: []string{"pnpm", "npm", "bun"},
+			def:     "pnpm",
+		},
+		{
+			name:    "default not a choice",
+			choices: []string{"pnpm", "npm"},
+			def:     "yarn",
+			want:    "choices",
+		},
+		{
+			name:    "duplicate choice",
+			choices: []string{"pnpm", "pnpm"},
+			def:     "pnpm",
+			want:    "duplicate choice",
+		},
+		{
+			name:    "empty choice",
+			choices: []string{"pnpm", ""},
+			def:     "pnpm",
+			want:    "empty choice",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			tmpl := &Template{
+				ID: "next",
+				Variables: []TemplateVariable{
+					{Name: "package_manager", Prompt: "Package manager", Default: tt.def, Choices: tt.choices},
+				},
+			}
+
+			err := tmpl.Validate()
+			if tt.want == "" {
+				if err != nil {
+					t.Fatalf("validate: %v", err)
+				}
+
+				return
+			}
+
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("error = %v, want %q", err, tt.want)
+			}
+		})
+	}
+}

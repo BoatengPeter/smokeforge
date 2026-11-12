@@ -15,32 +15,35 @@ Docker, CI) as declarative overlays.
 - **Language:** Go 1.26.11+
 - **Template registry:** separate repo,
   `github.com/BoatengPeter/smokeforge-registry` (planned)
-- **Status:** M1, M2, the M4 lifecycle, and M5 release engineering are complete; M3 registry content and publishing are pending.
+- **Status:** M1, M2, the M4 lifecycle, and M5 release engineering are complete. M3 is in progress, starting with the Next.js template; publishing is pending.
 
 ## Read order (agents)
 
 1. This file.
-2. [docs/README.md](docs/README.md) — documentation index and status legend.
-3. [docs/architecture.md](docs/architecture.md) — visual architecture and Mermaid diagrams.
-4. [docs/architecture/overview.md](docs/architecture/overview.md) — components and invariants.
-5. [docs/architecture/cli.md](docs/architecture/cli.md) — command surface.
-6. [docs/registry/manifest.md](docs/registry/manifest.md) and
+2. [STACKS.md](STACKS.md) — stacks, versions, defaults, and status.
+3. [docs/README.md](docs/README.md) — documentation index and status legend.
+4. [docs/architecture.md](docs/architecture.md) — visual architecture and Mermaid diagrams.
+5. [docs/architecture/overview.md](docs/architecture/overview.md) — components and invariants.
+6. [docs/architecture/cli.md](docs/architecture/cli.md) — command surface.
+7. [docs/registry/manifest.md](docs/registry/manifest.md) and
    [docs/registry/overlays.md](docs/registry/overlays.md) — registry contract.
-7. [docs/development/setup.md](docs/development/setup.md) and
+8. [docs/development/setup.md](docs/development/setup.md) and
    [docs/development/testing.md](docs/development/testing.md) — how to work here.
-8. [docs/development/release.md](docs/development/release.md) — versioning and publishing.
-9. [docs/development/security.md](docs/development/security.md) — threat model and controls.
-10. [docs/development/cross-platform.md](docs/development/cross-platform.md) — platform matrix.
-11. [docs/development/roadmap.md](docs/development/roadmap.md) — what is next.
-12. Design record: [docs/superpowers/specs/2026-11-12-smokeforge-design.md](docs/superpowers/specs/2026-11-12-smokeforge-design.md).
-13. Plans: [release](docs/superpowers/plans/2026-11-12-smokeforge-release.md), [lifecycle](docs/superpowers/plans/2026-11-12-smokeforge-lifecycle.md), [generation](docs/superpowers/plans/2026-11-12-smokeforge-generation.md), [foundation](docs/superpowers/plans/2026-11-12-smokeforge-foundation.md).
+9. [docs/development/release.md](docs/development/release.md) — versioning and publishing.
+10. [docs/development/security.md](docs/development/security.md) — threat model and controls.
+11. [docs/development/cross-platform.md](docs/development/cross-platform.md) — platform matrix.
+12. [docs/development/roadmap.md](docs/development/roadmap.md) — what is next.
+13. Design record: [docs/superpowers/specs/2026-11-12-smokeforge-design.md](docs/superpowers/specs/2026-11-12-smokeforge-design.md).
+14. Plans: [release](docs/superpowers/plans/2026-11-12-smokeforge-release.md), [lifecycle](docs/superpowers/plans/2026-11-12-smokeforge-lifecycle.md), [generation](docs/superpowers/plans/2026-11-12-smokeforge-generation.md), [foundation](docs/superpowers/plans/2026-11-12-smokeforge-foundation.md).
 
 ## Project skills — use them
 
-Project-scoped Go skills are installed under `.agents/skills/` (OpenCode and
-AGENTS-compatible agents) and `.claude/skills/` (Claude Code). They are part of
-the repository; do not remove them. Apply the relevant skill whenever writing or
-reviewing Go code:
+Project-scoped Go skills are installed in this CLI repository under
+`.agents/skills/` (OpenCode and AGENTS-compatible agents) and `.claude/skills/`
+(Claude Code). Frontend skills are **not** installed here; they are scoped to
+generated Next apps by the registry template
+(`smokeforge-registry/templates/frontend/next/files`). Apply the relevant Go
+skill whenever writing or reviewing Go code:
 
 `golang-code-style`, `golang-testing`, `golang-error-handling`,
 `golang-security`, `golang-safety`, `golang-context`, `golang-naming`,
@@ -90,7 +93,7 @@ Full details: [architecture overview](docs/architecture/overview.md).
 | `add`, `remove`, drift, backups, rollback, project doctor | Done (M4 lifecycle) |
 | Version metadata, goreleaser, release workflow, release docs | Done (M5 engineering) |
 | Cross-platform CI matrix, cross-build, govulncheck, security policy | Done |
-| Registry templates/overlays | Deferred (M3) |
+| Registry templates/overlays | In progress (M3, Next first) |
 | `install`, fullstack | Planned (M4 remainder) |
 | Release/distribution | Planned (M5) |
 

@@ -351,3 +351,196 @@ func TestVariables(t *testing.T) {
 		}
 	})
 }
+
+func nextVariantManifest() *manifest.Manifest {
+	return &manifest.Manifest{
+		SchemaVersion: 1,
+		Name:          "variant-test",
+		Kinds: map[string]manifest.Kind{
+			"backend":  {Max: 1},
+			"frontend": {Max: 1},
+		},
+		Stacks: []manifest.Stack{
+			{ID: "go/chi", Kind: "backend", Name: "Go", Template: "templates/go", Variables: []string{"module_path"}},
+			{ID: "next", Kind: "frontend", Name: "Next", Template: "templates/next", Variables: []string{"package_manager", "site_description"}},
+		},
+		Features: []manifest.Feature{
+			{
+				ID:    "database",
+				Name:  "Database",
+				Kinds: []string{"backend", "frontend"},
+				Variants: []manifest.Variant{
+					{ID: "postgres", Default: true},
+				},
+			},
+			{
+				ID:    "auth",
+				Name:  "Auth",
+				Kinds: []string{"backend", "frontend"},
+				Variants: []manifest.Variant{
+					{ID: "jwt", Default: true, Stacks: []string{"go/chi"}},
+					{ID: "session", Stacks: []string{"next"}, Requires: []string{"database:postgres"}},
+				},
+			},
+			{
+				ID:       "totp",
+				Name:     "TOTP",
+				Kinds:    []string{"backend", "frontend"},
+				Requires: []string{"auth"},
+			},
+		},
+	}
+}
+
+func variantRegistry(t *testing.T) (string, *manifest.Manifest) {
+	t.Helper()
+
+	dir := t.TempDir()
+
+	writeFile(t, filepath.Join(dir, "templates", "go", "template.yaml"), `id: go/chi
+variables:
+  - name: module_path
+    prompt: Module path
+    default: example.com/app
+`)
+	writeFile(t, filepath.Join(dir, "templates", "next", "template.yaml"), `id: next
+variables:
+  - name: package_manager
+    prompt: Package manager
+    default: pnpm
+    choices: [pnpm, npm, bun]
+  - name: site_description
+    prompt: Site description
+    default: A modern web application.
+`)
+
+	for _, overlay := range []string{
+		"overlays/go/database/postgres",
+		"overlays/next/database/postgres",
+		"overlays/go/auth/jwt",
+		"overlays/next/auth/session",
+		"overlays/go/totp",
+		"overlays/next/totp",
+	} {
+		writeFile(t, filepath.Join(dir, overlay, "overlay.yaml"),
+			"id: "+filepath.Base(overlay)+"\nops:\n  - env:\n      key: TEST_FLAG\n      example: \"1\"\n")
+	}
+
+	m := nextVariantManifest()
+	m.Features[0].Variants[0].Overlays = map[string]string{
+		"go/chi": "overlays/go/database/postgres",
+		"next":   "overlays/next/database/postgres",
+	}
+	m.Features[1].Variants[0].Overlays = map[string]string{
+		"go/chi": "overlays/go/auth/jwt",
+	}
+	m.Features[1].Variants[1].Overlays = map[string]string{
+		"next": "overlays/next/auth/session",
+	}
+	m.Features[2].Overlays = map[string]string{
+		"go/chi": "overlays/go/totp",
+		"next":   "overlays/next/totp",
+	}
+
+	return dir, m
+}
+
+func TestResolveVariantSelection(t *testing.T) {
+	t.Parallel()
+
+	registryDir, m := variantRegistry(t)
+
+	plan, err := Resolve(m, registryDir, Selection{
+		Name:      "Next App",
+		Kind:      "frontend",
+		Stack:     "next",
+		Features:  []string{"auth", "database"},
+		Variables: map[string]string{"package_manager": "pnpm"},
+	})
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+
+	if len(plan.Target.Overlays) != 2 {
+		t.Fatalf("overlays = %+v", plan.Target.Overlays)
+	}
+
+	if plan.Target.Overlays[0].FeatureID != "database" {
+		t.Fatalf("order = %+v, want database first", plan.Target.Overlays)
+	}
+
+	if plan.Target.Overlays[1].FeatureID != "auth" || plan.Target.Overlays[1].VariantID != "session" {
+		t.Fatalf("auth variant = %+v, want session", plan.Target.Overlays[1])
+	}
+}
+
+func TestResolveVariantRequirement(t *testing.T) {
+	t.Parallel()
+
+	registryDir, m := variantRegistry(t)
+
+	_, err := Resolve(m, registryDir, Selection{
+		Name:      "Next App",
+		Kind:      "frontend",
+		Stack:     "next",
+		Features:  []string{"auth"},
+		Variables: map[string]string{"package_manager": "pnpm"},
+	})
+	if err == nil || !strings.Contains(err.Error(), "requires") {
+		t.Fatalf("error = %v, want requires error", err)
+	}
+}
+
+func TestResolveVariantUnsupportedStack(t *testing.T) {
+	t.Parallel()
+
+	registryDir, m := variantRegistry(t)
+
+	_, err := Resolve(m, registryDir, Selection{
+		Name:      "Next App",
+		Kind:      "frontend",
+		Stack:     "next",
+		Features:  []string{"database", "auth:jwt"},
+		Variables: map[string]string{"package_manager": "pnpm"},
+	})
+	if err == nil || !strings.Contains(err.Error(), "does not support stack") {
+		t.Fatalf("error = %v, want unsupported variant error", err)
+	}
+}
+
+func TestResolveVariableChoices(t *testing.T) {
+	t.Parallel()
+
+	registryDir, m := variantRegistry(t)
+
+	_, err := Resolve(m, registryDir, Selection{
+		Name:      "Next App",
+		Kind:      "frontend",
+		Stack:     "next",
+		Variables: map[string]string{"package_manager": "yarn"},
+	})
+	if err == nil || !strings.Contains(err.Error(), "must be one of") {
+		t.Fatalf("error = %v, want choices error", err)
+	}
+}
+
+func TestResolveBackendDefaultVariant(t *testing.T) {
+	t.Parallel()
+
+	registryDir, m := variantRegistry(t)
+
+	plan, err := Resolve(m, registryDir, Selection{
+		Name:      "Go App",
+		Kind:      "backend",
+		Stack:     "go/chi",
+		Features:  []string{"auth"},
+		Variables: map[string]string{"module_path": "example.com/app"},
+	})
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+
+	if len(plan.Target.Overlays) != 1 || plan.Target.Overlays[0].VariantID != "jwt" {
+		t.Fatalf("overlays = %+v, want jwt", plan.Target.Overlays)
+	}
+}

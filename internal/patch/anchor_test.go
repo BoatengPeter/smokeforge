@@ -136,3 +136,49 @@ func TestInsertBlockIdempotent(t *testing.T) {
 		t.Fatalf("second insertion changed the file:\nfirst:\n%s\nsecond:\n%s", first, second)
 	}
 }
+
+func TestInsertBlockMarkerPrefixIsNotAnIdempotencyMatch(t *testing.T) {
+	t.Parallel()
+
+	content := "package main\n// smokeforge:anchor imports\n// smokeforge:begin logging:extra\nx\n// smokeforge:end logging:extra\n"
+
+	got, err := insertBlock(insertRequest{
+		content: content,
+		anchor:  "imports",
+		marker:  "logging",
+		block:   `"os"`,
+	})
+	if err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	if !strings.Contains(got, "smokeforge:begin logging\n") {
+		t.Fatalf("expected new marker block, got:\n%s", got)
+	}
+}
+
+func TestInsertBlockJSXMarkers(t *testing.T) {
+	t.Parallel()
+
+	content := "<nav>\n  {/* smokeforge:anchor auth-cta */}\n</nav>\n"
+
+	got, err := insertBlock(insertRequest{
+		file:    "page.tsx",
+		content: content,
+		anchor:  "auth-cta",
+		marker:  "auth:cta",
+		block:   "<Button />",
+	})
+	if err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	for _, want := range []string{
+		"{/* smokeforge:begin auth:cta */}",
+		"{/* smokeforge:end auth:cta */}",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("output missing %q:\n%s", want, got)
+		}
+	}
+}

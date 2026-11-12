@@ -1,0 +1,25 @@
+schemaVersion: 1
+name: test-registry
+kinds:
+  backend:
+    max: 1
+stacks:
+  - id: go/chi
+    kind: backend
+    name: Go (chi)
+    template: templates/backend/go/chi
+    variables: [module_path, port]
+  - id: rust/axum
+    kind: backend
+    name: Rust (axum)
+    template: templates/backend/rust/axum
+    variables: [crate_name, port]
+features:
+  - id: database
+    name: Database
+    kinds: [backend]
+    stacks: [go/chi, rust/axum]
+    variants:
+      - id: postgres
+        name: PostgreSQL
+        default: true

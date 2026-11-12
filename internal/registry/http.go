@@ -25,6 +25,7 @@ const (
 	httpTimeout         = 2 * time.Minute
 	maxArchiveBytes     = 512 << 20
 	maxChecksumFileSize = 4096
+	maxRedirects        = 10
 )
 
 var tagPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
@@ -152,6 +153,14 @@ func validateSource(source string) error {
 		return fmt.Errorf("%w: %w", ErrUnsupportedSource, err)
 	}
 
+	if parsed.Host == "" {
+		return fmt.Errorf("%w: %q has no host", ErrUnsupportedSource, source)
+	}
+
+	if parsed.User != nil {
+		return fmt.Errorf("%w: credentials are not allowed in %q", ErrUnsupportedSource, source)
+	}
+
 	switch parsed.Scheme {
 	case "https":
 		return nil
@@ -177,7 +186,7 @@ func isLoopbackHost(host string) bool {
 }
 
 func download(ctx context.Context, opts Options, dir string) error {
-	client := &http.Client{Timeout: httpTimeout}
+	client := newHTTPClient()
 
 	want, err := fetchChecksum(ctx, client, releaseURL(opts, checksumFileName))
 	if err != nil {
@@ -308,6 +317,21 @@ func fetchArchive(
 	}
 
 	return hex.EncodeToString(hasher.Sum(nil)), nil
+}
+
+func newHTTPClient() *http.Client {
+	return &http.Client{
+		Timeout:       httpTimeout,
+		CheckRedirect: checkRedirect,
+	}
+}
+
+func checkRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= maxRedirects {
+		return fmt.Errorf("stopped after %d redirects", maxRedirects)
+	}
+
+	return validateSource(req.URL.String())
 }
 
 func fetch(ctx context.Context, client *http.Client, source string) (io.ReadCloser, error) {

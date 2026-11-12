@@ -203,6 +203,37 @@ func TestLoadRemoteValidation(t *testing.T) {
 		}
 	})
 
+	t.Run("rejects source without host", func(t *testing.T) {
+		t.Parallel()
+
+		opts := Options{
+			Source:   "https:///releases",
+			Tag:      "v1.0.0",
+			CacheDir: t.TempDir(),
+		}
+
+		_, err := Load(t.Context(), opts)
+		if !errors.Is(err, ErrUnsupportedSource) {
+			t.Fatalf("error = %v, want ErrUnsupportedSource", err)
+		}
+	})
+
+	t.Run("rejects credentials in source", func(t *testing.T) {
+		t.Parallel()
+
+		//nolint:gosec // test fixture exercising credential rejection.
+		opts := Options{
+			Source:   "https://user:secret@example.com/releases",
+			Tag:      "v1.0.0",
+			CacheDir: t.TempDir(),
+		}
+
+		_, err := Load(t.Context(), opts)
+		if !errors.Is(err, ErrUnsupportedSource) {
+			t.Fatalf("error = %v, want ErrUnsupportedSource", err)
+		}
+	})
+
 	t.Run("rejects insecure remote source", func(t *testing.T) {
 		t.Parallel()
 
@@ -213,6 +244,24 @@ func TestLoadRemoteValidation(t *testing.T) {
 		}
 
 		_, err := Load(t.Context(), opts)
+		if !errors.Is(err, ErrUnsupportedSource) {
+			t.Fatalf("error = %v, want ErrUnsupportedSource", err)
+		}
+	})
+
+	t.Run("rejects insecure redirect", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "http://example.com/asset", http.StatusFound)
+		}))
+		t.Cleanup(server.Close)
+
+		_, err := Load(t.Context(), Options{
+			Source:   server.URL + "/releases",
+			Tag:      "v1.0.0",
+			CacheDir: t.TempDir(),
+		})
 		if !errors.Is(err, ErrUnsupportedSource) {
 			t.Fatalf("error = %v, want ErrUnsupportedSource", err)
 		}
@@ -245,5 +294,41 @@ func TestLoadRemoteContext(t *testing.T) {
 	_, err := Load(ctx, reg.opts)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("error = %v, want context.Canceled", err)
+	}
+}
+
+func TestCheckRedirect(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		url     string
+		via     int
+		wantErr bool
+	}{
+		{name: "https allowed", url: "https://example.com/asset", via: 1},
+		{name: "http loopback allowed", url: "http://127.0.0.1:8080/asset", via: 1},
+		{name: "http rejected", url: "http://example.com/asset", via: 1, wantErr: true},
+		//nolint:gosec // test fixture exercising credential rejection.
+		{name: "credentials rejected", url: "https://user:secret@example.com/asset", via: 1, wantErr: true},
+		{name: "too many redirects", url: "https://example.com/asset", via: maxRedirects, wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, tt.url, nil)
+			via := make([]*http.Request, tt.via)
+
+			err := checkRedirect(req, via)
+			if tt.wantErr && err == nil {
+				t.Fatal("expected redirect error")
+			}
+
+			if !tt.wantErr && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
 	}
 }

@@ -18,6 +18,9 @@ lint-fix:
 fmt:
 	golangci-lint fmt ./...
 
+vulncheck:
+	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
 release-check:
 	goreleaser check
 

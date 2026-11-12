@@ -19,3 +19,8 @@ features:
         default: true
         overlays:
           test/plain: overlays/logging/basic
+  - id: metrics
+    name: Metrics
+    kinds: [backend]
+    overlays:
+      test/plain: overlays/metrics/basic

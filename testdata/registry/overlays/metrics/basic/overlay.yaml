@@ -1,0 +1,10 @@
+id: metrics/basic
+name: Basic metrics
+files: files
+ops:
+  - addFiles:
+      - path: metrics.go.tmpl
+        dest: internal/metrics/metrics.go
+  - env:
+      key: METRICS_ENABLED
+      example: "1"

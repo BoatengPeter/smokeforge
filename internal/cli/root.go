@@ -37,6 +37,8 @@ func NewRootCmd(out, errOut io.Writer) *cobra.Command {
 
 	root.AddCommand(
 		newNewCmd(opts),
+		newAddCmd(opts),
+		newRemoveCmd(opts),
 		newVersionCmd(out),
 		newListCmd(opts),
 		newRegistryCmd(opts),

@@ -27,6 +27,11 @@ features:
         default: true
         overlays:
           test/plain: overlays/logging/basic
+  - id: metrics
+    name: Metrics
+    kinds: [backend]
+    overlays:
+      test/plain: overlays/metrics/basic
 `
 
 const newTemplateYAML = `id: test/plain
@@ -49,6 +54,17 @@ import (
 func main() {
 	fmt.Println({{quote .greeting}})
 }
+`
+
+const newMetricsOverlayYAML = `id: metrics/basic
+files: files
+ops:
+  - addFiles:
+      - path: metrics.go.tmpl
+        dest: internal/metrics/metrics.go
+  - env:
+      key: METRICS_ENABLED
+      example: "1"
 `
 
 const newOverlayYAML = `id: logging/basic
@@ -79,6 +95,9 @@ func writeGenerationRegistry(t *testing.T) string {
 	writeTestFile(t, filepath.Join(dir, "overlays", "logging", "basic", "overlay.yaml"), newOverlayYAML)
 	writeTestFile(t, filepath.Join(dir, "overlays", "logging", "basic", "files", "logger.go.tmpl"),
 		"package log\n\n// Level is the level for {{.project_slug}}.\nconst Level = \"info\"\n")
+	writeTestFile(t, filepath.Join(dir, "overlays", "metrics", "basic", "overlay.yaml"), newMetricsOverlayYAML)
+	writeTestFile(t, filepath.Join(dir, "overlays", "metrics", "basic", "files", "metrics.go.tmpl"),
+		"package metrics\n\n// Enabled reports metrics for {{.project_slug}}.\nconst Enabled = true\n")
 
 	return dir
 }

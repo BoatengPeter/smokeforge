@@ -32,6 +32,20 @@ features:
         default: true
         overlays:
           test/plain: overlays/logging/basic
+  - id: metrics
+    name: Metrics
+    kinds: [backend]
+    overlays:
+      test/plain: overlays/metrics/basic
+  - id: config
+    name: Config
+    kinds: [backend]
+    variants:
+      - id: basic
+        name: Basic
+        default: true
+        overlays:
+          test/plain: overlays/config/basic
 `
 
 const templateYAML = `id: test/plain
@@ -66,6 +80,32 @@ const loggerTemplate = `package log
 
 // Level is the log level for {{.project_slug}}.
 const Level = "info"
+`
+
+const metricsOverlayYAML = `id: metrics/basic
+name: Basic metrics
+files: files
+ops:
+  - addFiles:
+      - path: metrics.go.tmpl
+        dest: internal/metrics/metrics.go
+  - env:
+      key: METRICS_ENABLED
+      example: "1"
+`
+
+const configOverlayYAML = `id: config/basic
+name: Basic config
+files: files
+ops:
+  - addFiles:
+      - path: config.yaml
+        dest: config.yaml
+  - patchYAML:
+      file: config.yaml
+      op: set
+      path: logging.level
+      value: info
 `
 
 const overlayYAML = `id: logging/basic
@@ -119,6 +159,26 @@ func fixture(t *testing.T) (registry.Result, string) {
 		t,
 		filepath.Join(dir, "overlays", "logging", "basic", "files", "logger.go.tmpl"),
 		loggerTemplate,
+	)
+	writeFile(
+		t,
+		filepath.Join(dir, "overlays", "metrics", "basic", "overlay.yaml"),
+		metricsOverlayYAML,
+	)
+	writeFile(
+		t,
+		filepath.Join(dir, "overlays", "metrics", "basic", "files", "metrics.go.tmpl"),
+		"package metrics\n\n// Enabled reports metrics for {{.project_slug}}.\nconst Enabled = true\n",
+	)
+	writeFile(
+		t,
+		filepath.Join(dir, "overlays", "config", "basic", "overlay.yaml"),
+		configOverlayYAML,
+	)
+	writeFile(
+		t,
+		filepath.Join(dir, "overlays", "config", "basic", "files", "config.yaml"),
+		"{}\n",
 	)
 
 	reg, err := registry.Load(t.Context(), registry.Options{Source: dir})

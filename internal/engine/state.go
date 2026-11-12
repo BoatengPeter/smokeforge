@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/BoatengPeter/smokeforge/internal/project"
+	"github.com/BoatengPeter/smokeforge/internal/resolve"
 )
 
 func buildState(
@@ -14,21 +15,13 @@ func buildState(
 	applications []overlayApplication,
 	staging string,
 ) (*project.State, *project.Lock, error) {
-	features := make([]string, 0, len(req.Plan.Target.Overlays))
-	for _, overlay := range req.Plan.Target.Overlays {
-		features = append(features, overlay.FeatureID+":"+overlay.VariantID)
-	}
+	features := featuresFromPlan(req.Plan)
 
 	applied := make([]project.AppliedOverlay, 0, len(applications))
 	for _, application := range applications {
-		files := make(map[string]string, len(application.Files))
-		for _, file := range application.Files {
-			hash, err := project.HashFile(filepath.Join(staging, filepath.FromSlash(file)))
-			if err != nil {
-				return nil, nil, fmt.Errorf("hash generated file %q: %w", file, err)
-			}
-
-			files[file] = hash
+		files, envKeys, err := hashApplication(staging, application)
+		if err != nil {
+			return nil, nil, err
 		}
 
 		overlayID := application.FeatureID
@@ -47,6 +40,7 @@ func buildState(
 			RegistryTag: req.Registry.Tag,
 			Files:       files,
 			Markers:     markers,
+			Env:         envKeys,
 		})
 	}
 
@@ -91,4 +85,48 @@ func buildState(
 	}
 
 	return state, lock, nil
+}
+
+func hashApplication(
+	staging string,
+	application overlayApplication,
+) (map[string]string, []string, error) {
+	tracked := make([]string, 0, len(application.Files)+2)
+	tracked = append(tracked, application.Files...)
+
+	envKeys := make([]string, 0, len(application.Env))
+	for _, entry := range application.Env {
+		envKeys = append(envKeys, entry.Key)
+	}
+
+	if len(envKeys) > 0 {
+		tracked = append(tracked, ".env.example")
+	}
+
+	files := make(map[string]string, len(tracked))
+	for _, file := range tracked {
+		hash, err := project.HashFile(filepath.Join(staging, filepath.FromSlash(file)))
+		if err != nil {
+			return nil, nil, fmt.Errorf("hash generated file %q: %w", file, err)
+		}
+
+		files[file] = hash
+	}
+
+	return files, envKeys, nil
+}
+
+func featuresFromPlan(plan *resolve.Plan) []string {
+	features := make([]string, 0, len(plan.Target.Overlays))
+
+	for _, overlay := range plan.Target.Overlays {
+		feature := overlay.FeatureID
+		if overlay.VariantID != "" {
+			feature += ":" + overlay.VariantID
+		}
+
+		features = append(features, feature)
+	}
+
+	return features
 }

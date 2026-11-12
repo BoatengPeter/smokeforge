@@ -6,7 +6,9 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 
+	"github.com/BoatengPeter/smokeforge/internal/project"
 	"github.com/BoatengPeter/smokeforge/internal/registry"
 	"github.com/spf13/cobra"
 )
@@ -25,6 +27,9 @@ func newDoctorCmd(opts *options) *cobra.Command {
 				{name: "registry", checkErr: checkRegistry(cmd, opts)},
 				{name: "cache", checkErr: checkCache(opts.cacheDir)},
 				{name: "git", checkErr: checkGit()},
+			}
+			if projectCheck, ok := checkProject(); ok {
+				checks = append(checks, projectCheck)
 			}
 
 			problems := make([]error, 0, len(checks))
@@ -98,4 +103,43 @@ func reportStatus(out io.Writer, check doctorCheck) error {
 	}
 
 	return writef(out, "%s: ok\n", check.name)
+}
+
+func checkProject() (doctorCheck, bool) {
+	root, err := project.FindRoot(".")
+	if errors.Is(err, project.ErrNotProject) {
+		return doctorCheck{}, false
+	}
+
+	if err != nil {
+		return doctorCheck{name: "project", checkErr: err}, true
+	}
+
+	state, err := project.LoadState(root)
+	if err != nil {
+		return doctorCheck{name: "project", checkErr: err}, true
+	}
+
+	if _, err := project.LoadLock(root); err != nil {
+		return doctorCheck{name: "project", checkErr: err}, true
+	}
+
+	drifts, err := project.CheckDrift(root, state)
+	if err != nil {
+		return doctorCheck{name: "project", checkErr: err}, true
+	}
+
+	if len(drifts) > 0 {
+		paths := make([]string, 0, len(drifts))
+		for _, drift := range drifts {
+			paths = append(paths, drift.Path)
+		}
+
+		return doctorCheck{
+			name:     "project",
+			checkErr: fmt.Errorf("%d file(s) drifted: %s", len(drifts), strings.Join(paths, ", ")),
+		}, true
+	}
+
+	return doctorCheck{name: "project"}, true
 }

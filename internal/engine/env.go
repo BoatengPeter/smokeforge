@@ -21,6 +21,7 @@ type overlayApplication struct {
 	Dir         string
 	Files       []string
 	Markers     []string
+	Env         []patch.Env
 	RegistryTag string
 }
 
@@ -30,35 +31,7 @@ func applyOverlays(
 	plan *resolve.Plan,
 	renderer *render.Renderer,
 ) ([]overlayApplication, []patch.Env, error) {
-	applications := make([]overlayApplication, 0, len(plan.Target.Overlays))
-	envEntries := make([]patch.Env, 0, len(plan.Target.Overlays))
-
-	for _, overlayPlan := range plan.Target.Overlays {
-		if err := ctx.Err(); err != nil {
-			return nil, nil, fmt.Errorf("apply overlays: %w", err)
-		}
-
-		applied, err := patch.Apply(ctx, overlayPlan.Overlay, patch.ApplyOptions{
-			Root:       staging,
-			OverlayDir: overlayPlan.Dir,
-			Renderer:   renderer,
-		})
-		if err != nil {
-			return nil, nil, err
-		}
-
-		applications = append(applications, overlayApplication{
-			FeatureID: overlayPlan.FeatureID,
-			VariantID: overlayPlan.VariantID,
-			Path:      overlayPlan.Path,
-			Dir:       overlayPlan.Dir,
-			Files:     applied.Files,
-			Markers:   applied.Markers,
-		})
-		envEntries = append(envEntries, applied.Env...)
-	}
-
-	return applications, envEntries, nil
+	return applyOverlayPlans(ctx, staging, plan.Target.Overlays, renderer)
 }
 
 func writeEnvFiles(root *os.Root, entries []patch.Env) error {

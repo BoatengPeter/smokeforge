@@ -51,6 +51,7 @@ type AppliedOverlay struct {
 	RegistryTag string            `json:"registryTag"`
 	Files       map[string]string `json:"files"`
 	Markers     []string          `json:"markers"`
+	Env         []string          `json:"env,omitempty"`
 }
 
 // Lock pins the registry and template checksums for reproducibility.

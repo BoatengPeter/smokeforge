@@ -69,8 +69,39 @@ func TestGenerateIntegration(t *testing.T) {
 		t.Fatalf("state missing main.go hash: %+v", state.Applied)
 	}
 
+	buildGeneratedProject(t, target)
+
+	if _, err := Add(t.Context(), AddRequest{
+		ProjectDir: target,
+		Registry:   reg,
+		Features:   []string{"metrics"},
+	}); err != nil {
+		t.Fatalf("add metrics: %v", err)
+	}
+
+	buildGeneratedProject(t, target)
+
+	if _, err := Remove(t.Context(), RemoveRequest{
+		ProjectDir: target,
+		Registry:   reg,
+		Features:   []string{"metrics"},
+	}); err != nil {
+		t.Fatalf("remove metrics: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(target, "internal", "metrics", "metrics.go")); !os.IsNotExist(err) {
+		t.Fatalf("metrics file survived removal: %v", err)
+	}
+
+	buildGeneratedProject(t, target)
+}
+
+func buildGeneratedProject(t *testing.T, target string) {
+	t.Helper()
+
 	command := exec.CommandContext(t.Context(), "go", "build", "./...")
 	command.Dir = target
+
 	output, err := command.CombinedOutput()
 	if err != nil {
 		t.Fatalf("go build: %v\n%s", err, output)

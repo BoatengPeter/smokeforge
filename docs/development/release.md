@@ -118,7 +118,8 @@ The template registry is a separate repository. When M3 is unblocked:
 
 ## Pre-release checklist
 
-- [ ] Unit, integration, race, lint, and build pass on `main`.
+- [ ] Unit, integration, race, lint, build, cross-compile, and `govulncheck` pass.
+- [ ] Security and cross-platform CI jobs are green.
 - [ ] CHANGELOG is current; no unverified claims.
 - [ ] Snapshot artifacts and checksums verified.
 - [ ] Version metadata appears in `smokeforge version`.
@@ -128,7 +129,10 @@ The template registry is a separate repository. When M3 is unblocked:
 
 ## Related documents
 
+- [Publishing checklist](../../PUBLISHING.md) — copy-paste maintainer steps
 - [Setup](setup.md)
 - [Testing](testing.md)
+- [Security](security.md)
+- [Cross-platform](cross-platform.md)
 - [Roadmap](roadmap.md)
 - [README installation section](../../README.md#installation)

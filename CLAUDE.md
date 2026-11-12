@@ -13,7 +13,7 @@ viper, and swagger.
 
 ## Project
 
-`smokeforge` — a Go 1.25+ CLI that scaffolds backend (Go/Rust/Python),
+`smokeforge` — a Go 1.26.11+ CLI that scaffolds backend (Go/Rust/Python),
 frontend (Next.js), mobile (SwiftUI/Compose), desktop (GPUI/EGUI), and
 fullstack projects from a versioned remote template registry with composable
 feature overlays.
@@ -46,6 +46,7 @@ make test
 make test-integration
 make lint
 make fmt
+make vulncheck
 make release-check
 make release-snapshot
 go run ./cmd/smokeforge list stacks --registry ./testdata/registry
@@ -62,7 +63,9 @@ go run ./cmd/smokeforge list stacks --registry ./testdata/registry
 - `docs/architecture.md` — visual architecture with Mermaid diagrams.
 - `docs/architecture` — internals (overview, CLI, engine, state, fullstack).
 - `docs/registry` — manifest and overlay authoring contract.
-- `docs/development` — setup, testing, release guide, roadmap.
+- `docs/development` — setup, testing, release, security, cross-platform, roadmap.
+- `SECURITY.md` — reporting and security model.
+- `PUBLISHING.md` — manual maintainer release steps.
 - `.goreleaser.yaml`, `.github/workflows/release.yml` — release builds.
 
 ## Before finishing a change

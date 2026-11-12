@@ -74,6 +74,8 @@ Fullstack/install acceptance remains pending.
 - [x] Tag-triggered draft release workflow with checksums
 - [x] Version metadata via ldflags plus `go install` build-info fallback
 - [x] `go install`, prebuilt archive, and release documentation
+- [x] Cross-platform CI matrix and six-target cross-compilation
+- [x] `govulncheck`, registry URL/redirect hardening, security policy
 - [ ] Homebrew tap creation and publishing
 - [ ] Registry release assets (deferred with M3)
 - [ ] v1.0.0 release

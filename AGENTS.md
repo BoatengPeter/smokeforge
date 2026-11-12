@@ -12,7 +12,7 @@ Docker, CI) as declarative overlays.
 
 - **Module:** `github.com/BoatengPeter/smokeforge`
 - **Binary:** `smokeforge`
-- **Language:** Go 1.25+
+- **Language:** Go 1.26.11+
 - **Template registry:** separate repo,
   `github.com/BoatengPeter/smokeforge-registry` (planned)
 - **Status:** M1, M2, the M4 lifecycle, and M5 release engineering are complete; M3 registry content and publishing are pending.
@@ -29,9 +29,11 @@ Docker, CI) as declarative overlays.
 7. [docs/development/setup.md](docs/development/setup.md) and
    [docs/development/testing.md](docs/development/testing.md) — how to work here.
 8. [docs/development/release.md](docs/development/release.md) — versioning and publishing.
-9. [docs/development/roadmap.md](docs/development/roadmap.md) — what is next.
-10. Design record: [docs/superpowers/specs/2026-11-12-smokeforge-design.md](docs/superpowers/specs/2026-11-12-smokeforge-design.md).
-11. Plans: [release](docs/superpowers/plans/2026-11-12-smokeforge-release.md), [lifecycle](docs/superpowers/plans/2026-11-12-smokeforge-lifecycle.md), [generation](docs/superpowers/plans/2026-11-12-smokeforge-generation.md), [foundation](docs/superpowers/plans/2026-11-12-smokeforge-foundation.md).
+9. [docs/development/security.md](docs/development/security.md) — threat model and controls.
+10. [docs/development/cross-platform.md](docs/development/cross-platform.md) — platform matrix.
+11. [docs/development/roadmap.md](docs/development/roadmap.md) — what is next.
+12. Design record: [docs/superpowers/specs/2026-11-12-smokeforge-design.md](docs/superpowers/specs/2026-11-12-smokeforge-design.md).
+13. Plans: [release](docs/superpowers/plans/2026-11-12-smokeforge-release.md), [lifecycle](docs/superpowers/plans/2026-11-12-smokeforge-lifecycle.md), [generation](docs/superpowers/plans/2026-11-12-smokeforge-generation.md), [foundation](docs/superpowers/plans/2026-11-12-smokeforge-foundation.md).
 
 ## Project skills — use them
 
@@ -87,6 +89,7 @@ Full details: [architecture overview](docs/architecture/overview.md).
 | `new`, resolver, renderer, patches, engine, state, wizard | Done (M2) |
 | `add`, `remove`, drift, backups, rollback, project doctor | Done (M4 lifecycle) |
 | Version metadata, goreleaser, release workflow, release docs | Done (M5 engineering) |
+| Cross-platform CI matrix, cross-build, govulncheck, security policy | Done |
 | Registry templates/overlays | Deferred (M3) |
 | `install`, fullstack | Planned (M4 remainder) |
 | Release/distribution | Planned (M5) |
@@ -100,6 +103,7 @@ make build                    # bin/smokeforge
 make test                     # go test ./...
 make lint                     # golangci-lint run (v2.x, CI pins v2.11.0)
 make fmt                      # golangci-lint fmt ./...
+make vulncheck                # govulncheck
 make release-check            # goreleaser check
 make release-snapshot         # dist/ archives for all platforms
 
@@ -134,7 +138,7 @@ internal/install/      per-stack install adapters (planned)
 internal/version/      build metadata
 docs/architecture/     system design and engine internals
 docs/registry/         manifest + overlay authoring contract
-docs/development/      setup, testing, roadmap
+docs/development/      setup, testing, release, security, cross-platform, roadmap
 docs/superpowers/      design specs and implementation plans
 testdata/registry/     neutral local registry used by integration tests/manual runs
 ```
@@ -168,7 +172,9 @@ touches the network. `registry` depends on `manifest`.
 | Change generation flow | `internal/resolve`, `render`, `engine`, `project`; `docs/architecture/generation-engine.md` |
 | Add a stack or feature | Registry repo first; CLI changes only if a new capability is required |
 | Update the plan/roadmap | `docs/superpowers/plans/*`, `docs/development/roadmap.md` |
-| Change release behavior | `.goreleaser.yaml`, `.github/workflows/release.yml`, `internal/version`, `docs/development/release.md` |
+| Change release behavior | `.goreleaser.yaml`, `.github/workflows/release.yml`, `internal/version`, `docs/development/release.md`, `PUBLISHING.md` |
+| Change security behavior | `internal/registry`, `internal/patch`, `internal/engine`, `SECURITY.md`, `docs/development/security.md` |
+| Change platform behavior | `internal/engine`, `internal/project`, `.github/workflows/ci.yml`, `docs/development/cross-platform.md` |
 
 ## Coding conventions
 

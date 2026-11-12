@@ -6,7 +6,7 @@
 
 | Tool | Version | Notes |
 | --- | --- | --- |
-| Go | 1.26+ | `go version` |
+| Go | 1.26.11+ | `go version` |
 | git | 2.30+ | Used by `smokeforge` and for development |
 | golangci-lint | v2.x (CI pins v2.11.0) | `golangci-lint version` |
 | goreleaser | v2.x (optional) | Release snapshots only |

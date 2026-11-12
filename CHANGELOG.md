@@ -30,6 +30,8 @@ semantic versioning with pre-1.0 releases using `v0.x.y`.
   - goreleaser config for Linux/macOS/Windows on amd64/arm64
   - tag-triggered draft release workflow with checksums
   - install, release, and registry-release documentation
+  - cross-platform CI matrix (Linux/macOS/Windows) and six-target cross-build
+  - `govulncheck`, registry URL credential/host validation, and redirect validation
 - Neutral `testdata/registry` fixture and integration tests covering
   generate → build → add → build → remove → build.
 

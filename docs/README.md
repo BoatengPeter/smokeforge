@@ -17,6 +17,8 @@ New to the project? Read in this order:
 7. [Project state](architecture/project-state.md) — lockfiles, hashes, recovery.
 8. [Testing](development/testing.md) — verification strategy.
 9. [Release guide](development/release.md) — versioning and publishing.
+10. [Security](development/security.md) — threat model and controls.
+11. [Cross-platform compatibility](development/cross-platform.md) — supported matrix and rules.
 
 ## Structure
 
@@ -37,6 +39,8 @@ docs/
     setup.md                       prerequisites, build, test, lint, conventions
     testing.md                     test pyramid, contract/golden/build matrix
     release.md                     versioning, snapshot, tagging, Homebrew, registry
+    security.md                    threat model, controls, verification, gaps
+    cross-platform.md              OS/arch matrix, rules, platform notes
     roadmap.md                     milestones, scope, out-of-scope
   superpowers/
     specs/                         approved design records
@@ -56,6 +60,9 @@ docs/
 
 The authoritative decisions, including rejected alternatives, live in
 [specs/2026-11-12-smokeforge-design.md](superpowers/specs/2026-11-12-smokeforge-design.md).
+Maintainer release steps: [PUBLISHING.md](../PUBLISHING.md).
+Security reporting: [SECURITY.md](../SECURITY.md).
+
 Implementation sequencing lives in:
 
 - [Foundation plan](superpowers/plans/2026-11-12-smokeforge-foundation.md)

@@ -70,11 +70,23 @@ Out of v1: SSE, search (Meilisearch/Elasticsearch), storage
 (MinIO/imgproxy/nginx or Cloudflare R2), MySQL/SQLite variants, Redis-streams
 queues, observability, third-party registries, and three-way template upgrades.
 
+## Platforms and security
+
+- **Platforms:** Linux, macOS, and Windows on `amd64` and `arm64`.
+- **CI:** unit + integration tests on all three operating systems; race and lint
+  on Linux; cross-compilation of all six release targets; `govulncheck`.
+- **Security:** templates are declarative and never executed; remote registries
+  require HTTPS, SHA-256 verification, and validated redirects; archives are
+  extracted with `os.Root`; secrets stay local in `.env`.
+
+See [cross-platform compatibility](docs/development/cross-platform.md) and the
+[security policy](SECURITY.md).
+
 ---
 
 ## Quick start
 
-Requires Go 1.26+ and `git`.
+Requires Go 1.26.11+ and `git`.
 
 ### Install
 

@@ -18,6 +18,7 @@ type Selection struct {
 	Name      string
 	Kind      string
 	Stack     string
+	Preset    string
 	Features  []string
 	Variables map[string]string
 }
@@ -86,7 +87,17 @@ func Resolve(m *manifest.Manifest, registryDir string, sel Selection) (*Plan, er
 		return nil, err
 	}
 
-	selections, err := selectFeatures(m, stack, sel.Features)
+	requested, err := requestedFeatures(m, sel)
+	if err != nil {
+		return nil, err
+	}
+
+	selections, err := selectFeatures(m, stack, requested)
+	if err != nil {
+		return nil, err
+	}
+
+	selections, err = expandRequirements(m, stack, selections)
 	if err != nil {
 		return nil, err
 	}
@@ -284,6 +295,23 @@ func resolveVariableValues(
 	return values, nil
 }
 
+func requestedFeatures(m *manifest.Manifest, sel Selection) ([]string, error) {
+	if strings.TrimSpace(sel.Preset) == "" {
+		return sel.Features, nil
+	}
+
+	preset := m.FindPreset(sel.Preset)
+	if preset == nil {
+		return nil, fmt.Errorf("unknown preset %q", sel.Preset)
+	}
+
+	features := make([]string, 0, len(preset.Features)+len(sel.Features))
+	features = append(features, preset.Features...)
+	features = append(features, sel.Features...)
+
+	return features, nil
+}
+
 func selectFeatures(
 	m *manifest.Manifest,
 	stack manifest.Stack,
@@ -293,53 +321,112 @@ func selectFeatures(
 	ordered := make([]*selection, 0, len(requested))
 
 	for _, raw := range requested {
-		featureID, variantID, _ := strings.Cut(raw, ":")
-		if strings.TrimSpace(featureID) == "" {
-			return nil, fmt.Errorf("invalid feature selection %q", raw)
-		}
-
-		if _, exists := selected[featureID]; exists {
-			return nil, fmt.Errorf("duplicate feature %q", featureID)
-		}
-
-		feature, ok := findFeature(m, featureID)
-		if !ok {
-			return nil, fmt.Errorf("unknown feature %q", featureID)
-		}
-
-		if err := ensureSupported(feature, stack); err != nil {
-			return nil, err
-		}
-
-		variant, resolvedVariantID, err := selectVariant(feature, stack, variantID)
+		entry, err := buildSelection(m, stack, raw)
 		if err != nil {
 			return nil, err
 		}
 
-		overlayPath := feature.Overlays[stack.ID]
-		if variant != nil {
-			overlayPath = variant.Overlays[stack.ID]
+		if _, exists := selected[entry.feature.ID]; exists {
+			return nil, fmt.Errorf("duplicate feature %q", entry.feature.ID)
 		}
 
-		if strings.TrimSpace(overlayPath) == "" {
-			return nil, fmt.Errorf(
-				"feature %q has no overlay for stack %q",
-				feature.ID,
-				stack.ID,
-			)
-		}
-
-		entry := &selection{
-			feature:     feature,
-			variant:     variant,
-			variantID:   resolvedVariantID,
-			overlayPath: overlayPath,
-		}
-		selected[featureID] = entry
+		selected[entry.feature.ID] = entry
 		ordered = append(ordered, entry)
 	}
 
 	return ordered, nil
+}
+
+func buildSelection(
+	m *manifest.Manifest,
+	stack manifest.Stack,
+	raw string,
+) (*selection, error) {
+	featureID, variantID, _ := strings.Cut(raw, ":")
+	if strings.TrimSpace(featureID) == "" {
+		return nil, fmt.Errorf("invalid feature selection %q", raw)
+	}
+
+	feature, ok := findFeature(m, featureID)
+	if !ok {
+		return nil, fmt.Errorf("unknown feature %q", featureID)
+	}
+
+	if err := ensureSupported(feature, stack); err != nil {
+		return nil, err
+	}
+
+	variant, resolvedVariantID, err := selectVariant(feature, stack, variantID)
+	if err != nil {
+		return nil, err
+	}
+
+	overlayPath := feature.Overlays[stack.ID]
+	if variant != nil {
+		overlayPath = variant.Overlays[stack.ID]
+	}
+
+	if strings.TrimSpace(overlayPath) == "" {
+		return nil, fmt.Errorf(
+			"feature %q has no overlay for stack %q",
+			feature.ID,
+			stack.ID,
+		)
+	}
+
+	return &selection{
+		feature:     feature,
+		variant:     variant,
+		variantID:   resolvedVariantID,
+		overlayPath: overlayPath,
+	}, nil
+}
+
+func expandRequirements(
+	m *manifest.Manifest,
+	stack manifest.Stack,
+	selections []*selection,
+) ([]*selection, error) {
+	byID := make(map[string]*selection, len(selections))
+	for _, entry := range selections {
+		byID[entry.feature.ID] = entry
+	}
+
+	for {
+		added := false
+
+		for _, entry := range slices.Clone(selections) {
+			for _, ref := range requirements(entry) {
+				id, variantID := splitReference(ref)
+
+				if existing, ok := byID[id]; ok {
+					if variantID != "" && existing.variantID != variantID {
+						return nil, fmt.Errorf(
+							"feature %q requires %q but %q is selected",
+							entry.feature.ID,
+							ref,
+							existing.variantID,
+						)
+					}
+
+					continue
+				}
+
+				required, err := buildSelection(m, stack, ref)
+				if err != nil {
+					return nil, fmt.Errorf("feature %q requires %q: %w", entry.feature.ID, ref, err)
+				}
+
+				selections = append(selections, required)
+				byID[id] = required
+				added = true
+			}
+		}
+
+		if !added {
+			return selections, nil
+		}
+	}
 }
 
 func findFeature(m *manifest.Manifest, id string) (manifest.Feature, bool) {

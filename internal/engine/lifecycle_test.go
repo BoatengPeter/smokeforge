@@ -136,6 +136,82 @@ func TestAddRejectsAlreadyAppliedFeature(t *testing.T) {
 	}
 }
 
+func TestAddAutoAddsRequiredFeature(t *testing.T) {
+	t.Parallel()
+
+	target, reg := projectWithFeatures(t, nil)
+
+	result, err := Add(t.Context(), AddRequest{
+		ProjectDir: target,
+		Registry:   &reg,
+		Features:   []string{"dashboard"},
+	})
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+
+	if strings.Join(result.Added, ",") != "metrics,dashboard" {
+		t.Fatalf("added = %v, want metrics,dashboard", result.Added)
+	}
+
+	state, err := project.LoadState(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if strings.Join(state.Targets[0].Features, ",") != "metrics,dashboard" {
+		t.Fatalf("features = %v", state.Targets[0].Features)
+	}
+}
+
+func TestRemoveRejectsRequiredFeature(t *testing.T) {
+	t.Parallel()
+
+	target, reg := projectWithFeatures(t, []string{"metrics", "dashboard"})
+
+	_, err := Remove(t.Context(), RemoveRequest{
+		ProjectDir: target,
+		Registry:   &reg,
+		Features:   []string{"metrics"},
+	})
+	if err == nil || !strings.Contains(err.Error(), "required") {
+		t.Fatalf("error = %v, want required-by error", err)
+	}
+
+	if !strings.Contains(err.Error(), "dashboard") {
+		t.Fatalf("error %q does not name dependent feature", err)
+	}
+}
+
+func TestRemoveCascadesDependents(t *testing.T) {
+	t.Parallel()
+
+	target, reg := projectWithFeatures(t, []string{"metrics", "dashboard"})
+
+	result, err := Remove(t.Context(), RemoveRequest{
+		ProjectDir: target,
+		Registry:   &reg,
+		Features:   []string{"metrics"},
+		Cascade:    true,
+	})
+	if err != nil {
+		t.Fatalf("remove: %v", err)
+	}
+
+	if strings.Join(result.Removed, ",") != "dashboard,metrics" {
+		t.Fatalf("removed = %v, want dashboard,metrics", result.Removed)
+	}
+
+	state, err := project.LoadState(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(state.Applied) != 0 || len(state.Targets[0].Features) != 0 {
+		t.Fatalf("state not cleaned: %+v", state)
+	}
+}
+
 func TestRemoveFeature(t *testing.T) {
 	t.Parallel()
 

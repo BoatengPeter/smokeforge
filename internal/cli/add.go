@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+//nolint:dupl // add and remove intentionally share the mutation command shape.
 func newAddCmd(opts *options) *cobra.Command {
 	projectDir := "."
 	force := false
@@ -19,12 +20,7 @@ func newAddCmd(opts *options) *cobra.Command {
 		Short: "Add features to an existing project",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			projectContext, err := loadMutationProject(projectDir)
-			if err != nil {
-				return err
-			}
-
-			reg, err := loadMutationRegistry(cmd.Context(), opts, projectContext)
+			projectContext, reg, err := loadMutationTargets(cmd, opts, projectDir)
 			if err != nil {
 				return err
 			}

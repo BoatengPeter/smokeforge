@@ -64,6 +64,43 @@ func TestWriteEnvFilesPreservesExistingValues(t *testing.T) {
 	}
 }
 
+func TestWriteEnvFilesGeneratesSecretWhenEnvIsCreated(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+
+	if err := os.WriteFile(
+		filepath.Join(dir, ".env.example"),
+		[]byte("APP_URL=http://localhost:3000\nSECRET_VALUE=placeholder\n"),
+		0o600,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() { _ = root.Close() })
+
+	entries := []patch.Env{
+		{Key: "APP_URL", Example: "http://localhost:3000"},
+		{Key: "SECRET_VALUE", Example: "placeholder", Secret: true},
+	}
+
+	if err := writeEnvFiles(root, entries); err != nil {
+		t.Fatal(err)
+	}
+
+	env := mustReadEnvFile(t, filepath.Join(dir, ".env"))
+
+	secret := envValue(t, env, "SECRET_VALUE")
+	if secret == "placeholder" || len(secret) != 48 {
+		t.Fatalf("secret = %q, want generated 48-char value", secret)
+	}
+}
+
 func mustReadEnvFile(t *testing.T, path string) string {
 	t.Helper()
 

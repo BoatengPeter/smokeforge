@@ -42,7 +42,105 @@ func (m *Manifest) Validate() error {
 		return err
 	}
 
-	return validateFeatureReferences(m.Features)
+	if err := validateFeatureReferences(m.Features); err != nil {
+		return err
+	}
+
+	return validatePresets(m.Presets, m.Features)
+}
+
+func validatePresets(presets []Preset, features []Feature) error {
+	byID := make(map[string]Feature, len(features))
+	for _, feature := range features {
+		byID[feature.ID] = feature
+	}
+
+	seen := make(map[string]bool, len(presets))
+	defaults := 0
+
+	for _, preset := range presets {
+		if err := validatePreset(preset, byID, seen); err != nil {
+			return err
+		}
+
+		if preset.Default {
+			defaults++
+		}
+	}
+
+	if defaults > 1 {
+		return errors.New("at most one default preset is allowed")
+	}
+
+	return nil
+}
+
+func validatePreset(preset Preset, byID map[string]Feature, seen map[string]bool) error {
+	if strings.TrimSpace(preset.ID) == "" {
+		return errors.New("preset id must not be empty")
+	}
+
+	if seen[preset.ID] {
+		return fmt.Errorf("duplicate preset %q", preset.ID)
+	}
+
+	seen[preset.ID] = true
+
+	if strings.TrimSpace(preset.Name) == "" {
+		return fmt.Errorf("preset %q: name must not be empty", preset.ID)
+	}
+
+	featuresSeen := make(map[string]bool, len(preset.Features))
+	for _, ref := range preset.Features {
+		if err := validatePresetFeature(preset.ID, ref, byID, featuresSeen); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validatePresetFeature(
+	presetID string,
+	ref string,
+	byID map[string]Feature,
+	featuresSeen map[string]bool,
+) error {
+	featureID, variantID, _ := strings.Cut(ref, ":")
+
+	feature, ok := byID[featureID]
+	if !ok {
+		return fmt.Errorf("preset %q: unknown feature %q", presetID, featureID)
+	}
+
+	if variantID != "" {
+		found := false
+
+		for _, variant := range feature.Variants {
+			if variant.ID == variantID {
+				found = true
+
+				break
+			}
+		}
+
+		if !found {
+			return fmt.Errorf(
+				"preset %q: unknown variant %q for feature %q",
+				presetID,
+				variantID,
+				featureID,
+			)
+		}
+	}
+
+	if featuresSeen[featureID] {
+		return fmt.Errorf("preset %q: duplicate feature %q", presetID, featureID)
+	}
+
+	featuresSeen[featureID] = true
+
+	return nil
 }
 
 func validateKinds(kinds map[string]Kind) error {

@@ -19,6 +19,7 @@ type WizardResult struct {
 	Kind      string
 	Stack     string
 	Name      string
+	Preset    string
 	Features  []string
 	Variables map[string]string
 }
@@ -64,7 +65,12 @@ func (w *Wizard) Run(ctx context.Context) error {
 		return err
 	}
 
-	features, err := w.selectFeatures(ctx, stack)
+	preset, err := w.selectPreset(ctx)
+	if err != nil {
+		return err
+	}
+
+	features, err := w.selectFeatures(ctx, stack, preset)
 	if err != nil {
 		return err
 	}
@@ -172,18 +178,71 @@ func (w *Wizard) askName(ctx context.Context) (string, error) {
 	return strings.TrimSpace(name), nil
 }
 
-func (w *Wizard) selectFeatures(ctx context.Context, stack manifest.Stack) ([]string, error) {
+func (w *Wizard) selectPreset(ctx context.Context) (*manifest.Preset, error) {
+	if len(w.Manifest.Presets) == 0 || len(w.Result.Features) > 0 {
+		return nil, nil
+	}
+
+	selected := w.Result.Preset
+	if selected == "" {
+		if preset := w.Manifest.DefaultPreset(); preset != nil {
+			selected = preset.ID
+		} else {
+			selected = w.Manifest.Presets[0].ID
+		}
+	}
+
+	options := make([]huh.Option[string], 0, len(w.Manifest.Presets))
+	for _, preset := range w.Manifest.Presets {
+		label := preset.Name
+		if preset.Description != "" {
+			label += " — " + preset.Description
+		}
+
+		options = append(options, huh.NewOption(label, preset.ID))
+	}
+
+	form := newForm(w, huh.NewGroup(
+		huh.NewSelect[string]().
+			Title("Which preset should it start from?").
+			Description("You can adjust individual features next.").
+			Options(options...).
+			Value(&selected),
+	))
+	if err := form.RunWithContext(ctx); err != nil {
+		return nil, fmt.Errorf("wizard: %w", err)
+	}
+
+	for index := range w.Manifest.Presets {
+		if w.Manifest.Presets[index].ID == selected {
+			return &w.Manifest.Presets[index], nil
+		}
+	}
+
+	return nil, fmt.Errorf("wizard: unknown preset %q", selected)
+}
+
+func (w *Wizard) selectFeatures(
+	ctx context.Context,
+	stack manifest.Stack,
+	preset *manifest.Preset,
+) ([]string, error) {
 	options := featureOptions(w.Manifest, stack)
 	if len(options) == 0 {
 		return make([]string, 0), nil
 	}
 
 	selected := slices.Clone(w.Result.Features)
+	if len(selected) == 0 && preset != nil {
+		selected = slices.Clone(preset.Features)
+	}
+
+	selected = filterFeatureValues(selected, options)
 
 	form := newForm(w, huh.NewGroup(
 		huh.NewMultiSelect[string]().
 			Title("Which features should be included?").
-			Description("Dependencies are checked before generation.").
+			Description("Required companions are added automatically.").
 			Options(options...).
 			Value(&selected),
 	))
@@ -225,6 +284,22 @@ func featureOptions(m *manifest.Manifest, stack manifest.Stack) []huh.Option[str
 	}
 
 	return options
+}
+
+func filterFeatureValues(values []string, options []huh.Option[string]) []string {
+	allowed := make(map[string]bool, len(options))
+	for _, option := range options {
+		allowed[option.Value] = true
+	}
+
+	filtered := make([]string, 0, len(values))
+	for _, value := range values {
+		if allowed[value] {
+			filtered = append(filtered, value)
+		}
+	}
+
+	return filtered
 }
 
 func supportsStack(feature manifest.Feature, stack manifest.Stack) bool {

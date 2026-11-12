@@ -20,6 +20,7 @@ func createProject(t *testing.T, registryDir string, features ...string) string 
 		"--kind", "backend",
 		"--stack", "test/plain",
 		"--name", "Acme App",
+		"--preset", "frontend",
 		"--no-input",
 		"--no-git",
 	}

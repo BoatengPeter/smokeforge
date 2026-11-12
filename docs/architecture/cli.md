@@ -54,12 +54,14 @@ prompts, and `NO_COLOR=1` disables color.
    stack.
 2. **Stack** — filtered to the chosen kind; one stack for M2.
 3. **Name** — the display name; `project_slug` is derived from it.
-4. **Features** — filtered by the chosen stack. Variant features appear as
-   `feature — variant`; boolean features appear by name. Requirement and
-   conflict errors are reported before generation.
-5. **Variables** — one prompt per template variable, prefilled with the flagged
+4. **Preset** — when the registry declares presets, choose a starting bundle.
+   The default preset is preselected.
+5. **Features** — filtered by the chosen stack, prefilled from the preset.
+   Variant features appear as `feature — variant`; boolean features appear by
+   name. Required companions are added automatically.
+6. **Variables** — one prompt per template variable, prefilled with the flagged
    value or registry default.
-6. **Review and generate** — the CLI prints a project summary and asks for
+7. **Review and generate** — the CLI prints a project summary and asks for
    confirmation, then renders staged progress and a generated-project box.
 
 ### Flag parity
@@ -77,10 +79,15 @@ smokeforge new ./acme \
   --no-input --no-git
 ```
 
-Flags: `--kind`, `--stack`, `--name`, `--feature id[:variant]` (repeatable),
-`--var key=value` (repeatable), `--no-input`, `--no-git`, `--dry-run` (render and
-validate without writing), and `--keep-staging` (retain staging for debugging).
-Fullstack flags (`--clients`, `--backend`) and `--json` are planned.
+Flags: `--kind`, `--stack`, `--name`, `--preset`, `--feature id[:variant]`
+(repeatable), `--var key=value` (repeatable), `--no-input`, `--no-git`,
+`--dry-run` (render and validate without writing), and `--keep-staging` (retain
+staging for debugging). Fullstack flags (`--clients`, `--backend`) and `--json`
+are planned.
+
+With `--no-input`, an empty feature selection uses the registry's default
+preset. Explicit features are merged with an explicit preset, and requirements
+are resolved transitively.
 
 ### Variable precedence
 
@@ -102,8 +109,8 @@ smokeforge add <feature[:variant]>... [--project-dir <dir>] [--force]
   `.smokeforge.json`.
 - Loads the registry from the project's recorded source and locked tag; pass
   `--registry` to override the source for development.
-- Resolves the combined feature selection and applies only the requested new
-  overlays in dependency order.
+- Resolves the combined feature selection, auto-adds required companions, and
+  applies only the new overlays in dependency order.
 - Refuses when any tracked file drifted from its recorded SHA-256. `--force`
   overrides this for adds; the user's edits are preserved.
 - Backs up every impacted file plus state/lockfiles, applies the overlays,
@@ -114,12 +121,13 @@ smokeforge add <feature[:variant]>... [--project-dir <dir>] [--force]
 ## `smokeforge remove`
 
 ```text
-smokeforge remove <feature[:variant]>... [--project-dir <dir>]
+smokeforge remove <feature[:variant]>... [--project-dir <dir>] [--cascade]
 ```
 
 - Locates the project and locked registry like `add`.
-- Rejects features that are not applied and selections that would break
-  `requires` relationships.
+- Rejects features that are not applied.
+- Rejects removal when an active feature requires the target. Pass `--cascade`
+  to remove dependents first.
 - Refuses when tracked files drifted. Removal is always strict; there is no
   force flag.
 - Automatically reverses only:

@@ -1,7 +1,6 @@
 # Registry manifest reference
 
-**Status:** schema is planned; manifest loading/validation is the current
-foundation milestone.
+**Status:** schema v1 is implemented, including variants, choices, and presets.
 
 ## Registry repository layout
 
@@ -106,6 +105,15 @@ stacks:
     name: Desktop (EGUI)
     template: templates/desktop/rust/egui
     variables: [crate_name]
+presets:
+  - id: fullstack
+    name: Fullstack SaaS
+    description: Database, auth, and client state
+    default: true
+    features: [database:postgres, auth:jwt, docker]
+  - id: frontend
+    name: Frontend only
+    features: []
 features:
   - id: database
     name: Database
@@ -165,6 +173,21 @@ features:
 | `kinds` | map[string]Kind | Non-empty; keys are kind names. |
 | `stacks` | []Stack | Non-empty; IDs unique. |
 | `features` | []Feature | IDs unique. |
+| `presets` | []Preset | IDs unique; at most one default. Optional. |
+
+### Preset
+
+| Field | Type | Rules |
+| --- | --- | --- |
+| `id` | string | Unique; referenced by `--preset`. |
+| `name` | string | Human-readable label. |
+| `description` | string | Optional label shown in the wizard. |
+| `default` | bool | At most one default across all presets. |
+| `features` | []string | `feature` or `feature:variant`; entries unique by feature. Empty is valid. |
+
+Presets are starting selections, not a fourth overlay layer. Explicit
+`--feature` values are merged after the preset, and required companions are
+still resolved transitively.
 
 ### Kind
 
@@ -191,7 +214,7 @@ features:
 | `kinds` | []string | Kind names from `kinds`; at least one of `kinds`/`stacks` required. |
 | `stacks` | []string | Stack IDs; restricts the feature to specific stacks. |
 | `variants` | []Variant | Unique IDs; optional for boolean features. |
-| `requires` | []string | `feature` or `feature:variant`; must reference declared features. |
+| `requires` | []string | `feature` or `feature:variant`; auto-added transitively during resolution. |
 | `conflicts` | []string | Same reference syntax; mutual exclusion. |
 | `overlays` | map[string]string | Stack ID → overlay directory. Required when the feature has no variants. |
 
@@ -207,6 +230,10 @@ features:
 Variant selection syntax: `--feature cache:redis`. A feature without an explicit
 variant uses its default when one is declared; otherwise selecting the feature
 without a variant is an error.
+
+Requirements are auto-resolved: selecting `auth:session` also selects
+`database:postgres`. Removal is guarded; removing a feature that an active
+feature requires fails unless `smokeforge remove --cascade` is used.
 
 ## Validation rules
 
@@ -229,6 +256,9 @@ Loading is strict: unknown YAML fields are rejected (`KnownFields(true)`), and
     clean, relative, forward-slash paths that cannot escape the registry.
 11. Features with variants must not define feature-level overlays; each variant
     must cover every supported stack.
+12. Preset IDs are unique; names are non-empty; at most one preset is default.
+13. Preset feature references use `feature[:variant]` syntax, reference declared
+    features/variants, and do not duplicate a feature.
 
 Validation failures are fatal before any resolution or generation work.
 

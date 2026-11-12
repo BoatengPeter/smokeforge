@@ -47,20 +47,22 @@ CLI tests: Go unit/integration/race, generated fixture build, cross-build matrix
 | ESLint | 9.39.5 | Flat config + `eslint-config-next` 16.4.6 |
 | Jest | 30.5.2 | `next/jest`, jsdom |
 | Testing Library | React 16.3.3; jest-dom 7.0.1 | Component tests |
-| Playwright | 1.65.0 | Chromium default |
-| React Hook Form | 7.92.0 | `@hookform/resolvers` 7.0.6 |
-| Zustand | 5.1.0 | Per-request provider for SSR safety |
+| Playwright | 1.65.0 | E2E overlay |
+| React Hook Form | 7.92.0 | Auth/forms overlay; `@hookform/resolvers` 7.0.6 |
+| Zustand | 5.1.0 | State overlay; per-request provider for SSR safety |
 | Zod | 4.6.7 | API and form validation |
 | Postgres | 17 | Optional database overlay |
 | Drizzle ORM | 0.45.4 | `drizzle-kit` 0.31.11 |
-| Better Auth | 1.7.22 | Session auth, TOTP plugin |
+| Better Auth | 1.7.22 | Email/password + email OTP sessions |
 | PostHog JS | 1.447.15 | Optional privacy-first overlay |
-| Database | Postgres 17 | Drizzle 0.45.4 / drizzle-kit 0.31.11 |
-| Auth | Better Auth 1.7.22 | Email/password + email OTP sessions |
 | Deployment | Node/Docker | `output: "standalone"` |
 
 ### Defaults
 
+- Master preset is `fullstack`: `database:postgres`, `auth:session`, `state:zustand`.
+- `frontend` is the base-only preset; `production` adds E2E, Docker, CI, and PostHog.
+- Required companions are auto-added; removal of a required feature is blocked
+  unless `--cascade` is explicit.
 - One composable `next` base; standalone = base only, fullstack = base + overlays.
 - Backend is standard `src/app/api/**/route.ts` Route Handlers.
   - `/api/health`, `/api/auth/[...all]`, versioned resources under `/api/v1`.
@@ -68,8 +70,9 @@ CLI tests: Go unit/integration/race, generated fixture build, cross-build matrix
 - App Router with `src/`, `@/*` alias, Server Components by default.
 - Metadata API, generated OpenGraph image, sitemap, robots.
 - Tailwind v4 CSS-first tokens; no `tailwind.config.ts`.
-- Forms: React Hook Form + Zod. State: Zustand provider, no module-level request state.
-- Jest for unit tests; Playwright for e2e.
+- Forms: React Hook Form + Zod with auth. State: Zustand provider with the state
+  overlay; no module-level request state.
+- Jest for unit tests; Playwright for e2e with the testing overlay.
 - PostHog: client-only, opt-in, autocapture off, no session recording.
 - Lockfiles are created by the first install (pnpm-lock.yaml, package-lock.json,
   or bun.lock). Exact dependency pins ship in `package.json`.
@@ -98,12 +101,14 @@ They are scoped to the generated frontend app, not the smokeforge CLI repo.
 
 | Overlay | Status | Notes |
 | --- | --- | --- |
-| `database:postgres` | Implemented | Drizzle schema, migrations, dev compose |
+| `database:postgres` | Implemented | Drizzle schema, migrations, compose override |
+| `state:zustand` | Implemented | Store, actions, provider, selectors, tests |
+| `testing:e2e` | Implemented | Playwright config, smoke test, Makefile targets |
 | `auth:session` | Implemented | Better Auth email/password, OTP verification/reset |
 | `totp` | Deferred | Better Auth TOTP plugin later |
 | `analytics:posthog` | Implemented | Client-only, consent-first |
 | `docker` | Implemented | Non-root multi-stage, package-manager aware |
-| `ci` | Implemented | GitHub Actions, conditional DB/Playwright |
+| `ci:github` | Implemented | GitHub Actions; requires `testing:e2e` |
 | `cache:redis` | Deferred | After deployment/DB flow is proven |
 | `queue` | Deferred | Next worker model unsupported in this pass |
 

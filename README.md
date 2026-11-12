@@ -126,6 +126,12 @@ smokeforge new ./acme \
   --var module_path=example.com/acme \
   --no-input --no-git
 
+# Official registry: fullstack is the default preset
+smokeforge new ./app \
+  --registry https://github.com/BoatengPeter/smokeforge-registry/releases \
+  --kind frontend --stack next --name "App" \
+  --preset fullstack --no-input
+
 cd acme
 go build ./...
 
@@ -205,7 +211,7 @@ Read more in the [architecture docs](docs/architecture/overview.md).
 | --- | --- | --- |
 | `smokeforge new [dir]` | Scaffold a project (wizard or flags) | Implemented |
 | `smokeforge add <feature>...` | Apply overlays to an existing project | Implemented |
-| `smokeforge remove <feature>...` | Revert reversible overlays safely | Implemented |
+| `smokeforge remove <feature>...` | Revert reversible overlays safely; `--cascade` removes dependents | Implemented |
 | `smokeforge install` | Install dependencies for recorded targets | Planned |
 | `smokeforge list [stacks\|features]` | Inspect registry contents | Implemented |
 | `smokeforge registry info` | Show registry source/tag/schema/counts | Implemented |
@@ -326,7 +332,7 @@ docs/                  design, architecture, registry, and development docs
 3. **Lifecycle** — `add`/`remove`, drift detection, backups, automatic
    rollback, project-aware `doctor`. _(complete)_
 4. **Registry content** — official stack templates and feature overlays.
-   Next.js base, overlays, and project-scoped skills. _(in progress)_
+   Next.js base, fullstack presets, overlays, and project-scoped skills. _(in progress)_
 5. **Full matrix** — fullstack composition, `install`, client wiring.
 6. **Release** — goreleaser, checksums, draft release workflow, install/release
    docs. _(engineering complete; publishing pending)_

@@ -212,13 +212,6 @@ func TestResolveRejects(t *testing.T) {
 			want: "variant",
 		},
 		{
-			name: "missing requirement",
-			mutate: func(_ *manifest.Manifest, sel *Selection) {
-				sel.Features = []string{"totp"}
-			},
-			want: "requires",
-		},
-		{
 			name: "conflict",
 			mutate: func(m *manifest.Manifest, sel *Selection) {
 				m.Features[3].Conflicts = []string{"database"}
@@ -474,7 +467,60 @@ func TestResolveVariantSelection(t *testing.T) {
 	}
 }
 
-func TestResolveVariantRequirement(t *testing.T) {
+func TestResolveAutoAddsRequirements(t *testing.T) {
+	t.Parallel()
+
+	registryDir, m := variantRegistry(t)
+
+	plan, err := Resolve(m, registryDir, Selection{
+		Name:      "Next App",
+		Kind:      "frontend",
+		Stack:     "next",
+		Features:  []string{"auth"},
+		Variables: map[string]string{"package_manager": "pnpm"},
+	})
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+
+	if len(plan.Target.Overlays) != 2 {
+		t.Fatalf("overlays = %+v, want database and auth", plan.Target.Overlays)
+	}
+
+	if plan.Target.Overlays[0].FeatureID != "database" {
+		t.Fatalf("first overlay = %+v, want database", plan.Target.Overlays[0])
+	}
+
+	if plan.Target.Overlays[1].FeatureID != "auth" {
+		t.Fatalf("second overlay = %+v, want auth", plan.Target.Overlays[1])
+	}
+}
+
+func TestResolvePresetFeatures(t *testing.T) {
+	t.Parallel()
+
+	registryDir, m := variantRegistry(t)
+	m.Presets = []manifest.Preset{
+		{ID: "fullstack", Name: "Fullstack", Default: true, Features: []string{"auth"}},
+	}
+
+	plan, err := Resolve(m, registryDir, Selection{
+		Name:      "Next App",
+		Kind:      "frontend",
+		Stack:     "next",
+		Preset:    "fullstack",
+		Variables: map[string]string{"package_manager": "pnpm"},
+	})
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+
+	if len(plan.Target.Overlays) != 2 {
+		t.Fatalf("overlays = %+v, want database and auth", plan.Target.Overlays)
+	}
+}
+
+func TestResolveUnknownPreset(t *testing.T) {
 	t.Parallel()
 
 	registryDir, m := variantRegistry(t)
@@ -483,11 +529,11 @@ func TestResolveVariantRequirement(t *testing.T) {
 		Name:      "Next App",
 		Kind:      "frontend",
 		Stack:     "next",
-		Features:  []string{"auth"},
+		Preset:    "missing",
 		Variables: map[string]string{"package_manager": "pnpm"},
 	})
-	if err == nil || !strings.Contains(err.Error(), "requires") {
-		t.Fatalf("error = %v, want requires error", err)
+	if err == nil || !strings.Contains(err.Error(), "preset") {
+		t.Fatalf("error = %v, want preset error", err)
 	}
 }
 

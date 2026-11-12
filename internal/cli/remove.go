@@ -5,20 +5,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
+//nolint:dupl // add and remove intentionally share the mutation command shape.
 func newRemoveCmd(opts *options) *cobra.Command {
 	projectDir := "."
+	cascade := false
 
 	cmd := &cobra.Command{
 		Use:   "remove <feature[:variant]>...",
 		Short: "Remove features from an existing project",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			projectContext, err := loadMutationProject(projectDir)
-			if err != nil {
-				return err
-			}
-
-			reg, err := loadMutationRegistry(cmd.Context(), opts, projectContext)
+			projectContext, reg, err := loadMutationTargets(cmd, opts, projectDir)
 			if err != nil {
 				return err
 			}
@@ -27,6 +24,7 @@ func newRemoveCmd(opts *options) *cobra.Command {
 				ProjectDir: projectContext.root,
 				Registry:   reg,
 				Features:   args,
+				Cascade:    cascade,
 			})
 			if err != nil {
 				return err
@@ -37,6 +35,7 @@ func newRemoveCmd(opts *options) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&projectDir, "project-dir", ".", "project directory")
+	cmd.Flags().BoolVar(&cascade, "cascade", false, "remove dependent features too")
 
 	return cmd
 }

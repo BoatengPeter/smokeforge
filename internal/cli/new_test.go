@@ -17,6 +17,17 @@ stacks:
     name: Test plain
     template: templates/plain
     variables: [module_path, greeting]
+presets:
+  - id: fullstack
+    name: Fullstack
+    default: true
+    features: [metrics]
+  - id: logging-only
+    name: Logging only
+    features: [logging]
+  - id: frontend
+    name: Frontend
+    features: []
 features:
   - id: logging
     name: Logging
@@ -154,6 +165,56 @@ func TestNew(t *testing.T) {
 
 	if _, err := os.Stat(filepath.Join(target, ".git")); err == nil {
 		t.Fatal("git repository created despite --no-git")
+	}
+}
+
+func TestNewUsesDefaultPreset(t *testing.T) {
+	t.Parallel()
+
+	registryDir := writeGenerationRegistry(t)
+	target := filepath.Join(t.TempDir(), "default-preset")
+
+	if _, _, err := executeCommand(
+		t,
+		"new", target,
+		"--registry", registryDir,
+		"--kind", "backend",
+		"--stack", "test/plain",
+		"--name", "Default Preset",
+		"--no-input",
+		"--no-git",
+	); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(target, "internal", "metrics", "metrics.go")); err != nil {
+		t.Fatalf("default preset feature missing: %v", err)
+	}
+}
+
+func TestNewPresetFlag(t *testing.T) {
+	t.Parallel()
+
+	registryDir := writeGenerationRegistry(t)
+	target := filepath.Join(t.TempDir(), "preset-flag")
+
+	if _, _, err := executeCommand(
+		t,
+		"new", target,
+		"--registry", registryDir,
+		"--kind", "backend",
+		"--stack", "test/plain",
+		"--name", "Logging Preset",
+		"--preset", "logging-only",
+		"--no-input",
+		"--no-git",
+	); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	mainContent := mustReadFile(t, filepath.Join(target, "main.go"))
+	if !strings.Contains(string(mainContent), "smokeforge:begin logging:basic") {
+		t.Fatalf("preset feature missing:\n%s", mainContent)
 	}
 }
 

@@ -21,6 +21,18 @@ func validManifest() *Manifest {
 				Variables: []string{"module_path"},
 			},
 		},
+		Presets: []Preset{
+			{
+				ID:       "fullstack",
+				Name:     "Fullstack",
+				Default:  true,
+				Features: []string{"database:postgres", "auth:jwt"},
+			},
+			{
+				ID:   "minimal",
+				Name: "Minimal",
+			},
+		},
 		Features: []Feature{
 			{
 				ID:    "database",
@@ -283,6 +295,18 @@ func variantManifest() *Manifest {
 		Stacks: []Stack{
 			{ID: "go/chi", Kind: "backend", Name: "Go", Template: "templates/go", Variables: []string{"module_path"}},
 			{ID: "next", Kind: "frontend", Name: "Next", Template: "templates/next", Variables: []string{"package_manager"}},
+		},
+		Presets: []Preset{
+			{
+				ID:       "fullstack",
+				Name:     "Fullstack",
+				Default:  true,
+				Features: []string{"database:postgres", "auth:jwt"},
+			},
+			{
+				ID:   "minimal",
+				Name: "Minimal",
+			},
 		},
 		Features: []Feature{
 			{

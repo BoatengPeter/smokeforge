@@ -20,6 +20,38 @@ type Manifest struct {
 	Kinds         map[string]Kind `yaml:"kinds"`
 	Stacks        []Stack         `yaml:"stacks"`
 	Features      []Feature       `yaml:"features"`
+	Presets       []Preset        `yaml:"presets"`
+}
+
+// Preset is a named feature bundle used as a starting selection.
+type Preset struct {
+	ID          string   `yaml:"id"`
+	Name        string   `yaml:"name"`
+	Description string   `yaml:"description"`
+	Default     bool     `yaml:"default"`
+	Features    []string `yaml:"features"`
+}
+
+// DefaultPreset returns the preset marked as default, if any.
+func (m *Manifest) DefaultPreset() *Preset {
+	for index := range m.Presets {
+		if m.Presets[index].Default {
+			return &m.Presets[index]
+		}
+	}
+
+	return nil
+}
+
+// FindPreset returns the preset with the given ID, if any.
+func (m *Manifest) FindPreset(id string) *Preset {
+	for index := range m.Presets {
+		if m.Presets[index].ID == id {
+			return &m.Presets[index]
+		}
+	}
+
+	return nil
 }
 
 // Kind declares how many targets of a kind a project may select.

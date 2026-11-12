@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/BoatengPeter/smokeforge/internal/engine"
+	"github.com/BoatengPeter/smokeforge/internal/manifest"
 	"github.com/BoatengPeter/smokeforge/internal/registry"
 	"github.com/BoatengPeter/smokeforge/internal/render"
 	"github.com/BoatengPeter/smokeforge/internal/resolve"
@@ -24,6 +25,7 @@ type newOptions struct {
 	kind        string
 	stack       string
 	name        string
+	preset      string
 	features    []string
 	variables   []string
 	noInput     bool
@@ -53,6 +55,7 @@ func newNewCmd(opts *options) *cobra.Command {
 	flags.StringVar(&newOpts.kind, "kind", "", "project kind (backend, frontend, mobile, desktop)")
 	flags.StringVar(&newOpts.stack, "stack", "", "stack ID")
 	flags.StringVar(&newOpts.name, "name", "", "project name")
+	flags.StringVar(&newOpts.preset, "preset", "", "feature preset")
 	flags.StringArrayVar(&newOpts.features, "feature", nil, "feature selection (repeatable, id[:variant])")
 	flags.StringArrayVar(&newOpts.variables, "var", nil, "template variable (repeatable, key=value)")
 	flags.BoolVar(&newOpts.noInput, "no-input", false, "never prompt")
@@ -189,38 +192,20 @@ func collectSelection(
 		Kind:      newOpts.kind,
 		Stack:     newOpts.stack,
 		Name:      newOpts.name,
+		Preset:    newOpts.preset,
 		Features:  append([]string{}, newOpts.features...),
 		Variables: variables,
 	}
 
 	if isInteractive(cmd, newOpts) {
-		wizard := &tui.Wizard{
-			Manifest:    registryResult.Manifest,
-			RegistryDir: registryResult.Dir,
-			In:          cmd.InOrStdin(),
-			Out:         opts.out,
-			Result: tui.WizardResult{
-				Kind:      selection.Kind,
-				Stack:     selection.Stack,
-				Name:      selection.Name,
-				Features:  selection.Features,
-				Variables: selection.Variables,
-			},
-		}
-
-		if err := wizard.Run(cmd.Context()); err != nil {
-			if errors.Is(err, huh.ErrUserAborted) {
-				return resolve.Selection{}, errProjectAborted
-			}
-
+		wizardSelection, err := runWizard(cmd, opts, registryResult, selection)
+		if err != nil {
 			return resolve.Selection{}, err
 		}
 
-		selection.Kind = wizard.Result.Kind
-		selection.Stack = wizard.Result.Stack
-		selection.Name = wizard.Result.Name
-		selection.Features = wizard.Result.Features
-		selection.Variables = wizard.Result.Variables
+		selection = wizardSelection
+	} else {
+		selection = withDefaultPreset(selection, registryResult.Manifest)
 	}
 
 	if strings.TrimSpace(selection.Kind) == "" {
@@ -236,6 +221,56 @@ func collectSelection(
 	}
 
 	return selection, nil
+}
+
+func runWizard(
+	cmd *cobra.Command,
+	opts *options,
+	registryResult *registry.Result,
+	selection resolve.Selection,
+) (resolve.Selection, error) {
+	wizard := &tui.Wizard{
+		Manifest:    registryResult.Manifest,
+		RegistryDir: registryResult.Dir,
+		In:          cmd.InOrStdin(),
+		Out:         opts.out,
+		Result: tui.WizardResult{
+			Kind:      selection.Kind,
+			Stack:     selection.Stack,
+			Name:      selection.Name,
+			Preset:    selection.Preset,
+			Features:  selection.Features,
+			Variables: selection.Variables,
+		},
+	}
+
+	if err := wizard.Run(cmd.Context()); err != nil {
+		if errors.Is(err, huh.ErrUserAborted) {
+			return resolve.Selection{}, errProjectAborted
+		}
+
+		return resolve.Selection{}, err
+	}
+
+	return resolve.Selection{
+		Kind:      wizard.Result.Kind,
+		Stack:     wizard.Result.Stack,
+		Name:      wizard.Result.Name,
+		Features:  wizard.Result.Features,
+		Variables: wizard.Result.Variables,
+	}, nil
+}
+
+func withDefaultPreset(selection resolve.Selection, m *manifest.Manifest) resolve.Selection {
+	if selection.Preset != "" || len(selection.Features) > 0 {
+		return selection
+	}
+
+	if preset := m.DefaultPreset(); preset != nil {
+		selection.Preset = preset.ID
+	}
+
+	return selection
 }
 
 func parseVariables(values []string) (map[string]string, error) {

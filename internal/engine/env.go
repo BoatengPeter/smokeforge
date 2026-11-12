@@ -41,16 +41,7 @@ func writeEnvFiles(root *os.Root, entries []patch.Env) error {
 	}
 
 	exampleLines := splitConfigLines(example)
-	exampleIndex := configLineIndex(exampleLines)
-
-	for _, entry := range entries {
-		if _, exists := exampleIndex[entry.Key]; exists {
-			continue
-		}
-
-		exampleLines = append(exampleLines, entry.Key+"="+entry.Example)
-		exampleIndex[entry.Key] = len(exampleLines) - 1
-	}
+	exampleLines = addExampleEntries(exampleLines, entries)
 
 	exampleContent := renderLines(exampleLines)
 	if err := writeRootFile(root, ".env.example", []byte(exampleContent), 0o644); err != nil {
@@ -63,27 +54,15 @@ func writeEnvFiles(root *os.Root, entries []patch.Env) error {
 	}
 
 	envLines := splitConfigLines(env)
-	if len(envLines) == 0 {
+
+	envFromExample := len(envLines) == 0
+	if envFromExample {
 		envLines = splitConfigLines(exampleContent)
 	}
 
-	envIndex := configLineIndex(envLines)
-
-	for _, entry := range entries {
-		if _, exists := envIndex[entry.Key]; exists {
-			continue
-		}
-
-		value := entry.Example
-		if entry.Secret {
-			value, err = randomSecret()
-			if err != nil {
-				return err
-			}
-		}
-
-		envLines = append(envLines, entry.Key+"="+value)
-		envIndex[entry.Key] = len(envLines) - 1
+	envLines, err = addEnvValues(envLines, entries, envFromExample)
+	if err != nil {
+		return err
 	}
 
 	if err := writeRootFile(root, ".env", []byte(renderLines(envLines)), 0o600); err != nil {
@@ -91,6 +70,57 @@ func writeEnvFiles(root *os.Root, entries []patch.Env) error {
 	}
 
 	return ensureGitignore(root)
+}
+
+func addExampleEntries(lines []string, entries []patch.Env) []string {
+	index := configLineIndex(lines)
+
+	for _, entry := range entries {
+		if _, exists := index[entry.Key]; exists {
+			continue
+		}
+
+		lines = append(lines, entry.Key+"="+entry.Example)
+		index[entry.Key] = len(lines) - 1
+	}
+
+	return lines
+}
+
+func addEnvValues(lines []string, entries []patch.Env, fromExample bool) ([]string, error) {
+	index := configLineIndex(lines)
+
+	for _, entry := range entries {
+		if position, exists := index[entry.Key]; exists {
+			if !fromExample || !entry.Secret {
+				continue
+			}
+
+			value, err := randomSecret()
+			if err != nil {
+				return nil, err
+			}
+
+			lines[position] = entry.Key + "=" + value
+
+			continue
+		}
+
+		value := entry.Example
+		if entry.Secret {
+			var err error
+
+			value, err = randomSecret()
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		lines = append(lines, entry.Key+"="+value)
+		index[entry.Key] = len(lines) - 1
+	}
+
+	return lines, nil
 }
 
 func ensureGitignore(root *os.Root) error {

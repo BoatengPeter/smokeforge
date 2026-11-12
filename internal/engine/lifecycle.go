@@ -29,6 +29,7 @@ type RemoveRequest struct {
 	ProjectDir string
 	Registry   *registry.Result
 	Features   []string
+	Cascade    bool
 }
 
 // MutationResult reports the updated project and affected overlays.
@@ -233,12 +234,26 @@ func prepareRemove(req RemoveRequest) (*preparedRemove, error) {
 		return nil, err
 	}
 
-	indexes, err := appliedIndexes(pc.state, req.Features)
+	if _, err := appliedIndexes(pc.state, req.Features); err != nil {
+		return nil, err
+	}
+
+	removal, err := expandRemovals(
+		req.Registry.Manifest,
+		pc.target.Features,
+		req.Features,
+		req.Cascade,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	remaining, err := remainingFeatures(pc.target.Features, req.Features)
+	indexes, err := appliedIndexes(pc.state, removal)
+	if err != nil {
+		return nil, err
+	}
+
+	remaining, err := remainingFeatures(pc.target.Features, removal)
 	if err != nil {
 		return nil, err
 	}

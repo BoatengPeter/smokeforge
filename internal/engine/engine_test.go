@@ -46,6 +46,12 @@ features:
         default: true
         overlays:
           test/plain: overlays/config/basic
+  - id: dashboard
+    name: Dashboard
+    kinds: [backend]
+    requires: [metrics]
+    overlays:
+      test/plain: overlays/dashboard/basic
 `
 
 const templateYAML = `id: test/plain
@@ -106,6 +112,15 @@ ops:
       op: set
       path: logging.level
       value: info
+`
+
+const dashboardOverlayYAML = `id: dashboard/basic
+name: Dashboard
+files: files
+ops:
+  - env:
+      key: DASHBOARD_ENABLED
+      example: "1"
 `
 
 const overlayYAML = `id: logging/basic
@@ -179,6 +194,11 @@ func fixture(t *testing.T) (registry.Result, string) {
 		t,
 		filepath.Join(dir, "overlays", "config", "basic", "files", "config.yaml"),
 		"{}\n",
+	)
+	writeFile(
+		t,
+		filepath.Join(dir, "overlays", "dashboard", "basic", "overlay.yaml"),
+		dashboardOverlayYAML,
 	)
 
 	reg, err := registry.Load(t.Context(), registry.Options{Source: dir})

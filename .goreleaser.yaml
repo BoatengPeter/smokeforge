@@ -1,0 +1,77 @@
+version: 2
+
+project_name: smokeforge
+
+before:
+  hooks:
+    - go test ./...
+    - go test -tags=integration ./...
+
+builds:
+  - id: smokeforge
+    main: ./cmd/smokeforge
+    binary: smokeforge
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/BoatengPeter/smokeforge/internal/version.Version={{.Version}}
+      - -X github.com/BoatengPeter/smokeforge/internal/version.Commit={{.Commit}}
+      - -X github.com/BoatengPeter/smokeforge/internal/version.Date={{.Date}}
+
+archives:
+  - id: default
+    formats:
+      - tar.gz
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+release:
+  github:
+    owner: BoatengPeter
+    name: smokeforge
+  draft: true
+  prerelease: auto
+  name_template: "smokeforge {{.Version}}"
+
+# Enable Homebrew publishing after creating github.com/BoatengPeter/homebrew-tap.
+# brews:
+#   - repository:
+#       owner: BoatengPeter
+#       name: homebrew-tap
+#     directory: Formula
+#     homepage: https://github.com/BoatengPeter/smokeforge
+#     description: Scaffold projects from a versioned template registry
+#     token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+#     install: |-
+#       bin.install "smokeforge"
+#     test: |-
+#       system "#{bin}/smokeforge", "version"

@@ -17,3 +17,9 @@ lint-fix:
 
 fmt:
 	golangci-lint fmt ./...
+
+release-check:
+	goreleaser check
+
+release-snapshot:
+	goreleaser release --snapshot --clean

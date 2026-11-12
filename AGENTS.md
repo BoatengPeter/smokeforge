@@ -163,6 +163,13 @@ touches the network. `registry` depends on `manifest`.
 
 ## Scope discipline
 
+**Generated-app internals are not decided.** Do not choose or implement
+frameworks, libraries, ORMs, clients, migration tools, or project layouts for
+the apps smokeforge generates. Backend HTTP frameworks, mobile UI approaches,
+desktop framework selection (GPUI vs EGUI), and feature library choices are
+pending discussion with the operator. Stack IDs are provisional. Work only on
+CLI/registry infrastructure until those decisions are recorded.
+
 In v1: Go/Rust/Python backends, Next.js, SwiftUI, Compose, GPUI/EGUI, Postgres,
 Redis cache, RabbitMQ, JWT + TOTP, Docker, GitHub Actions, local/remote registry,
 new/add/remove/install/list/doctor.

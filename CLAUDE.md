@@ -63,6 +63,11 @@ go run ./cmd/smokeforge list stacks --registry ./testdata/registry
 
 ## Scope
 
+Generated-app internals (HTTP frameworks, UI approaches, ORMs, Redis/queue
+clients, auth libraries, migration tools) are **not decided** — do not choose or
+implement them. Stack IDs are provisional. Work on CLI/registry infrastructure
+only until those decisions are discussed and recorded.
+
 Do not add SSE, search, storage, MySQL/SQLite, Redis Streams, observability,
 third-party registries, or template upgrades without an approved design. Stop
 and ask if a change threatens atomicity, reproducibility, or the declarative

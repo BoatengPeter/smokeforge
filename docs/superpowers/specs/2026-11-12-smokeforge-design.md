@@ -3,6 +3,11 @@
 **Date:** 2026-11-12
 **Status:** Approved
 
+> **Amendment (2026-11-12):** framework and package choices *inside generated
+> apps* are explicitly deferred. Language/platform selections are recorded, but
+> routers, UI approaches, ORMs, clients, and migration tooling must be discussed
+> before registry templates are authored. Stack IDs are provisional.
+
 ## Goal
 
 A Go CLI that scaffolds client projects across backend, frontend, mobile, desktop,

@@ -88,6 +88,24 @@ works end-to-end from a clean machine.
 | Features | Postgres, Redis cache, RabbitMQ queue, JWT auth, TOTP, Docker, GitHub Actions CI |
 | Lifecycle | new, add, remove, install, list, registry, doctor |
 
+## Pending decisions (blocking M3 templates)
+
+These are deliberately not decided yet and must be discussed before any
+generated-app template or overlay is written:
+
+- Backend HTTP frameworks and project layout (Go, Rust, Python).
+- Database access: driver vs ORM/query builder, migration tooling.
+- Redis client and cache abstraction.
+- Queue client and worker model (RabbitMQ).
+- JWT/session implementation and TOTP library.
+- Native mobile UI approach (SwiftUI vs UIKit; Compose vs Views) and project
+  scaffolding tool.
+- Desktop UI framework selection (GPUI vs EGUI) and app architecture.
+- Dependency management and formatting conventions inside generated apps.
+
+Stack IDs in the manifest are provisional until these discussions conclude.
+The CLI foundation does not depend on their outcome.
+
 ## Out of v1
 
 - SSE helper overlays

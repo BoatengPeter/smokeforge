@@ -32,17 +32,25 @@ monorepo — reproducibly, from a pinned template registry.
 
 ## Supported stacks (v1)
 
-| Kind | Stack ID | Framework |
+> **Open decision:** the frameworks, libraries, and package choices used
+> *inside generated apps* (routers, ORMs, auth/cache/queue clients, migration
+> tooling) are **not finalized**. Stack IDs below are provisional names for
+> discussion; templates will be built only after those internals are agreed.
+
+| Kind | Stack ID (provisional) | Language / platform |
 | --- | --- | --- |
-| Backend | `go/chi` | Go + chi |
-| Backend | `rust/axum` | Rust + axum |
-| Backend | `python/fastapi` | Python + FastAPI |
-| Frontend | `next` | Next.js (App Router) |
-| Mobile | `ios/swiftui` | SwiftUI |
-| Mobile | `android/compose` | Kotlin + Jetpack Compose |
-| Desktop | `desktop/gpui` | Rust + GPUI |
-| Desktop | `desktop/egui` | Rust + EGUI |
+| Backend | `go/chi` | Go — HTTP framework TBD |
+| Backend | `rust/axum` | Rust — HTTP framework TBD |
+| Backend | `python/fastapi` | Python — HTTP framework TBD |
+| Frontend | `next` | Next.js / React |
+| Mobile | `ios/swiftui` | Swift — UI approach TBD |
+| Mobile | `android/compose` | Kotlin — UI approach TBD |
+| Desktop | `desktop/gpui` | Rust — GPUI under consideration |
+| Desktop | `desktop/egui` | Rust — EGUI under consideration |
 | Workspace | `workspace/fullstack` | Monorepo root for multi-target projects |
+
+Feature implementation internals (database driver/ORM, Redis client, queue
+client, JWT/TOTP libraries, migration tool) are also pending discussion.
 
 ## Supported features (v1)
 

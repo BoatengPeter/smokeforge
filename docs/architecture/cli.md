@@ -1,24 +1,24 @@
 # CLI and lifecycle
 
-**Status:** command surface and semantics are designed; only `version` is
-implemented, with `list`/`registry`/`doctor` landing in the foundation
-milestone. `new`, `add`, `remove`, and `install` are planned.
+**Status:** `new`, `version`, `list`, `registry info/update`, and `doctor` are
+implemented. `add`, `remove`, `install`, `registry pin`, fullstack generation,
+and `--json` output are planned.
 
 ## Command tree
 
 ```text
 smokeforge
-├── new [dir]                 scaffold a project
-├── add <feature>...          apply feature overlays to an existing project
-├── remove <feature>...       revert feature overlays
-├── install                   install dependencies for recorded targets
-├── list [stacks|features]    inspect registry contents
+├── new [dir]                 scaffold a project (implemented)
+├── add <feature>...          apply overlays later (planned)
+├── remove <feature>...       revert overlays (planned)
+├── install                   install target dependencies (planned)
+├── list [stacks|features]    inspect registry contents (implemented)
 ├── registry
-│   ├── info                  show source, tag, schema, counts
-│   ├── update                refresh the cached registry
-│   └── pin <tag>             pin a registry tag for the current project
-├── doctor                    check environment, cache, registry, toolchains
-└── version                   print version information
+│   ├── info                  show source, tag, schema, counts (implemented)
+│   ├── update                refresh the cached registry (implemented)
+│   └── pin <tag>             pin a registry tag (planned)
+├── doctor                    check environment and registry health (implemented)
+└── version                   print version information (implemented)
 ```
 
 ## Global flags
@@ -29,11 +29,9 @@ smokeforge
 | `--tag <tag>` | `latest` | Registry release tag. Validated before use. |
 | `--cache-dir <dir>` | user cache directory | Override the registry cache location. |
 | `--offline` | `false` | Forbid network; require cache. Fails clearly if missing. |
-| `--json` | `false` | Machine-readable output for supported commands. |
-| `--no-input` | `false` | Never prompt; missing required choices are errors. |
 
-Environment overrides: `SMOKEFORGE_REGISTRY`, `SMOKEFORGE_REGISTRY_TAG`,
-`NO_COLOR`.
+`NO_COLOR` disables terminal color. `--no-input` is a `new` flag, not a global
+flag. Third-party registry environment overrides and `--json` are planned.
 
 ## `smokeforge new`
 
@@ -41,65 +39,59 @@ Environment overrides: `SMOKEFORGE_REGISTRY`, `SMOKEFORGE_REGISTRY_TAG`,
 smokeforge new [dir] [flags]
 ```
 
-If `dir` is omitted, the wizard asks for it. The target must not exist or must be
-empty.
+If `dir` is omitted, it defaults to the slug of the project name. The target must
+not exist or must be empty. M2 supports single-target kinds; fullstack and
+multi-client selection are planned for M4.
+
+The command prints a boxed summary, asks for confirmation in a TTY, and reports
+successful stages with checkmarks. `--no-input` produces the same output without
+prompts, and `NO_COLOR=1` disables color.
 
 ### Wizard flow
 
-1. **Kind** — backend, frontend, mobile, desktop, or fullstack.
-2. **Stack(s)** — filtered to valid choices for the kind:
-   - backend: `go/chi`, `rust/axum`, `python/fastapi`
-   - frontend: `next`
-   - mobile: `ios/swiftui`, `android/compose` (multi-select)
-   - desktop: `desktop/gpui`, `desktop/egui` (single select)
-   - fullstack: one API stack + any supported clients
-3. **Features** — filtered by the selected stacks:
-   - `database:postgres`, `cache:redis`, `queue:rabbitmq`, `auth:jwt`,
-     `totp`, `docker`, `ci:github`
-   - dependent features are disabled until their requirements are selected
-     (`totp` requires `auth:jwt`)
-4. **Details** — project name, module path / package / bundle identifiers,
-   ports. Defaults are stack-aware; collisions are rejected.
-5. **Review** — target tree preview, file counts, registry tag, operation
-   summary. Confirmation is required.
-6. **Generate** — progress output; on failure the target is untouched and the
-   staging path is reported.
+1. **Kind** — every registry kind whose `max` is at least 1 and that has a
+   stack.
+2. **Stack** — filtered to the chosen kind; one stack for M2.
+3. **Name** — the display name; `project_slug` is derived from it.
+4. **Features** — filtered by the chosen stack. Variant features appear as
+   `feature — variant`; boolean features appear by name. Requirement and
+   conflict errors are reported before generation.
+5. **Variables** — one prompt per template variable, prefilled with the flagged
+   value or registry default.
+6. **Review and generate** — the CLI prints a project summary and asks for
+   confirmation, then renders staged progress and a generated-project box.
 
 ### Flag parity
 
-Every wizard step has a flag; CI never needs a TTY.
+Every wizard choice has a flag; CI never needs a TTY.
 
 ```bash
 smokeforge new ./acme \
-  --kind fullstack \
-  --backend go/chi \
-  --clients next,ios/swiftui \
-  --feature database:postgres \
-  --feature cache:redis \
-  --feature queue:rabbitmq \
-  --feature auth:jwt \
-  --feature totp \
-  --feature docker \
-  --feature ci:github \
-  --module github.com/acme/acme \
-  --name acme \
-  --no-input
+  --registry ./testdata/registry \
+  --kind backend \
+  --stack test/plain \
+  --name "Acme App" \
+  --feature logging \
+  --var module_path=example.com/acme \
+  --no-input --no-git
 ```
 
-Additional flags: `--dry-run` (print the resolved plan and operations, write
-nothing), `--no-git`, `--keep-staging`, `--json`.
+Flags: `--kind`, `--stack`, `--name`, `--feature id[:variant]` (repeatable),
+`--var key=value` (repeatable), `--no-input`, `--no-git`, `--dry-run` (render and
+validate without writing), and `--keep-staging` (retain staging for debugging).
+Fullstack flags (`--clients`, `--backend`) and `--json` are planned.
 
 ### Variable precedence
 
-1. Explicit flags.
-2. Answers from the wizard.
-3. Stack defaults from the registry.
-4. Built-in defaults (ports, package names).
+1. Explicit `--var` values.
+2. Wizard answers (which are prefilled from `--var` values).
+3. Template defaults from `template.yaml`.
 
-Missing values in `--no-input` mode are errors, never silently defaulted, unless
-the stack declares an explicit default.
+`project_name` and `project_slug` are provided automatically. Unknown variables
+are errors. Missing values in `--no-input` mode are errors, never silently
+defaulted; a declared non-empty default satisfies the variable.
 
-## `smokeforge add`
+## `smokeforge add` (planned)
 
 ```text
 smokeforge add <feature[:variant]>... [--dry-run] [--yes]
@@ -115,7 +107,7 @@ smokeforge add <feature[:variant]>... [--dry-run] [--yes]
 - Prompts for any new variables the overlay needs.
 - Updates `.smokeforge.json` and the lockfile only after successful commit.
 
-## `smokeforge remove`
+## `smokeforge remove` (planned)
 
 ```text
 smokeforge remove <feature[:variant]>... [--dry-run] [--yes]
@@ -130,7 +122,7 @@ Removal is conservative and reversible:
   a manual-removal hint.
 - Restores backups automatically if any step fails.
 
-## `smokeforge install`
+## `smokeforge install` (planned)
 
 A deliberately separate step, so project creation never blocks on toolchains or
 network package registries.
@@ -153,19 +145,19 @@ smokeforge install [--yes] [--target <path>]
 ## `smokeforge list`
 
 ```text
-smokeforge list [stacks|features] [--json]
+smokeforge list [stacks|features]
 ```
 
-Prints a tab-aligned table. With `--json`, emits the validated registry manifest
-subset for the requested category.
+Prints a tab-aligned table from the validated registry manifest. `--json` output
+is planned.
 
 ## `smokeforge registry`
 
-| Subcommand | Behavior |
-| --- | --- |
-| `info` | Source, resolved tag, cache location, schema version, counts. |
-| `update` | Re-downloads and verifies the selected tag; replaces cache atomically. Refuses in `--offline` mode. |
-| `pin <tag>` | Updates the project's lockfile to a new tag after validating compatibility; does not regenerate files. |
+| Subcommand | Behavior | Status |
+| --- | --- | --- |
+| `info` | Source, resolved tag, schema version, counts. | Implemented |
+| `update` | Re-downloads and verifies the selected tag; replaces cache atomically. Refuses in `--offline` mode. | Implemented |
+| `pin <tag>` | Updates a project lockfile to a new tag. | Planned |
 
 ## `smokeforge doctor`
 
@@ -182,8 +174,9 @@ Exit code is non-zero only if a fatal check fails.
 
 ## Output and exit conventions
 
-- Human output: plain text, aligned tables, no decorative noise.
-- `--json`: newline-delimited or single-document JSON, stable field names.
+- Human output: aligned tables, Charm-style summaries, checkmark stages.
+- Color is disabled automatically for non-TTY output and by `NO_COLOR`.
+- `--json`: single-document JSON, stable field names. (Planned.)
 - Exit codes:
   - `0` success (including warnings)
   - `1` operational failure (registry, validation, generation)

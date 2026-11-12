@@ -1,7 +1,7 @@
 # Overlay and patch model
 
-**Status:** planned. This document is the authoring contract for feature
-overlays and the implementation contract for the patch engine.
+**Status:** implemented for project creation. Removal reversal, drift checks, and
+`add`/`remove` are planned for M4.
 
 ## Why overlays
 
@@ -16,13 +16,14 @@ only component that writes files.
 
 A base template must:
 
-1. Compile/build and pass its own tests before any overlay is applied.
+1. Build and pass its own tests before any overlay is applied.
 2. Include anchors at every extension point overlays may need.
 3. Keep dependency declarations in standard manifests (`go.mod`, `Cargo.toml`,
-   `pyproject.toml`, `package.json`, Gradle files).
+   `pyproject.toml`, `package.json`).
 4. Avoid generated secrets in committed files.
-5. Use lowercase, slash-namespaced stack IDs.
-6. Document variables in `template.yaml`.
+5. Declare variables in `template.yaml`.
+6. Put renderable content under `files/`; `.tmpl` files are rendered, other files
+   are copied verbatim.
 
 Anchors are comments that survive formatting:
 
@@ -44,98 +45,92 @@ services: {}
 
 Rules:
 
-- Anchor names are unique per file, not globally.
-- An anchor must match exactly once in the rendered base file.
-- Anchor lines are preserved in generated output (they are part of the template).
-- Overlays never edit anchor lines; they insert around them.
+- An anchor must match exactly once per file. Zero or multiple matches abort
+  generation.
+- Anchor lines are preserved in generated output.
+- Overlays never edit anchor lines; they insert marked blocks before or after
+  them.
 
 ## Overlay manifest
 
 ```yaml
-id: cache/redis
-name: Redis cache
-supports:
-  kinds: [backend]
-  stacks: [go/chi, rust/axum, python/fastapi]
-requires: []
-conflicts: []
-removable: true
-files: files/
+id: logging/basic
+name: Basic logging
+files: files
 ops:
   - addFiles:
-      - path: internal/cache/redis.go.tmpl
-        dest: internal/cache/redis.go
-  - addDependency:
-      file: go.mod
-      module: github.com/redis/go-redis/v9
-      version: v9.7.0
+      - path: logger.go.tmpl
+        dest: internal/log/logger.go
   - insertAfter:
-      file: internal/app/app.go
+      file: main.go
       anchor: imports
-      marker: cache:redis
-      content: |
-        "github.com/acme/app/internal/cache"
-  - patchJSON:
-      file: package.json
-      path: dependencies.ioredis
-      value: "^5.4.1"
+      marker: logging:basic
+      content: '"example.com/app/internal/log"'
   - env:
-      key: REDIS_URL
-      example: redis://localhost:6379
+      key: LOG_LEVEL
+      example: info
 ```
 
 ### Fields
 
 | Field | Required | Meaning |
 | --- | --- | --- |
-| `id` | yes | Registry-unique overlay ID (usually `feature:variant`). |
-| `name` | yes | Human-readable label. |
-| `supports` | yes | Kinds and/or stacks this overlay can apply to. |
-| `requires` | no | Other overlays/features that must be present. |
-| `conflicts` | no | Overlays that must not coexist. |
-| `removable` | no | Defaults to `true`; `false` for creation-only overlays. |
-| `files` | no | Directory of files referenced by `addFiles`. |
+| `id` | yes | Human-readable overlay ID (typically `feature:variant`). |
+| `name` | no | Human-readable label. |
+| `files` | no | Source directory for `addFiles`; defaults to `files`. |
 | `ops` | yes | Ordered declarative operations. |
+
+Feature applicability, variants, dependency ordering, and conflicts live in the
+registry manifest (`feature.kinds`, `feature.stacks`, `requires`, `conflicts`,
+and the feature/variant `overlays` maps), not in the overlay file.
 
 ## Operation types
 
+Every item in `ops` must set exactly one operation.
+
 ### `addFiles`
 
-Copies rendered files to destinations. Existing destinations cause a preflight
-conflict unless the overlay declares `overwrite: true` (only allowed at
-creation; non-removable).
+Copies rendered files from the overlay directory into the project.
 
 ```yaml
 - addFiles:
-    - {path: internal/db/postgres.go.tmpl, dest: internal/db/postgres.go}
+    - {path: internal/db/db.go.tmpl, dest: internal/db/db.go}
     - {path: migrations/0001_init.sql, dest: migrations/0001_init.sql}
 ```
 
+Fields: `path` (relative to the overlay's files directory), `dest` (rendered
+destination path), and optional `overwrite` (default `false`). Destinations must
+not already exist unless `overwrite: true`. Source `.tmpl` files are rendered.
+
 ### `insertBefore` / `insertAfter`
 
-Inserts a block adjacent to an anchor. The block is wrapped in markers:
+Inserts a rendered block adjacent to an anchor, wrapped in markers:
 
 ```go
-// smokeforge:begin cache:redis
-import "github.com/acme/app/internal/cache"
-// smokeforge:end cache:redis
+// smokeforge:begin logging:basic
+import "example.com/app/internal/log"
+// smokeforge:end logging:basic
 ```
 
-- `marker` defaults to the overlay ID.
-- Applying the same marker twice is a no-op (idempotent).
-- Multiple overlays may insert at the same anchor; order is deterministic
-  (dependency order, then registry order).
-- Removal excises the exact marked block.
+```yaml
+- insertAfter:
+    file: main.go
+    anchor: imports
+    marker: logging:basic
+    content: '"example.com/app/internal/log"'
+```
 
-### `replaceBlock`
+Fields: `file`, `anchor`, optional `marker` (defaults to the overlay ID), and
+`content` (rendered as a template). The block inherits the anchor line's
+indentation. Comment syntax is chosen from the file extension (`//`, `#`, `--`,
+or `<!-- -->`).
 
-Replaces content between existing begin/end markers. Allowed only at creation
-time or when the overlay declares itself non-removable. Used sparingly (for
-example, changing a default in a generated config that has no anchor).
+Applying the same marker twice is a no-op. Multiple overlays may insert at the
+same anchor; each keeps its own marker.
 
 ### `patchJSON`
 
-Set, merge, append, or delete a value at a JSON path:
+Set, merge, append, or delete a value at a dot-separated path:
 
 ```yaml
 - patchJSON:
@@ -145,12 +140,13 @@ Set, merge, append, or delete a value at a JSON path:
     value: "^5.4.1"
 ```
 
-Paths use dot notation with array indexes (`scripts.build`). The document is
-validated before and after the edit.
+Objects are created along missing `set` paths. `merge` combines nested objects.
+`append` requires an array target. The document is re-marshaled with two-space
+indentation and validated.
 
 ### `patchYAML`
 
-Node-preserving edits, used for compose files and workflows:
+Node-preserving YAML edits for compose files and workflows:
 
 ```yaml
 - patchYAML:
@@ -163,11 +159,12 @@ Node-preserving edits, used for compose files and workflows:
       volumes: ["redis-data:/data"]
 ```
 
-Comments and key order are preserved where the YAML node tree allows.
+Comments and key order are preserved by editing the YAML node tree. Supports
+`set`, `merge`, `append`, and `delete`.
 
 ### `patchTOML`
 
-TOML edits for `Cargo.toml` / `pyproject.toml`:
+TOML edits for `Cargo.toml` and `pyproject.toml`:
 
 ```yaml
 - patchTOML:
@@ -177,25 +174,43 @@ TOML edits for `Cargo.toml` / `pyproject.toml`:
     value: {version: "0.27", features: ["tokio-comp"]}
 ```
 
-The file is re-parsed after the edit; invalid output aborts the operation.
+The file is decoded, patched, re-encoded, and re-parsed. Invalid output aborts
+the operation.
 
 ### `addDependency`
 
-Language-aware dependency edits. Prefer this over raw `patch*` for dependency
-manifests:
+Language-aware dependency edits:
 
-| Language | Target file | Adapter behavior |
-| --- | --- | --- |
-| Go | `go.mod` | `golang.org/x/mod/modfile`; adds require entry |
-| Rust | `Cargo.toml` | TOML dependency table edit + reparse |
-| Python | `pyproject.toml` | Dependency array edit + reparse |
-| Node | `package.json` | JSON dependency map edit |
+```yaml
+- addDependency:
+    file: go.mod
+    module: github.com/redis/go-redis/v9
+    version: v9.7.0
+```
 
-Each adapter implements `Add`, `Has`, and `Remove` so overlays are reversible.
+```yaml
+- addDependency:
+    file: Cargo.toml
+    module: redis
+    version: "0.27"
+    features: [tokio-comp]
+```
+
+Adapters:
+
+| File | Behavior |
+| --- | --- |
+| `go.mod` | `golang.org/x/mod/modfile`; adds a require entry. |
+| `package.json` | Adds or updates `dependencies[module]`. |
+| `pyproject.toml` | Appends `module==version` to `project.dependencies`. |
+| `Cargo.toml` | Adds a version string or a table with `features`. |
+
+An existing dependency with a different version is an error; an identical entry
+is a no-op.
 
 ### `env`
 
-Appends a documented variable to `.env.example` (and to `.env` at creation):
+Records an environment variable consumed by the generated project:
 
 ```yaml
 - env:
@@ -204,96 +219,70 @@ Appends a documented variable to `.env.example` (and to `.env` at creation):
     secret: false
 ```
 
-`secret: true` generates a random value at creation time and never commits it.
+The engine aggregates entries into `.env.example` and `.env`. `secret: true`
+generates a random value for `.env` while keeping the example placeholder. `.env`
+and `.smokeforge/` are added to `.gitignore`.
 
-## Ordering and conflicts
+## Ordering
 
-1. Overlays are topologically sorted by `requires`.
-2. Ties are broken by registry-declared order (`order` field, then ID).
-3. Operations within an overlay run in declared order.
-4. Preflight rejects:
-   - two `replaceBlock` operations on the same range;
-   - `addFiles` destination collisions;
-   - an anchor referenced by an operation but missing/duplicated;
-   - structured patches whose parent path does not exist;
-   - dependency edits that would produce a duplicate conflicting constraint.
-5. Insertions at the same anchor are allowed and deterministic; each is wrapped
-   in its own marker.
+1. Overlays are topologically sorted by feature `requires`; ties keep the user's
+   selection order.
+2. Operations within an overlay run in declared order.
+3. All paths, anchors, and operations are validated as they are applied. Any
+   failure aborts the staged generation and leaves the target untouched.
 
-## Removal semantics
+## Path and archive safety
 
-Removal is supported for overlays marked `removable: true`:
+- Overlay and destination paths must be relative, clean, forward-slash paths that
+  do not escape their root.
+- Template directories reject symlinks and non-regular files.
+- Registry archives reject traversal, links, devices, and oversized entries.
 
-- delete files added by the overlay if their current hash matches the recorded
-  post-add hash;
-- excise marked blocks by marker name;
-- reverse structured patches only if the affected entries are unchanged;
-- remove env entries only if unchanged;
-- remove dependency entries added by the overlay;
-- refuse if user edits make the reverse operation unsafe.
+## Removal and mutation (planned)
 
-Refusals list the conflicting files and suggest manual steps.
+`smokeforge remove` will excise marked blocks and reverse supported operations
+when the affected content is unchanged. M2 records per-file hashes and markers in
+`.smokeforge.json` so M4 can implement drift detection and reversal safely.
 
 ## Authoring checklist
 
 Before submitting an overlay to the registry:
 
-- [ ] It applies cleanly to every stack listed in `supports`.
+- [ ] It applies cleanly to every stack declared in the manifest overlay map.
 - [ ] Every anchor used exists exactly once in each supported base.
-- [ ] Dependency additions use `addDependency`, not raw text edits.
-- [ ] Inserted code blocks are wrapped in markers and compile.
+- [ ] Dependency additions use `addDependency` where possible.
+- [ ] Inserted code blocks are marked and compile.
 - [ ] `.env.example` entries are documented and referenced by generated code.
-- [ ] Removal works (or `removable: false` is justified).
 - [ ] Contract tests pass for each supported base.
 - [ ] A representative generated project builds and passes tests.
 
-## Worked example: Go + Redis
+## Worked example: Go + logging
 
-Base `go/chi` exposes:
-
-```go
-// internal/app/app.go
-// smokeforge:anchor imports
-// smokeforge:anchor clients
-```
-
-Overlay `cache/redis`:
-
-```yaml
-id: cache/redis
-supports: {kinds: [backend], stacks: [go/chi]}
-ops:
-  - addFiles:
-      - {path: internal/cache/redis.go.tmpl, dest: internal/cache/redis.go}
-  - addDependency: {file: go.mod, module: github.com/redis/go-redis/v9, version: v9.7.0}
-  - insertAfter:
-      file: internal/app/app.go
-      anchor: imports
-      marker: cache:redis
-      content: '	"github.com/acme/app/internal/cache"'
-  - insertAfter:
-      file: internal/app/app.go
-      anchor: clients
-      marker: cache:redis-client
-      content: '	redisClient := cache.NewRedis(cfg.RedisURL)'
-  - env: {key: REDIS_URL, example: "redis://localhost:6379"}
-```
-
-Generated fragment:
+Base `test/plain` exposes:
 
 ```go
-// smokeforge:begin cache:redis
-	"github.com/acme/app/internal/cache"
-// smokeforge:end cache:redis
+// main.go
+import (
+    "fmt"
+    // smokeforge:anchor imports
+)
 ```
 
-Removing `cache:redis` deletes `internal/cache/redis.go`, excises both marked
-blocks, removes the `go.mod` requirement, and removes `REDIS_URL` from `.env`
-(if untouched).
+Overlay `logging/basic` adds `internal/log/logger.go`, inserts `"os"` after the
+`imports` anchor, inserts `_ = os.Args` after an `after-print` anchor, and adds
+`LOG_LEVEL` to the environment files. The generated `main.go` contains:
+
+```go
+// smokeforge:begin logging:basic
+"os"
+// smokeforge:end logging:basic
+```
+
+The full fixture lives in `testdata/registry/` and is exercised by the
+integration test.
 
 ## Related documents
 
 - [Registry manifest](manifest.md)
 - [Generation engine](../architecture/generation-engine.md)
 - [Project state](../architecture/project-state.md)
-```

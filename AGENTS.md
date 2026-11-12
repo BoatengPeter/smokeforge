@@ -15,7 +15,7 @@ Docker, CI) as declarative overlays.
 - **Language:** Go 1.25+
 - **Template registry:** separate repo,
   `github.com/BoatengPeter/smokeforge-registry` (planned)
-- **Status:** Milestone 1 (foundation) in progress.
+- **Status:** Milestones 1 (foundation) and 2 (single-target generation) complete.
 
 ## Read order (agents)
 
@@ -30,7 +30,8 @@ Docker, CI) as declarative overlays.
    [docs/development/testing.md](docs/development/testing.md) — how to work here.
 8. [docs/development/roadmap.md](docs/development/roadmap.md) — what is next.
 9. Design record: [docs/superpowers/specs/2026-11-12-smokeforge-design.md](docs/superpowers/specs/2026-11-12-smokeforge-design.md).
-10. Active plan: [docs/superpowers/plans/2026-11-12-smokeforge-foundation.md](docs/superpowers/plans/2026-11-12-smokeforge-foundation.md).
+10. Active plan: [docs/superpowers/plans/2026-11-12-smokeforge-generation.md](docs/superpowers/plans/2026-11-12-smokeforge-generation.md).
+11. Foundation plan (complete): [docs/superpowers/plans/2026-11-12-smokeforge-foundation.md](docs/superpowers/plans/2026-11-12-smokeforge-foundation.md).
 
 ## Project skills — use them
 
@@ -83,7 +84,7 @@ Full details: [architecture overview](docs/architecture/overview.md).
 | Manifest schema + validation | Done |
 | Registry local + remote/cache/checksum/extraction | Done |
 | `list`, `registry`, `doctor` | Done |
-| `new`, resolver, renderer, patches, engine | Planned (M2) |
+| `new`, resolver, renderer, patches, engine, state, wizard | Done (M2) |
 | Registry templates/overlays | Planned (M3) |
 | `add`/`remove`/`install`, fullstack | Planned (M4) |
 | Release/distribution | Planned (M5) |
@@ -100,8 +101,12 @@ make fmt                      # gofmt -w .
 
 go run ./cmd/smokeforge version
 go run ./cmd/smokeforge list stacks --registry ./testdata/registry
+go run ./cmd/smokeforge new /tmp/demo --registry ./testdata/registry \
+  --kind backend --stack test/plain --name "Demo" --feature logging \
+  --var module_path=example.com/demo --no-input --no-git
 go test ./internal/cli/ -run TestVersionCommand -v
 go test ./... -race
+go test -tags=integration ./...
 ```
 
 ## Repository map
@@ -109,23 +114,21 @@ go test ./... -race
 ```text
 cmd/smokeforge/        main() only
 internal/cli/          Cobra commands, flags, output, exit codes
-internal/tui/          interactive wizard (planned)
+internal/tui/          interactive wizard and Charm styling
 internal/manifest/     schema types, strict YAML load + Validate()
 internal/registry/     source dispatch, local dirs, HTTP tarball, cache
-internal/resolve/      selection -> ordered generation plan (planned)
-internal/render/       strict text/template rendering (planned)
-internal/patch/        anchors, markers, JSON/YAML/TOML, deps (planned)
-internal/engine/       preflight, staging, apply, atomic commit (planned)
-internal/project/      state, lockfile, hashes, drift, add/remove (planned)
+internal/resolve/      selection -> ordered generation plan
+internal/render/       strict text/template rendering
+internal/patch/        anchors, markers, JSON/YAML/TOML, deps, env
+internal/engine/       staging, apply, env, git init, atomic commit
+internal/project/      state, lockfile, hashes
 internal/install/      per-stack install adapters (planned)
-internal/fsx/          atomic writes, path traversal safety (planned)
-internal/gitx/         git init (planned)
 internal/version/      build metadata
 docs/architecture/     system design and engine internals
 docs/registry/         manifest + overlay authoring contract
 docs/development/      setup, testing, roadmap
 docs/superpowers/      design specs and implementation plans
-testdata/              top-level fixtures (local registries, archives)
+testdata/registry/     neutral local registry used by integration tests/manual runs
 ```
 
 Dependency direction: `cli` → libraries. Libraries never import `cli`.
@@ -149,6 +152,7 @@ touches the network. `registry` depends on `manifest`.
 | Task | Files |
 | --- | --- |
 | Add/modify a CLI command | `internal/cli/<cmd>.go`, `internal/cli/root.go`, tests |
+| Change generation flow | `internal/engine`, `internal/resolve`, `internal/render`, `internal/patch`, `internal/project`; update Mermaid docs |
 | Add a manifest field/rule | `internal/manifest/manifest.go`, `validate.go`, tests, `docs/registry/manifest.md` |
 | Change registry fetching/cache | `internal/registry/*`, tests with `httptest` |
 | Add a patch operation | `internal/patch/*`, `docs/registry/overlays.md`, contract fixtures |

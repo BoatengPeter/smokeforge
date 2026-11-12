@@ -19,7 +19,8 @@ fullstack projects from a versioned remote template registry with composable
 feature overlays.
 
 Module: `github.com/BoatengPeter/smokeforge`
-Status: Milestone 1 (foundation) in progress; see
+Status: Milestones 1 (foundation) and 2 (single-target generation) complete; M3
+registry content is blocked on pending generated-app decisions. See
 [docs/development/roadmap.md](docs/development/roadmap.md).
 
 ## Non-negotiables

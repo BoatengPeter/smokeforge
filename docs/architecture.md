@@ -357,7 +357,7 @@ Full testing details: [testing strategy](development/testing.md).
 | CLI entrypoint, version, list, registry, doctor | Implemented |
 | Manifest validation | Implemented |
 | Local and remote registry loading, checksums, cache, safe extraction | Implemented |
-| Resolver, renderer, patch engine, staging, state/lock, wizard | Planned (M2) |
+| Resolver, renderer, patch engine, staging, state/lock, wizard | Implemented (M2) |
 | Base templates and feature overlays | Planned (M3) |
 | Add/remove/install, fullstack composition | Planned (M4) |
 | Release pipeline | Planned (M5) |

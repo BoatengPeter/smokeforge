@@ -1,7 +1,7 @@
 # Project state and recovery
 
-**Status:** planned. This document defines the files the generator writes and
-how later mutations stay safe.
+**Status:** implemented for creation. Drift detection, backups, and `add`/
+`remove` transactions are planned for M4.
 
 ## Files written into a generated project
 
@@ -27,7 +27,7 @@ rather than guessing.
   "registry": {
     "source": "https://github.com/BoatengPeter/smokeforge-registry/releases",
     "tag": "v1.0.0",
-    "commit": "9f2c1d4..."
+    "commit": ""
   },
   "variables": {
     "project_name": "acme",
@@ -70,6 +70,8 @@ rather than guessing.
 
 Notes:
 
+- `commit` and `archiveSHA256` are currently empty for remote/local registries;
+  populated remote archive digests arrive with a later registry metadata change.
 - `files` records hashes after generation for every file the overlay touched.
 - `markers` lists the begin/end marker names inserted, enabling exact removal.
 - `rootFeatures` target the repository root rather than a specific app.
@@ -82,8 +84,8 @@ Notes:
   "registry": {
     "source": "https://github.com/BoatengPeter/smokeforge-registry/releases",
     "tag": "v1.0.0",
-    "commit": "9f2c1d4e8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d",
-    "archiveSHA256": "e3b0c44298fc1c149afbf4c8996fb924..."
+    "commit": "",
+    "archiveSHA256": ""
   },
   "templates": {
     "backend/go/chi": "sha256:...",
@@ -152,8 +154,8 @@ and removed after state commits, so interrupted runs are detectable.
 
 ## Reproducibility
 
-For a pinned registry and identical variables, regeneration yields identical
-tracked files. Generated secrets are the only intentional exception. The
+For a pinned registry and identical variables, generation yields identical
+tracked files. Generated secrets and `createdAt` are the intentional exceptions. The
 lockfile is the source of truth for "what generated this project"; a future
 `smokeforge recreate --from-lock` command is planned but out of v1.
 

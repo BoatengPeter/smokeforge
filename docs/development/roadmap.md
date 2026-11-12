@@ -1,6 +1,6 @@
 # Roadmap
 
-**Status:** Milestone 1 (foundation) is in progress.
+**Status:** Milestones 1 and 2 are complete. Registry content (M3) is next and is blocked on the pending generated-app decisions.
 
 ## Milestones
 
@@ -22,19 +22,18 @@ Deliver a working CLI that can load, validate, cache, and inspect a registry.
 manifest; a remote registry served by a test server is verified, cached, and
 usable offline.
 
-### M2 — Single-target generation
+### M2 — Single-target generation _(complete)_
 
-- [ ] `internal/resolve`: kinds, limits, variants, requires/conflicts, plan order
-- [ ] `internal/render`: strict templates, variables, file modes, secrets
-- [ ] `internal/patch`: anchors, markers, JSON/YAML/TOML, dependency adapters
-- [ ] `internal/engine`: preflight, staging, atomic commit, rollback, dry-run
-- [ ] `internal/project`: `.smokeforge.json`, lockfile, file hashes
-- [ ] `.env` generation, `.gitignore` handling, optional `git init`
-- [ ] `new` flags + wizard for single-target kinds
-- [ ] Integration test: generate `go/chi`, run `go build ./...`
+- [x] `internal/resolve`: kinds, limits, variants, requires/conflicts, plan order
+- [x] `internal/render`: strict templates, variables, file modes, function map
+- [x] `internal/patch`: anchors, markers, JSON/YAML/TOML, dependency adapters, env
+- [x] `internal/project`: `.smokeforge.json`, lockfile, file hashes
+- [x] `internal/engine`: preflight, staging, atomic commit, dry-run, env, git init
+- [x] `new` flags + interactive Charm-style wizard
+- [x] Integration test: generate from `testdata/registry` and run `go build ./...`
 
-**Acceptance:** `smokeforge new --kind backend --backend go/chi ...` produces a
-buildable project atomically, records state/lock, and fails safely.
+**Acceptance met:** a single-target project is generated atomically with state,
+lockfile, `.env`, optional git initialization, and a buildable Go fixture.
 
 ### M3 — Registry content and overlays
 

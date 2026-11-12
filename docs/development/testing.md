@@ -1,7 +1,9 @@
 # Testing strategy
 
-**Status:** unit tests exist for the version command; manifest/registry tests
-land with the foundation milestone. The full pyramid below is the target.
+**Status:** M1 and M2 tests are implemented: manifest/registry unit tests,
+renderer/patch/resolver/project/engine tests, CLI flag tests, and a
+`integration`-tagged generate-and-build test. Registry contract tests and the
+native multi-language build matrix arrive with M3.
 
 ## Principles
 
@@ -34,6 +36,7 @@ Commands:
 go test ./...
 go test ./internal/registry/ -run TestLoadRemote -v
 go test ./... -race
+go test -tags=integration ./...
 ```
 
 ### 2. Contract tests (registry repository)
@@ -81,7 +84,8 @@ every base and every overlay×base pair is compiled once.
 
 ### 5. CLI end-to-end
 
-Drive the compiled binary (or `NewRootCmd`) through:
+Implemented for M2 flags with a local fixture registry; wizard flows and mutation
+lifecycle remain planned. Drive the compiled binary (or `NewRootCmd`) through:
 
 - `new` with flags for each kind;
 - wizard flows (Charm `teatest`) for representative paths;

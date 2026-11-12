@@ -6,7 +6,7 @@
 
 | Tool | Version | Notes |
 | --- | --- | --- |
-| Go | 1.25+ | `go version` |
+| Go | 1.26+ | `go version` |
 | git | 2.30+ | Used by `smokeforge` and for development |
 | golangci-lint | v2.x (CI pins v2.11.0) | `golangci-lint version` |
 
@@ -44,8 +44,9 @@ go run ./cmd/smokeforge version
 
 ```bash
 make test              # go test ./...
-make lint              # golangci-lint run
-make fmt               # gofmt -w .
+make test-integration  # go test -tags=integration ./...
+make lint              # golangci-lint run ./...
+make fmt               # golangci-lint fmt ./...
 ```
 
 Focused runs:
@@ -54,6 +55,7 @@ Focused runs:
 go test ./internal/cli/ -run TestVersionCommand -v
 go test ./internal/manifest/ -v
 go test ./... -race
+go test -tags=integration ./internal/engine -run TestGenerateIntegration -v
 ```
 
 ## Working with a local registry
@@ -76,14 +78,13 @@ internal/cli/          Cobra commands, flags, output
 internal/tui/          interactive wizard (planned)
 internal/manifest/     schema types, strict load/validation
 internal/registry/     source dispatch, HTTP tarball, checksum, cache
-internal/resolve/      selection -> plan (planned)
-internal/render/       strict templates (planned)
-internal/patch/        anchors, JSON/YAML/TOML, dependency adapters (planned)
-internal/engine/       preflight, staging, commit, rollback (planned)
-internal/project/      state, lockfile, drift, add/remove (planned)
+internal/resolve/      selection -> ordered plan
+internal/render/       strict templates and path rendering
+internal/patch/        anchors, JSON/YAML/TOML, dependency adapters, env
+internal/engine/       staging, apply, env, git init, atomic commit
+internal/project/      state, lockfile, hashes
+internal/tui/          interactive wizard and Charm styling
 internal/install/      per-stack install steps (planned)
-internal/fsx/          atomic writes and path safety (planned)
-internal/gitx/         git init (planned)
 internal/version/      build metadata
 docs/                  architecture, registry, development docs
 docs/superpowers/      design records and implementation plans

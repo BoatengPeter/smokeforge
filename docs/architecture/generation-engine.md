@@ -1,7 +1,7 @@
 # Generation engine
 
-**Status:** planned. This document specifies the behavior the engine must
-implement in the next milestones.
+**Status:** implemented for single-target creation (M2). Mutation
+(`add`/`remove`), drift enforcement, and fullstack targets are planned for M4.
 
 ## Responsibilities
 
@@ -10,10 +10,10 @@ split into four focused packages:
 
 | Package | Responsibility |
 | --- | --- |
-| `internal/resolve` | Validate the selection and produce an ordered plan. |
-| `internal/render` | Render template files with strict variables. |
-| `internal/patch` | Apply anchor and structured operations. |
-| `internal/engine` | Preflight, stage, apply, commit, roll back. |
+| `internal/resolve` | Validate the selection and produce an ordered plan. Implemented. |
+| `internal/render` | Render template files with strict variables. Implemented. |
+| `internal/patch` | Apply anchor and structured operations. Implemented. |
+| `internal/engine` | Stage, apply, write state, commit atomically. Implemented. |
 
 ## Plan model
 
@@ -48,16 +48,17 @@ same operation order and output bytes.
 
 ## Rendering
 
-- Go `text/template`, with a small function map (`lower`, `upper`, `snake`,
-  `kebab`, `camel`, `pascal`, `quote`, `default`).
+- Go `text/template` with `missingkey=error` and a function map (`lower`,
+  `upper`, `snake`, `kebab`, `camel`, `pascal`, `quote`, `default`).
 - **Strict variables:** rendering fails on any missing key. Templates never see
   `<no value>`.
 - Paths are rendered too, so file names can contain the project slug.
-- File modes come from the registry archive; executable bits are preserved.
-- Binary files are copied verbatim (no template parse) based on manifest
-  declarations or NUL-byte detection.
+- Files under `<template>/files/` ending in `.tmpl` are rendered and lose the
+  suffix; other files are copied byte-for-byte.
+- Executable source files stay executable; other files are written `0644`.
+- Template directories reject symlinks and non-regular files.
 - Generated secrets use `crypto/rand` and are written to `.env` only; they are
-  not part of deterministic snapshots (tests seed or mask them).
+  not part of deterministic golden files.
 
 ## Patch model
 
@@ -67,12 +68,11 @@ Overlays operate through a closed set of declarative operations:
 | --- | --- |
 | `addFiles` | Copy rendered files into the target. Never overwrites silently. |
 | `insertBefore` / `insertAfter` | Insert a marked block adjacent to a named anchor. |
-| `replaceBlock` | Replace the content between begin/end markers (creation only). |
 | `patchJSON` | Set/merge/append values in JSON documents. |
 | `patchYAML` | Node-preserving YAML edits (including compose files). |
 | `patchTOML` | TOML edits, verified by re-parsing after the write. |
 | `addDependency` | Language-adapter dependency edits. |
-| `env` | Append `.env.example` entries. |
+| `env` | Aggregate `.env.example` and `.env` entries. |
 
 ### Anchors
 
@@ -138,26 +138,20 @@ parent/
 - On failure: remove staging (or retain it with `--keep-staging`) and return an
   error. The target path is never partially written.
 
-For `add`/`remove`, the engine works in place but is transactional:
+`add`/`remove` will use the same transactional model: validate the full set,
+snapshot impacted files, apply and verify, then update state last. That lifecycle
+is planned for M4.
 
-1. Validate the full operation set.
-2. Copy impacted files to `.smokeforge/backups/<timestamp>/`.
-3. Apply operations, verifying each one.
-4. Update state/lock last.
-5. On any error, restore the backup and leave state unchanged.
+## `--dry-run`
 
-## `--dry-run` and `--json`
+`--dry-run` renders and validates the full plan into a staging directory, then
+removes staging without touching the target. The CLI reports:
 
-`--dry-run` performs steps through preflight, applies rendering and operations
-to an in-memory/temporary tree, and prints:
+- the resolved target and registry tag;
+- the number of files that would be written;
+- a clear "no files were written" notice.
 
-- resolved targets and stacks;
-- ordered overlay list;
-- file additions/modifications per target;
-- anchors and structured paths that will be modified;
-- variables in use (secrets redacted).
-
-`--json` emits the same information as a stable JSON document for tooling.
+`--json` output with per-operation detail is planned.
 
 ## Determinism guarantees
 

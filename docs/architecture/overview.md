@@ -53,18 +53,16 @@ filesystem side effects.
 
 | Package | Responsibility | Status |
 | --- | --- | --- |
-| `internal/cli` | Command tree, flags, output formatting, exit behavior | Implemented (version); in progress |
-| `internal/tui` | Interactive wizard using Charm `huh` | Planned |
-| `internal/manifest` | Schema types, strict YAML loading, validation | Planned (in current milestone) |
-| `internal/registry` | Local/HTTP sources, checksum verification, XDG cache | Planned (in current milestone) |
-| `internal/resolve` | Validate selections; build ordered generation plan | Planned |
-| `internal/render` | Strict template rendering, variables, generated secrets | Planned |
-| `internal/patch` | Anchor operations, config patches, dependency adapters | Planned |
-| `internal/engine` | Preflight, staging, apply, atomic commit, rollback | Planned |
-| `internal/project` | `.smokeforge.json`, lockfile, hashes, drift, add/remove | Planned |
+| `internal/cli` | Command tree, flags, output formatting, exit behavior | Implemented |
+| `internal/tui` | Interactive wizard and Charm-style terminal styling | Implemented |
+| `internal/manifest` | Schema types, strict YAML loading, validation | Implemented |
+| `internal/registry` | Local/HTTP sources, checksum verification, XDG cache | Implemented |
+| `internal/resolve` | Validate selections; build ordered generation plan | Implemented |
+| `internal/render` | Strict template rendering, variables, generated secrets | Implemented |
+| `internal/patch` | Anchor operations, config patches, dependency adapters | Implemented |
+| `internal/engine` | Preflight, staging, apply, atomic commit | Implemented |
+| `internal/project` | `.smokeforge.json`, lockfile, hashes | Implemented |
 | `internal/install` | Per-stack, idempotent dependency installation | Planned |
-| `internal/fsx` | Atomic file writes and traversal-safe path handling | Planned |
-| `internal/gitx` | `git init` integration | Planned |
 | `internal/version` | Build-time version metadata | Implemented |
 
 ## Core principles

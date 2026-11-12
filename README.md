@@ -7,10 +7,11 @@ fullstack projects for clients. Pick a stack, compose the features you need
 (database, cache, queues, auth, TOTP, Docker, CI), and get a wired, buildable
 monorepo — reproducibly, from a pinned template registry.
 
-> **Status:** foundation milestone complete. The CLI provides `version`, `list`,
-> `registry info/update`, and `doctor`; registries load from local directories or
-> checksum-verified remote tarballs with an offline-capable cache. Project
-> generation (`new`, resolver, renderer, patch engine) is the next milestone.
+> **Status:** M2 (single-target generation) is complete. `smokeforge new` resolves
+> a stack and features, renders a base template plus overlays into a staging
+> directory, writes project state/lockfiles and `.env`, and commits atomically.
+> `version`, `list`, `registry info/update`, and `doctor` are also available.
+> Fullstack composition, `add`/`remove`, and `install` are the next milestones.
 > See the [roadmap](docs/development/roadmap.md) for the exact state.
 
 ---
@@ -73,7 +74,7 @@ queues, observability, third-party registries, and three-way template upgrades.
 
 ## Quick start
 
-Requires Go 1.25+ and `git`.
+Requires Go 1.26+ and `git`.
 
 ```bash
 git clone https://github.com/BoatengPeter/smokeforge.git
@@ -84,47 +85,46 @@ make build
 ./bin/smokeforge list stacks
 ```
 
-Generate a project (planned interface, lands with the generation milestone):
+Generate a single-target project against the bundled neutral fixture:
 
 ```bash
-# Interactive
-smokeforge new
+# Interactive wizard
+smokeforge new --registry ./testdata/registry
 
 # Non-interactive CI usage
 smokeforge new ./acme \
-  --kind fullstack \
-  --backend go/chi \
-  --clients next,ios/swiftui \
-  --feature database:postgres \
-  --feature auth:jwt \
-  --feature totp \
-  --feature cache:redis \
-  --feature queue:rabbitmq \
-  --feature docker \
-  --feature ci:github \
-  --module github.com/acme/acme \
-  --no-input
+  --registry ./testdata/registry \
+  --kind backend \
+  --stack test/plain \
+  --name "Acme App" \
+  --feature logging \
+  --var module_path=example.com/acme \
+  --no-input --no-git
 
 cd acme
-smokeforge install
+go build ./...
 ```
 
-Generated fullstack layout:
+M2 project layout:
 
 ```text
 acme/
-  apps/
-    api/                 # Go, Rust, or Python service
-    web/                 # Next.js app
-    ios/                 # SwiftUI app
-    android/             # Jetpack Compose app
-    desktop/             # GPUI or EGUI app
-  deploy/                # dev compose, reverse proxy, ops files
-  .github/workflows/     # CI for generated targets
-  .smokeforge.json       # choices, targets, applied overlays, file hashes
-  .smokeforge.lock.json  # pinned registry tag/commit/checksums
-  README.md
+  main.go                 # rendered from the registry template
+  go.mod
+  internal/log/logger.go  # added by the logging overlay
+  .env.example            # documented environment variables
+  .env                    # local values and generated secrets (gitignored)
+  .gitignore
+  .smokeforge.json        # choices, targets, applied overlays, file hashes
+  .smokeforge.lock.json   # registry pin and template/overlay checksums
 ```
+
+The fixture is deliberately neutral. Official stack templates wait for the
+generated-app framework and package decisions listed under
+[pending decisions](docs/development/roadmap.md#pending-decisions-blocking-m3-templates).
+
+The CLI uses Charm-style prompts, boxed summaries, and checkmark progress. Set
+`NO_COLOR=1` to disable color.
 
 ---
 
@@ -168,7 +168,7 @@ Read more in the [architecture docs](docs/architecture/overview.md).
 
 | Command | Purpose | Status |
 | --- | --- | --- |
-| `smokeforge new [dir]` | Scaffold a project (wizard or flags) | Planned |
+| `smokeforge new [dir]` | Scaffold a project (wizard or flags) | Implemented |
 | `smokeforge add <feature>...` | Apply overlays to an existing project | Planned |
 | `smokeforge remove <feature>...` | Revert overlays safely | Planned |
 | `smokeforge install` | Install dependencies for recorded targets | Planned |
@@ -237,8 +237,9 @@ Registry layout, manifest fields, and validation rules are documented in
 ## Development
 
 ```bash
-make build     # build ./bin/smokeforge
-make test      # go test ./...
+make build            # build ./bin/smokeforge
+make test             # go test ./...
+make test-integration # go test -tags=integration ./...
 make lint      # golangci-lint run
 make fmt       # gofmt -w .
 ```
@@ -256,14 +257,13 @@ internal/cli/          Cobra commands and flags
 internal/tui/          interactive wizard (planned)
 internal/manifest/     registry schema, loading, validation
 internal/registry/     local/remote sources, checksums, cache
-internal/resolve/      selection -> ordered generation plan (planned)
-internal/render/       strict template rendering (planned)
-internal/patch/        anchors, structured patches, dependency adapters (planned)
-internal/engine/       staging, apply, rollback (planned)
-internal/project/      project state, lockfile, add/remove (planned)
+internal/resolve/      selection -> ordered generation plan
+internal/render/       strict template rendering
+internal/patch/        anchors, structured patches, dependency adapters
+internal/engine/       staging, apply, atomic commit
+internal/project/      project state and lockfile
+internal/tui/          wizard and terminal styling
 internal/install/      per-stack dependency installation (planned)
-internal/fsx/          atomic filesystem helpers (planned)
-internal/gitx/         git initialization (planned)
 internal/version/      build version metadata
 docs/                  design, architecture, registry, and development docs
 ```
@@ -273,11 +273,11 @@ docs/                  design, architecture, registry, and development docs
 ## Roadmap
 
 1. **Foundation** — repository, CLI skeleton, manifest validation, registry
-   fetch/cache/verify, `list`/`registry`/`doctor`. _(in progress)_
+   fetch/cache/verify, `list`/`registry`/`doctor`. _(complete)_
 2. **Single-target generation** — resolver, renderer, patch engine, staging,
-   state/lock, `new` wizard and flags.
-3. **Overlay vertical slice** — Go base + Postgres/auth/TOTP/cache/queue,
-   Docker/CI, then `add`/`remove`.
+   state/lock, `new` wizard and flags. _(complete)_
+3. **Registry content and lifecycle** — official stack templates, feature
+   overlays, then `add`/`remove`/`install`.
 4. **Full matrix** — all bases, fullstack composition, `install`, `doctor`.
 5. **Release** — registry contract tests, golden/e2e suites, goreleaser,
    Homebrew, v1.0.0.

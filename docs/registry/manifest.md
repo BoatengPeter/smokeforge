@@ -110,35 +110,48 @@ features:
   - id: database
     name: Database
     kinds: [backend]
-    stacks: [go/chi, rust/axum, python/fastapi]
+    stacks: [go/chi, rust/axum]
     variants:
-      - {id: postgres, name: PostgreSQL, default: true}
-  - id: cache
-    name: Cache
-    kinds: [backend]
-    variants:
-      - {id: redis, name: Redis, default: true}
-  - id: queue
-    name: Queue
-    kinds: [backend]
-    variants:
-      - {id: rabbitmq, name: RabbitMQ, default: true}
+      - id: postgres
+        name: PostgreSQL
+        default: true
+        overlays:
+          go/chi: overlays/backend/go/database/postgres
+          rust/axum: overlays/backend/rust/database/postgres
   - id: auth
     name: Authentication
     kinds: [backend]
     variants:
-      - {id: jwt, name: JWT, default: true}
+      - id: jwt
+        name: JWT
+        default: true
+        overlays:
+          go/chi: overlays/backend/go/auth/jwt
+          rust/axum: overlays/backend/rust/auth/jwt
   - id: totp
     name: TOTP two-factor authentication
     kinds: [backend]
     requires: [auth:jwt]
+    overlays:
+      go/chi: overlays/backend/go/totp
+      rust/axum: overlays/backend/rust/totp
   - id: docker
     name: Docker and dev compose
-    kinds: [backend, frontend, desktop]
+    kinds: [backend, frontend]
+    overlays:
+      go/chi: overlays/shared/docker/go
+      rust/axum: overlays/shared/docker/rust
+      next: overlays/shared/docker/next
   - id: ci
     name: CI pipeline
     variants:
-      - {id: github, name: GitHub Actions, default: true}
+      - id: github
+        name: GitHub Actions
+        default: true
+        overlays:
+          go/chi: overlays/shared/ci/github/go
+          rust/axum: overlays/shared/ci/github/rust
+          next: overlays/shared/ci/github/next
 ```
 
 ## Field reference
@@ -180,6 +193,7 @@ features:
 | `variants` | []Variant | Unique IDs; optional for boolean features. |
 | `requires` | []string | `feature` or `feature:variant`; must reference declared features. |
 | `conflicts` | []string | Same reference syntax; mutual exclusion. |
+| `overlays` | map[string]string | Stack ID → overlay directory. Required when the feature has no variants. |
 
 ### Variant
 
@@ -188,6 +202,7 @@ features:
 | `id` | string | Unique within the feature. |
 | `name` | string | Human-readable label. |
 | `default` | bool | At most one default per feature. |
+| `overlays` | map[string]string | Stack ID → overlay directory. Required for each supported stack. |
 
 Variant selection syntax: `--feature cache:redis`. A feature without an explicit
 variant uses its default when one is declared; otherwise selecting the feature
@@ -207,12 +222,30 @@ Loading is strict: unknown YAML fields are rejected (`KnownFields(true)`), and
 7. Variant references in `requires`/`conflicts` must exist on the target
    feature (resolved during selection).
 8. Kind `max` values are non-negative.
+9. Every feature provides an overlay for every supported stack. Supported stacks
+   are `feature.stacks` when set, otherwise all stacks whose kind is listed in
+   `feature.kinds`. The supported set must not be empty.
+10. Overlay keys must be declared stacks; overlay and template paths must be
+    clean, relative, forward-slash paths that cannot escape the registry.
+11. Features with variants must not define feature-level overlays; each variant
+    must cover every supported stack.
 
 Validation failures are fatal before any resolution or generation work.
 
 ## Template manifests
 
-Each base template carries `template.yaml`:
+Each base template carries `template.yaml` and a `files/` tree:
+
+```text
+templates/backend/go/chi/
+├── template.yaml
+└── files/
+    ├── go.mod.tmpl
+    ├── main.go.tmpl
+    └── internal/...
+```
+
+`template.yaml` declares identity and variables:
 
 ```yaml
 id: go/chi
@@ -223,15 +256,19 @@ variables:
   - name: port
     prompt: HTTP port
     default: "8080"
-anchors:
-  - file: internal/app/app.go
-    name: imports
-  - file: internal/app/app.go
-    name: routes
 ```
 
-Anchors listed here are documentation for overlay authors; the operator still
-validates them against the actual file content at generation time.
+Rules:
+
+- `id` must match the stack ID.
+- Variable names must match `^[a-z][a-z0-9_]*$`, be unique, and be non-empty.
+- The variable set must exactly match the stack's `variables` list.
+- Files ending in `.tmpl` are rendered and lose the suffix. Other files are
+  copied byte-for-byte.
+- Output paths are rendered; all resulting paths must remain inside the project.
+- Executable source files stay executable; other files are written `0644`.
+- Anchors live in source files as comments such as
+  `// smokeforge:anchor imports`. Overlays reference them by name.
 
 ## Cache layout
 

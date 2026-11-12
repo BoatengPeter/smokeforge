@@ -1,0 +1,357 @@
+package cli
+
+import (
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"strconv"
+	"strings"
+
+	"github.com/BoatengPeter/smokeforge/internal/engine"
+	"github.com/BoatengPeter/smokeforge/internal/registry"
+	"github.com/BoatengPeter/smokeforge/internal/render"
+	"github.com/BoatengPeter/smokeforge/internal/resolve"
+	"github.com/BoatengPeter/smokeforge/internal/tui"
+	"github.com/charmbracelet/huh"
+	"github.com/spf13/cobra"
+	"golang.org/x/term"
+)
+
+var errProjectAborted = errors.New("project creation aborted")
+
+type newOptions struct {
+	kind        string
+	stack       string
+	name        string
+	features    []string
+	variables   []string
+	noInput     bool
+	noGit       bool
+	dryRun      bool
+	keepStaging bool
+}
+
+func newNewCmd(opts *options) *cobra.Command {
+	newOpts := &newOptions{}
+
+	cmd := &cobra.Command{
+		Use:   "new [dir]",
+		Short: "Create a project from the template registry",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			dir := ""
+			if len(args) == 1 {
+				dir = args[0]
+			}
+
+			return runNew(cmd, opts, newOpts, dir)
+		},
+	}
+
+	flags := cmd.Flags()
+	flags.StringVar(&newOpts.kind, "kind", "", "project kind (backend, frontend, mobile, desktop)")
+	flags.StringVar(&newOpts.stack, "stack", "", "stack ID")
+	flags.StringVar(&newOpts.name, "name", "", "project name")
+	flags.StringArrayVar(&newOpts.features, "feature", nil, "feature selection (repeatable, id[:variant])")
+	flags.StringArrayVar(&newOpts.variables, "var", nil, "template variable (repeatable, key=value)")
+	flags.BoolVar(&newOpts.noInput, "no-input", false, "never prompt")
+	flags.BoolVar(&newOpts.noGit, "no-git", false, "do not initialize a git repository")
+	flags.BoolVar(&newOpts.dryRun, "dry-run", false, "render and validate without writing the project")
+	flags.BoolVar(&newOpts.keepStaging, "keep-staging", false, "retain the staging directory after failure")
+
+	return cmd
+}
+
+type newExecution struct {
+	cmd      *cobra.Command
+	opts     *options
+	newOpts  *newOptions
+	dir      string
+	registry *registry.Result
+	plan     *resolve.Plan
+}
+
+func runNew(cmd *cobra.Command, opts *options, newOpts *newOptions, dir string) error {
+	registryResult, err := loadRegistry(cmd.Context(), opts)
+	if err != nil {
+		return err
+	}
+
+	selection, err := collectSelection(cmd, opts, newOpts, registryResult)
+	if err != nil {
+		return handleAbort(opts.out, err)
+	}
+
+	if dir == "" {
+		dir = render.Slug(selection.Name)
+	}
+
+	plan, err := resolve.Resolve(registryResult.Manifest, registryResult.Dir, selection)
+	if err != nil {
+		return err
+	}
+
+	if err := printSummary(opts.out, plan, dir, registryResult.Tag); err != nil {
+		return err
+	}
+
+	if err := confirmIfInteractive(cmd, opts, newOpts); err != nil {
+		return err
+	}
+
+	execution := newExecution{
+		cmd:      cmd,
+		opts:     opts,
+		newOpts:  newOpts,
+		dir:      dir,
+		registry: registryResult,
+		plan:     plan,
+	}
+
+	return execution.generate()
+}
+
+func handleAbort(out io.Writer, err error) error {
+	if errors.Is(err, errProjectAborted) {
+		return writef(out, "%s\n", tui.Muted("Aborted."))
+	}
+
+	return err
+}
+
+func printSummary(out io.Writer, plan *resolve.Plan, dir, tag string) error {
+	_, err := fmt.Fprintln(out, tui.Box("Project summary", summaryLines(plan, dir, tag)))
+
+	return err
+}
+
+func confirmIfInteractive(cmd *cobra.Command, opts *options, newOpts *newOptions) error {
+	if !isInteractive(cmd, newOpts) {
+		return nil
+	}
+
+	confirmed, err := confirmGeneration(cmd, opts)
+	if err != nil {
+		if errors.Is(err, huh.ErrUserAborted) {
+			return writef(opts.out, "%s\n", tui.Muted("Aborted."))
+		}
+
+		return err
+	}
+
+	if !confirmed {
+		return writef(opts.out, "%s\n", tui.Muted("Aborted."))
+	}
+
+	return nil
+}
+
+func (e newExecution) generate() error {
+	if _, err := fmt.Fprintln(e.opts.out, tui.Title("Generating project")); err != nil {
+		return err
+	}
+
+	result, err := engine.Generate(e.cmd.Context(), engine.Request{
+		Registry:    e.registry,
+		Plan:        e.plan,
+		Target:      e.dir,
+		NoGit:       e.newOpts.noGit,
+		DryRun:      e.newOpts.dryRun,
+		KeepStaging: e.newOpts.keepStaging,
+		Progress: func(stage string) {
+			_, _ = fmt.Fprintln(e.opts.out, tui.Step(stage))
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	if result.DryRun {
+		return printDryRun(e.opts.out, result)
+	}
+
+	return printSuccess(e.opts.out, result, e.newOpts.noGit)
+}
+
+func collectSelection(
+	cmd *cobra.Command,
+	opts *options,
+	newOpts *newOptions,
+	registryResult *registry.Result,
+) (resolve.Selection, error) {
+	variables, err := parseVariables(newOpts.variables)
+	if err != nil {
+		return resolve.Selection{}, err
+	}
+
+	selection := resolve.Selection{
+		Kind:      newOpts.kind,
+		Stack:     newOpts.stack,
+		Name:      newOpts.name,
+		Features:  append([]string{}, newOpts.features...),
+		Variables: variables,
+	}
+
+	if isInteractive(cmd, newOpts) {
+		wizard := &tui.Wizard{
+			Manifest:    registryResult.Manifest,
+			RegistryDir: registryResult.Dir,
+			In:          cmd.InOrStdin(),
+			Out:         opts.out,
+			Result: tui.WizardResult{
+				Kind:      selection.Kind,
+				Stack:     selection.Stack,
+				Name:      selection.Name,
+				Features:  selection.Features,
+				Variables: selection.Variables,
+			},
+		}
+
+		if err := wizard.Run(cmd.Context()); err != nil {
+			if errors.Is(err, huh.ErrUserAborted) {
+				return resolve.Selection{}, errProjectAborted
+			}
+
+			return resolve.Selection{}, err
+		}
+
+		selection.Kind = wizard.Result.Kind
+		selection.Stack = wizard.Result.Stack
+		selection.Name = wizard.Result.Name
+		selection.Features = wizard.Result.Features
+		selection.Variables = wizard.Result.Variables
+	}
+
+	if strings.TrimSpace(selection.Kind) == "" {
+		return resolve.Selection{}, errors.New("kind is required (use --kind)")
+	}
+
+	if strings.TrimSpace(selection.Stack) == "" {
+		return resolve.Selection{}, errors.New("stack is required (use --stack)")
+	}
+
+	if strings.TrimSpace(selection.Name) == "" {
+		return resolve.Selection{}, errors.New("project name is required (use --name)")
+	}
+
+	return selection, nil
+}
+
+func parseVariables(values []string) (map[string]string, error) {
+	variables := make(map[string]string, len(values))
+
+	for _, raw := range values {
+		key, value, found := strings.Cut(raw, "=")
+
+		key = strings.TrimSpace(key)
+		if !found || key == "" {
+			return nil, fmt.Errorf("invalid --var %q: want key=value", raw)
+		}
+
+		if _, exists := variables[key]; exists {
+			return nil, fmt.Errorf("duplicate variable %q", key)
+		}
+
+		variables[key] = value
+	}
+
+	return variables, nil
+}
+
+func summaryLines(plan *resolve.Plan, dir, registryTag string) []string {
+	features := make([]string, 0, len(plan.Target.Overlays))
+	for _, overlay := range plan.Target.Overlays {
+		feature := overlay.FeatureID
+		if overlay.VariantID != "" {
+			feature += ":" + overlay.VariantID
+		}
+
+		features = append(features, feature)
+	}
+
+	featureSummary := "none"
+	if len(features) > 0 {
+		featureSummary = strings.Join(features, ", ")
+	}
+
+	return []string{
+		tui.Field("Name", plan.Name),
+		tui.Field("Kind", plan.Kind),
+		tui.Field("Stack", plan.Target.Stack.Name+" ("+plan.Target.Stack.ID+")"),
+		tui.Field("Features", featureSummary),
+		tui.Field("Target", dir),
+		tui.Field("Registry", registryTag),
+	}
+}
+
+func confirmGeneration(cmd *cobra.Command, opts *options) (bool, error) {
+	confirmed := true
+
+	form := huh.NewForm(huh.NewGroup(
+		huh.NewConfirm().
+			Title("Create this project?").
+			Value(&confirmed),
+	)).
+		WithTheme(huh.ThemeCharm()).
+		WithInput(cmd.InOrStdin()).
+		WithOutput(opts.out)
+
+	if err := form.RunWithContext(cmd.Context()); err != nil {
+		return false, fmt.Errorf("confirm generation: %w", err)
+	}
+
+	return confirmed, nil
+}
+
+func printDryRun(out io.Writer, result *engine.Result) error {
+	lines := []string{
+		tui.Field("Target", result.Target),
+		tui.Field("Files", strconv.Itoa(len(result.Files))),
+		tui.Field("Registry", result.Lock.Registry.Tag),
+		"",
+		tui.Muted("No files were written."),
+	}
+
+	_, err := fmt.Fprintln(out, tui.Box("Dry run complete", lines))
+
+	return err
+}
+
+func printSuccess(out io.Writer, result *engine.Result, noGit bool) error {
+	lines := []string{
+		tui.Field("Path", result.Target),
+		tui.Field("Files", strconv.Itoa(len(result.Files))),
+		tui.Field("Registry", result.Lock.Registry.Tag),
+	}
+	if !noGit {
+		lines = append(lines, tui.Field("Git", "initialized"))
+	}
+
+	lines = append(
+		lines,
+		"",
+		tui.Muted("Next steps:"),
+		"  cd "+result.Target,
+	)
+
+	_, err := fmt.Fprintln(out, tui.Box("Project created", lines))
+
+	return err
+}
+
+func isInteractive(cmd *cobra.Command, newOpts *newOptions) bool {
+	if newOpts.noInput {
+		return false
+	}
+
+	reader := cmd.InOrStdin()
+
+	file, ok := reader.(*os.File)
+	if !ok {
+		return false
+	}
+
+	//nolint:gosec // file descriptors fit in int on supported platforms.
+	return term.IsTerminal(int(file.Fd()))
+}

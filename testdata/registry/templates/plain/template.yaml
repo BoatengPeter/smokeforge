@@ -1,0 +1,8 @@
+id: test/plain
+variables:
+  - name: module_path
+    prompt: Go module path
+    default: example.com/service
+  - name: greeting
+    prompt: Greeting
+    default: hello

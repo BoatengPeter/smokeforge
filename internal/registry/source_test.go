@@ -80,3 +80,32 @@ func TestLoadLocalDirMissingManifest(t *testing.T) {
 		t.Fatalf("expected missing manifest error, got %v", err)
 	}
 }
+
+func TestLoadLocalDirUsesAbsolutePath(t *testing.T) {
+	t.Parallel()
+
+	dir := writeLocalRegistry(t)
+
+	workingDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	relative, err := filepath.Rel(workingDir, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := Load(t.Context(), Options{Source: relative})
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	if !filepath.IsAbs(res.Dir) {
+		t.Fatalf("dir = %q, want absolute path", res.Dir)
+	}
+
+	if res.Dir != dir {
+		t.Fatalf("dir = %q, want %q", res.Dir, dir)
+	}
+}

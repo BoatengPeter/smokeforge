@@ -13,6 +13,7 @@ jobs:
         with:
           go-version-file: go.mod
       - run: go test ./...
+      - run: go test -tags=integration ./...
       - uses: golangci/golangci-lint-action@v7
         with:
           version: v2.11.0

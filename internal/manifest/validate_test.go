@@ -27,20 +27,33 @@ func validManifest() *Manifest {
 				Name:  "Database",
 				Kinds: []string{"backend"},
 				Variants: []Variant{
-					{ID: "postgres", Name: "PostgreSQL", Default: true},
+					{
+						ID:       "postgres",
+						Name:     "PostgreSQL",
+						Default:  true,
+						Overlays: map[string]string{"go/chi": "overlays/go/database/postgres"},
+					},
 				},
 			},
 			{
-				ID:       "auth",
-				Name:     "Authentication",
-				Kinds:    []string{"backend"},
-				Variants: []Variant{{ID: "jwt", Name: "JWT", Default: true}},
+				ID:    "auth",
+				Name:  "Authentication",
+				Kinds: []string{"backend"},
+				Variants: []Variant{
+					{
+						ID:       "jwt",
+						Name:     "JWT",
+						Default:  true,
+						Overlays: map[string]string{"go/chi": "overlays/go/auth/jwt"},
+					},
+				},
 			},
 			{
 				ID:       "totp",
 				Name:     "TOTP",
 				Kinds:    []string{"backend"},
 				Requires: []string{"auth:jwt"},
+				Overlays: map[string]string{"go/chi": "overlays/go/totp"},
 			},
 		},
 	}
@@ -129,6 +142,11 @@ func TestValidateRejectsStructure(t *testing.T) {
 			want:   "template",
 		},
 		{
+			name:   "unsafe template path",
+			mutate: func(m *Manifest) { m.Stacks[0].Template = "../templates/go" },
+			want:   "template",
+		},
+		{
 			name:   "empty variables",
 			mutate: func(m *Manifest) { m.Stacks[0].Variables = []string{} },
 			want:   "variables",
@@ -160,6 +178,13 @@ func TestValidateRejectsStructure(t *testing.T) {
 			mutate: func(m *Manifest) { m.Features[0].Stacks = []string{"nope"} },
 			want:   "unknown stack",
 		},
+	})
+}
+
+func TestValidateRejectsVariantsAndOverlays(t *testing.T) {
+	t.Parallel()
+
+	runValidationCases(t, []validationCase{
 		{
 			name: "duplicate variant",
 			mutate: func(m *Manifest) {
@@ -172,10 +197,50 @@ func TestValidateRejectsStructure(t *testing.T) {
 			mutate: func(m *Manifest) {
 				m.Features[0].Variants = append(
 					m.Features[0].Variants,
-					Variant{ID: "sqlite", Name: "SQLite", Default: true},
+					Variant{
+						ID:       "sqlite",
+						Name:     "SQLite",
+						Default:  true,
+						Overlays: map[string]string{"go/chi": "overlays/go/database/sqlite"},
+					},
 				)
 			},
 			want: "default",
+		},
+		{
+			name: "missing feature overlays",
+			mutate: func(m *Manifest) {
+				m.Features[2].Overlays = nil
+			},
+			want: "overlay",
+		},
+		{
+			name: "missing variant overlays",
+			mutate: func(m *Manifest) {
+				m.Features[0].Variants[0].Overlays = nil
+			},
+			want: "overlay",
+		},
+		{
+			name: "unsafe overlay path",
+			mutate: func(m *Manifest) {
+				m.Features[2].Overlays = map[string]string{"go/chi": "../escape"}
+			},
+			want: "overlay",
+		},
+		{
+			name: "overlay unknown stack",
+			mutate: func(m *Manifest) {
+				m.Features[2].Overlays = map[string]string{"nope": "overlays/go/totp"}
+			},
+			want: "unknown stack",
+		},
+		{
+			name: "feature overlays with variants",
+			mutate: func(m *Manifest) {
+				m.Features[0].Overlays = map[string]string{"go/chi": "overlays/go/database"}
+			},
+			want: "variants",
 		},
 	})
 }

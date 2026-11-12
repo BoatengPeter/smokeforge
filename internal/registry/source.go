@@ -63,6 +63,13 @@ func isLocalSource(source string) bool {
 }
 
 func loadLocal(dir string) (*Result, error) {
+	absolute, err := filepath.Abs(dir)
+	if err != nil {
+		return nil, fmt.Errorf("resolve local registry %q: %w", dir, err)
+	}
+
+	dir = absolute
+
 	path := filepath.Join(dir, "manifest.yaml")
 
 	m, err := manifest.LoadFile(path)

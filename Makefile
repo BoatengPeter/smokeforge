@@ -6,6 +6,9 @@ build:
 test:
 	go test ./...
 
+test-integration:
+	go test -tags=integration ./...
+
 lint:
 	golangci-lint run ./...
 

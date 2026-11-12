@@ -23,3 +23,6 @@ features:
       - id: postgres
         name: PostgreSQL
         default: true
+        overlays:
+          go/chi: overlays/backend/go/database/postgres
+          rust/axum: overlays/backend/rust/database/postgres

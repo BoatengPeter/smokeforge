@@ -1,0 +1,20 @@
+id: logging/basic
+name: Basic logging
+files: files
+ops:
+  - addFiles:
+      - path: logger.go.tmpl
+        dest: internal/log/logger.go
+  - insertAfter:
+      file: main.go
+      anchor: imports
+      marker: logging:basic
+      content: '"os"'
+  - insertAfter:
+      file: main.go
+      anchor: after-print
+      marker: logging:basic-use
+      content: '_ = os.Args'
+  - env:
+      key: LOG_LEVEL
+      example: info

@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"path"
+	"path/filepath"
 	"slices"
 	"strings"
 )
@@ -81,8 +83,8 @@ func validateStack(stack Stack, kinds map[string]Kind, seen map[string]bool) err
 		return fmt.Errorf("stack %q: unknown kind %q", stack.ID, stack.Kind)
 	}
 
-	if strings.TrimSpace(stack.Template) == "" {
-		return fmt.Errorf("stack %q: template must not be empty", stack.ID)
+	if err := validateRegistryPath(stack.Template); err != nil {
+		return fmt.Errorf("stack %q: template path: %w", stack.ID, err)
 	}
 
 	if len(stack.Variables) == 0 {
@@ -116,14 +118,14 @@ func validateVariables(stack Stack) error {
 }
 
 func validateFeatures(features []Feature, kinds map[string]Kind, stacks []Stack) error {
-	stackIDs := make(map[string]bool, len(stacks))
+	stackByID := make(map[string]Stack, len(stacks))
 	for _, stack := range stacks {
-		stackIDs[stack.ID] = true
+		stackByID[stack.ID] = stack
 	}
 
 	seen := make(map[string]bool, len(features))
 	for _, feature := range features {
-		if err := validateFeature(feature, kinds, stackIDs, seen); err != nil {
+		if err := validateFeature(feature, kinds, stackByID, seen); err != nil {
 			return err
 		}
 
@@ -136,7 +138,7 @@ func validateFeatures(features []Feature, kinds map[string]Kind, stacks []Stack)
 func validateFeature(
 	feature Feature,
 	kinds map[string]Kind,
-	stackIDs map[string]bool,
+	stackByID map[string]Stack,
 	seen map[string]bool,
 ) error {
 	if strings.TrimSpace(feature.ID) == "" {
@@ -158,12 +160,16 @@ func validateFeature(
 	}
 
 	for _, stack := range feature.Stacks {
-		if !stackIDs[stack] {
+		if _, ok := stackByID[stack]; !ok {
 			return fmt.Errorf("feature %q: unknown stack %q", feature.ID, stack)
 		}
 	}
 
-	return validateVariants(feature)
+	if err := validateVariants(feature); err != nil {
+		return err
+	}
+
+	return validateFeatureOverlays(feature, stackByID)
 }
 
 func validateVariants(feature Feature) error {
@@ -239,4 +245,109 @@ func validateReference(source Feature, ref string, byID map[string]Feature) erro
 	}
 
 	return fmt.Errorf("feature %q: unknown variant %q on feature %q", source.ID, variant, id)
+}
+
+func validateFeatureOverlays(feature Feature, stackByID map[string]Stack) error {
+	supported := supportedStacks(feature, stackByID)
+	if len(supported) == 0 {
+		return fmt.Errorf("feature %q: no stacks match its kinds", feature.ID)
+	}
+
+	if len(feature.Variants) > 0 && len(feature.Overlays) > 0 {
+		return fmt.Errorf(
+			"feature %q: features with variants must not define overlays",
+			feature.ID,
+		)
+	}
+
+	if len(feature.Variants) == 0 {
+		if err := validateOverlaySet(feature.ID, "", feature.Overlays, supported, stackByID); err != nil {
+			return err
+		}
+	}
+
+	for _, variant := range feature.Variants {
+		if err := validateOverlaySet(
+			feature.ID,
+			variant.ID,
+			variant.Overlays,
+			supported,
+			stackByID,
+		); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func supportedStacks(feature Feature, stackByID map[string]Stack) map[string]bool {
+	supported := make(map[string]bool, len(feature.Stacks))
+	if len(feature.Stacks) > 0 {
+		for _, stackID := range feature.Stacks {
+			supported[stackID] = true
+		}
+
+		return supported
+	}
+
+	for stackID, stack := range stackByID {
+		if slices.Contains(feature.Kinds, stack.Kind) {
+			supported[stackID] = true
+		}
+	}
+
+	return supported
+}
+
+func validateOverlaySet(
+	featureID string,
+	variantID string,
+	overlays map[string]string,
+	supported map[string]bool,
+	stackByID map[string]Stack,
+) error {
+	label := featureID
+	if variantID != "" {
+		label = featureID + ":" + variantID
+	}
+
+	for _, stackID := range slices.Sorted(maps.Keys(overlays)) {
+		if _, known := stackByID[stackID]; !known {
+			return fmt.Errorf("feature %q: unknown stack %q", featureID, stackID)
+		}
+
+		if !supported[stackID] {
+			return fmt.Errorf("feature %q: overlay for unsupported stack %q", label, stackID)
+		}
+
+		if err := validateRegistryPath(overlays[stackID]); err != nil {
+			return fmt.Errorf("feature %q: overlay path: %w", label, err)
+		}
+	}
+
+	for _, stackID := range slices.Sorted(maps.Keys(supported)) {
+		if strings.TrimSpace(overlays[stackID]) == "" {
+			return fmt.Errorf("feature %q: overlay required for stack %q", label, stackID)
+		}
+	}
+
+	return nil
+}
+
+func validateRegistryPath(value string) error {
+	if strings.TrimSpace(value) == "" {
+		return errors.New("path must not be empty")
+	}
+
+	if strings.Contains(value, "\\") {
+		return fmt.Errorf("path %q must use forward slashes", value)
+	}
+
+	cleaned := path.Clean(value)
+	if cleaned != value || path.IsAbs(value) || !filepath.IsLocal(filepath.FromSlash(value)) {
+		return fmt.Errorf("path %q must be a safe relative path", value)
+	}
+
+	return nil
 }

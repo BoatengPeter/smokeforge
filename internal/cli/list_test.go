@@ -19,7 +19,10 @@ features:
     name: Database
     kinds: [backend]
     variants:
-      - {id: postgres, name: PostgreSQL}
+      - id: postgres
+        name: PostgreSQL
+        overlays:
+          go/chi: overlays/backend/go/database/postgres
 `
 
 func writeTestRegistry(t *testing.T) string {

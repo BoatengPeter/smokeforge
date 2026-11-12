@@ -39,20 +39,22 @@ type Stack struct {
 // Feature declares a composable capability, its variants, and its dependency
 // and conflict rules.
 type Feature struct {
-	ID        string    `yaml:"id"`
-	Name      string    `yaml:"name"`
-	Kinds     []string  `yaml:"kinds"`
-	Stacks    []string  `yaml:"stacks"`
-	Variants  []Variant `yaml:"variants"`
-	Requires  []string  `yaml:"requires"`
-	Conflicts []string  `yaml:"conflicts"`
+	ID        string            `yaml:"id"`
+	Name      string            `yaml:"name"`
+	Kinds     []string          `yaml:"kinds"`
+	Stacks    []string          `yaml:"stacks"`
+	Variants  []Variant         `yaml:"variants"`
+	Requires  []string          `yaml:"requires"`
+	Conflicts []string          `yaml:"conflicts"`
+	Overlays  map[string]string `yaml:"overlays"`
 }
 
 // Variant selects an implementation of a feature.
 type Variant struct {
-	ID      string `yaml:"id"`
-	Name    string `yaml:"name"`
-	Default bool   `yaml:"default"`
+	ID       string            `yaml:"id"`
+	Name     string            `yaml:"name"`
+	Default  bool              `yaml:"default"`
+	Overlays map[string]string `yaml:"overlays"`
 }
 
 // Parse decodes a single YAML manifest document and rejects unknown fields.

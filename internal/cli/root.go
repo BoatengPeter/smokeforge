@@ -35,7 +35,13 @@ func NewRootCmd(out, errOut io.Writer) *cobra.Command {
 	root.PersistentFlags().StringVar(&opts.cacheDir, "cache-dir", "", "registry cache directory")
 	root.PersistentFlags().BoolVar(&opts.offline, "offline", false, "use cached registry only")
 
-	root.AddCommand(newVersionCmd(out), newListCmd(opts), newRegistryCmd(opts), newDoctorCmd(opts))
+	root.AddCommand(
+		newNewCmd(opts),
+		newVersionCmd(out),
+		newListCmd(opts),
+		newRegistryCmd(opts),
+		newDoctorCmd(opts),
+	)
 
 	return root
 }

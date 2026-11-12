@@ -1,0 +1,21 @@
+schemaVersion: 1
+name: smokeforge-test-registry
+kinds:
+  backend:
+    max: 1
+stacks:
+  - id: test/plain
+    kind: backend
+    name: Plain Go service
+    template: templates/plain
+    variables: [module_path, greeting]
+features:
+  - id: logging
+    name: Logging
+    kinds: [backend]
+    variants:
+      - id: basic
+        name: Basic
+        default: true
+        overlays:
+          test/plain: overlays/logging/basic

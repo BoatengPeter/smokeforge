@@ -15,7 +15,7 @@ Docker, CI) as declarative overlays.
 - **Language:** Go 1.25+
 - **Template registry:** separate repo,
   `github.com/BoatengPeter/smokeforge-registry` (planned)
-- **Status:** Milestones 1, 2, and the M4 lifecycle are complete; M3 registry content is deferred.
+- **Status:** M1, M2, the M4 lifecycle, and M5 release engineering are complete; M3 registry content and publishing are pending.
 
 ## Read order (agents)
 
@@ -28,10 +28,10 @@ Docker, CI) as declarative overlays.
    [docs/registry/overlays.md](docs/registry/overlays.md) — registry contract.
 7. [docs/development/setup.md](docs/development/setup.md) and
    [docs/development/testing.md](docs/development/testing.md) — how to work here.
-8. [docs/development/roadmap.md](docs/development/roadmap.md) — what is next.
-9. Design record: [docs/superpowers/specs/2026-11-12-smokeforge-design.md](docs/superpowers/specs/2026-11-12-smokeforge-design.md).
-10. Active plan: [docs/superpowers/plans/2026-11-12-smokeforge-generation.md](docs/superpowers/plans/2026-11-12-smokeforge-generation.md).
-11. Foundation plan (complete): [docs/superpowers/plans/2026-11-12-smokeforge-foundation.md](docs/superpowers/plans/2026-11-12-smokeforge-foundation.md).
+8. [docs/development/release.md](docs/development/release.md) — versioning and publishing.
+9. [docs/development/roadmap.md](docs/development/roadmap.md) — what is next.
+10. Design record: [docs/superpowers/specs/2026-11-12-smokeforge-design.md](docs/superpowers/specs/2026-11-12-smokeforge-design.md).
+11. Plans: [release](docs/superpowers/plans/2026-11-12-smokeforge-release.md), [lifecycle](docs/superpowers/plans/2026-11-12-smokeforge-lifecycle.md), [generation](docs/superpowers/plans/2026-11-12-smokeforge-generation.md), [foundation](docs/superpowers/plans/2026-11-12-smokeforge-foundation.md).
 
 ## Project skills — use them
 
@@ -86,6 +86,7 @@ Full details: [architecture overview](docs/architecture/overview.md).
 | `list`, `registry`, `doctor` | Done |
 | `new`, resolver, renderer, patches, engine, state, wizard | Done (M2) |
 | `add`, `remove`, drift, backups, rollback, project doctor | Done (M4 lifecycle) |
+| Version metadata, goreleaser, release workflow, release docs | Done (M5 engineering) |
 | Registry templates/overlays | Deferred (M3) |
 | `install`, fullstack | Planned (M4 remainder) |
 | Release/distribution | Planned (M5) |
@@ -98,7 +99,9 @@ If the table and code disagree, the code wins — update the table.
 make build                    # bin/smokeforge
 make test                     # go test ./...
 make lint                     # golangci-lint run (v2.x, CI pins v2.11.0)
-make fmt                      # gofmt -w .
+make fmt                      # golangci-lint fmt ./...
+make release-check            # goreleaser check
+make release-snapshot         # dist/ archives for all platforms
 
 go run ./cmd/smokeforge version
 go run ./cmd/smokeforge list stacks --registry ./testdata/registry
@@ -116,6 +119,8 @@ go run ./cmd/smokeforge remove metrics --project-dir /tmp/demo
 
 ```text
 cmd/smokeforge/        main() only
+.goreleaser.yaml       cross-platform release build config
+.github/workflows/     CI and tag-triggered release workflow
 internal/cli/          Cobra commands, flags, output, exit codes
 internal/tui/          interactive wizard and Charm styling
 internal/manifest/     schema types, strict YAML load + Validate()
@@ -163,6 +168,7 @@ touches the network. `registry` depends on `manifest`.
 | Change generation flow | `internal/resolve`, `render`, `engine`, `project`; `docs/architecture/generation-engine.md` |
 | Add a stack or feature | Registry repo first; CLI changes only if a new capability is required |
 | Update the plan/roadmap | `docs/superpowers/plans/*`, `docs/development/roadmap.md` |
+| Change release behavior | `.goreleaser.yaml`, `.github/workflows/release.yml`, `internal/version`, `docs/development/release.md` |
 
 ## Coding conventions
 

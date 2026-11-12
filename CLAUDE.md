@@ -19,9 +19,10 @@ fullstack projects from a versioned remote template registry with composable
 feature overlays.
 
 Module: `github.com/BoatengPeter/smokeforge`
-Status: Milestones 1, 2, and the M4 lifecycle (add/remove, drift, backups) are
-complete. M3 registry content is deferred pending generated-app decisions. See
-[docs/development/roadmap.md](docs/development/roadmap.md).
+Status: M1, M2, the M4 lifecycle (add/remove, drift, backups), and M5 release
+engineering are complete. M3 registry content and actual publishing are pending.
+See [docs/development/roadmap.md](docs/development/roadmap.md) and
+[docs/development/release.md](docs/development/release.md).
 
 ## Non-negotiables
 
@@ -42,8 +43,11 @@ complete. M3 registry content is deferred pending generated-app decisions. See
 ```bash
 make build
 make test
+make test-integration
 make lint
 make fmt
+make release-check
+make release-snapshot
 go run ./cmd/smokeforge list stacks --registry ./testdata/registry
 ```
 
@@ -58,7 +62,8 @@ go run ./cmd/smokeforge list stacks --registry ./testdata/registry
 - `docs/architecture.md` — visual architecture with Mermaid diagrams.
 - `docs/architecture` — internals (overview, CLI, engine, state, fullstack).
 - `docs/registry` — manifest and overlay authoring contract.
-- `docs/development` — setup, testing, roadmap.
+- `docs/development` — setup, testing, release guide, roadmap.
+- `.goreleaser.yaml`, `.github/workflows/release.yml` — release builds.
 
 ## Before finishing a change
 

@@ -9,6 +9,7 @@
 | Go | 1.26+ | `go version` |
 | git | 2.30+ | Used by `smokeforge` and for development |
 | golangci-lint | v2.x (CI pins v2.11.0) | `golangci-lint version` |
+| goreleaser | v2.x (optional) | Release snapshots only |
 
 **Optional** — only needed when testing generated projects locally:
 
@@ -47,6 +48,8 @@ make test              # go test ./...
 make test-integration  # go test -tags=integration ./...
 make lint              # golangci-lint run ./...
 make fmt               # golangci-lint fmt ./...
+make release-check     # validate .goreleaser.yaml
+make release-snapshot  # build dist/ archives for all platforms
 ```
 
 Focused runs:

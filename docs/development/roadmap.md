@@ -1,6 +1,6 @@
 # Roadmap
 
-**Status:** M1, M2, and the M4 lifecycle are complete. M3 registry content is deferred until the pending generated-app decisions are made.
+**Status:** M1, M2, the M4 lifecycle, and M5 release engineering are complete. M3 registry content is deferred; publishing and v1.0.0 remain pending.
 
 ## Milestones
 
@@ -68,17 +68,19 @@ applies to every supported base and the result builds.
 drifted files block mutation; failures restore backups and leave state unchanged.
 Fullstack/install acceptance remains pending.
 
-### M5 — Release
+### M5 — Release _(engineering complete; publishing pending)_
 
-- [ ] goreleaser: Linux/macOS/Windows, amd64/arm64
-- [ ] `go install` instructions, Homebrew tap
-- [ ] Version metadata via ldflags
-- [ ] Registry `v1.0.0` tag + checksums
-- [ ] User docs for common workflows
+- [x] goreleaser: Linux/macOS/Windows, amd64/arm64
+- [x] Tag-triggered draft release workflow with checksums
+- [x] Version metadata via ldflags plus `go install` build-info fallback
+- [x] `go install`, prebuilt archive, and release documentation
+- [ ] Homebrew tap creation and publishing
+- [ ] Registry release assets (deferred with M3)
 - [ ] v1.0.0 release
 
-**Acceptance:** installable from two channels; a documented fullstack example
-works end-to-end from a clean machine.
+**Acceptance (prepared):** snapshot builds produce six archives and checksums;
+the version command reports injected commit/date. Actual publishing is pending a
+tag, release review, Homebrew tap, and the remaining v1 scope.
 
 ## v1 scope summary
 

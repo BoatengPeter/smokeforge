@@ -7,12 +7,12 @@ fullstack projects for clients. Pick a stack, compose the features you need
 (database, cache, queues, auth, TOTP, Docker, CI), and get a wired, buildable
 monorepo — reproducibly, from a pinned template registry.
 
-> **Status:** M2 generation and the M4 lifecycle are complete. `smokeforge new`
-> creates a single-target project atomically; `smokeforge add` and
-> `smokeforge remove` evolve it with drift detection, backups, and automatic
-> rollback. `version`, `list`, `registry info/update`, and project-aware
-> `doctor` are also available. M3 registry content is deferred; fullstack and
-> `install` remain planned. See the [roadmap](docs/development/roadmap.md).
+> **Status:** M1/M2 generation, the M4 lifecycle, and M5 release engineering are
+> complete. `smokeforge new`, `add`, and `remove` work for single-target
+> projects with drift detection, backups, and rollback. Cross-platform archives,
+> checksums, version metadata, and a draft release workflow are prepared.
+> Publishing and M3 registry content remain pending; fullstack and `install`
+> are planned. See the [roadmap](docs/development/roadmap.md).
 
 ---
 
@@ -75,6 +75,21 @@ queues, observability, third-party registries, and three-way template upgrades.
 ## Quick start
 
 Requires Go 1.26+ and `git`.
+
+### Install
+
+After the first tagged release:
+
+```bash
+go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.1.0
+smokeforge version
+```
+
+Prebuilt Linux, macOS, and Windows archives (`amd64`/`arm64`) with
+`checksums.txt` are attached to GitHub releases. A Homebrew tap is planned; see
+the [release guide](docs/development/release.md).
+
+From source:
 
 ```bash
 git clone https://github.com/BoatengPeter/smokeforge.git
@@ -293,8 +308,8 @@ docs/                  design, architecture, registry, and development docs
 4. **Registry content** — official stack templates and feature overlays.
    _(deferred pending generated-app decisions)_
 5. **Full matrix** — fullstack composition, `install`, client wiring.
-6. **Release** — registry contract tests, golden/e2e suites, goreleaser,
-   Homebrew, v1.0.0.
+6. **Release** — goreleaser, checksums, draft release workflow, install/release
+   docs. _(engineering complete; publishing pending)_
 
 Details and acceptance criteria: [roadmap](docs/development/roadmap.md).
 

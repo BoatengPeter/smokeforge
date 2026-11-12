@@ -16,6 +16,7 @@ New to the project? Read in this order:
 6. [Overlay and patch model](registry/overlays.md) — how features compose.
 7. [Project state](architecture/project-state.md) — lockfiles, hashes, recovery.
 8. [Testing](development/testing.md) — verification strategy.
+9. [Release guide](development/release.md) — versioning and publishing.
 
 ## Structure
 
@@ -35,6 +36,7 @@ docs/
   development/
     setup.md                       prerequisites, build, test, lint, conventions
     testing.md                     test pyramid, contract/golden/build matrix
+    release.md                     versioning, snapshot, tagging, Homebrew, registry
     roadmap.md                     milestones, scope, out-of-scope
   superpowers/
     specs/                         approved design records

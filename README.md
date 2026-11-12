@@ -7,9 +7,10 @@ fullstack projects for clients. Pick a stack, compose the features you need
 (database, cache, queues, auth, TOTP, Docker, CI), and get a wired, buildable
 monorepo — reproducibly, from a pinned template registry.
 
-> **Status:** foundation milestone in progress. The CLI entrypoint, version
-> command, and project/design documentation exist today. Manifest loading,
-> registry fetching/caching, and the generation engine are the next milestones.
+> **Status:** foundation milestone complete. The CLI provides `version`, `list`,
+> `registry info/update`, and `doctor`; registries load from local directories or
+> checksum-verified remote tarballs with an offline-capable cache. Project
+> generation (`new`, resolver, renderer, patch engine) is the next milestone.
 > See the [roadmap](docs/development/roadmap.md) for the exact state.
 
 ---
@@ -171,13 +172,14 @@ Read more in the [architecture docs](docs/architecture/overview.md).
 | `smokeforge add <feature>...` | Apply overlays to an existing project | Planned |
 | `smokeforge remove <feature>...` | Revert overlays safely | Planned |
 | `smokeforge install` | Install dependencies for recorded targets | Planned |
-| `smokeforge list [stacks\|features]` | Inspect registry contents | Implemented (local/remote registry loading lands with it) |
-| `smokeforge registry info` | Show registry source/tag/schema/counts | In progress |
-| `smokeforge registry update` | Refresh the local registry cache | In progress |
-| `smokeforge doctor` | Check environment and registry health | In progress |
+| `smokeforge list [stacks\|features]` | Inspect registry contents | Implemented |
+| `smokeforge registry info` | Show registry source/tag/schema/counts | Implemented |
+| `smokeforge registry update` | Refresh the local registry cache | Implemented |
+| `smokeforge doctor` | Check environment and registry health | Implemented |
 | `smokeforge version` | Print version information | Implemented |
 
-Global flags: `--registry <url|dir>`, `--tag <tag>`, `--offline`.
+Global flags: `--registry <url|dir>`, `--tag <tag>`, `--cache-dir <dir>`,
+`--offline`.
 
 See the [CLI reference](docs/architecture/cli.md) for wizard flows, flag
 parity, output conventions, and lifecycle semantics.
@@ -213,6 +215,7 @@ Registry layout, manifest fields, and validation rules are documented in
 - **Agent guides** — [AGENTS.md](AGENTS.md) (full mindmap) and
   [CLAUDE.md](CLAUDE.md) (quick operating guide)
 - **Architecture**
+  - [Visual architecture (Mermaid)](docs/architecture.md)
   - [System overview](docs/architecture/overview.md)
   - [CLI and lifecycle](docs/architecture/cli.md)
   - [Generation engine](docs/architecture/generation-engine.md)

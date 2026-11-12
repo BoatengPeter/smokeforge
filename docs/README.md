@@ -9,18 +9,20 @@ behavior from **planned** behavior where relevant.
 New to the project? Read in this order:
 
 1. [Root README](../README.md) — overview, supported stacks/features, quick start.
-2. [Architecture overview](architecture/overview.md) — components and data flow.
-3. [CLI and lifecycle](architecture/cli.md) — commands, wizard, project lifecycle.
-4. [Registry manifest](registry/manifest.md) — registry schema and validation.
-5. [Overlay and patch model](registry/overlays.md) — how features compose.
-6. [Project state](architecture/project-state.md) — lockfiles, hashes, recovery.
-7. [Testing](development/testing.md) — verification strategy.
+2. [Visual architecture](architecture.md) — Mermaid diagrams of the system, flows, and trust boundaries.
+3. [Architecture overview](architecture/overview.md) — components and data flow.
+4. [CLI and lifecycle](architecture/cli.md) — commands, wizard, project lifecycle.
+5. [Registry manifest](registry/manifest.md) — registry schema and validation.
+6. [Overlay and patch model](registry/overlays.md) — how features compose.
+7. [Project state](architecture/project-state.md) — lockfiles, hashes, recovery.
+8. [Testing](development/testing.md) — verification strategy.
 
 ## Structure
 
 ```text
 docs/
   README.md                        this index
+  architecture.md                  visual architecture with Mermaid diagrams
   architecture/
     overview.md                    components, boundaries, generation pipeline
     cli.md                         commands, wizard, flags, lifecycle commands

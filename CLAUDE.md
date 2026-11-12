@@ -1,8 +1,15 @@
 # CLAUDE.md
 
 This file is the quick operating guide for Claude-based agents. Read
-[AGENTS.md](AGENTS.md) for the complete mindmap and
+[AGENTS.md](AGENTS.md) for the complete mindmap,
+[docs/architecture.md](docs/architecture.md) for Mermaid diagrams, and
 [docs/README.md](docs/README.md) for the documentation index.
+
+Project-scoped Go skills live in `.claude/skills/` and `.agents/skills/`. Apply
+the relevant skill for every Go change: code style, testing, error handling,
+security, safety, context, naming, documentation, design patterns,
+structs/interfaces, performance, concurrency, lint, benchmark, troubleshooting,
+viper, and swagger.
 
 ## Project
 
@@ -47,6 +54,7 @@ go run ./cmd/smokeforge list stacks --registry ./testdata/registry
 - `internal/resolve|render|patch|engine|project|install` — planned generation
   pipeline; each has an owning doc under `docs/architecture/` or
   `docs/registry/`.
+- `docs/architecture.md` — visual architecture with Mermaid diagrams.
 - `docs/architecture` — internals (overview, CLI, engine, state, fullstack).
 - `docs/registry` — manifest and overlay authoring contract.
 - `docs/development` — setup, testing, roadmap.

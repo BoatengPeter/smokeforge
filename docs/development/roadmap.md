@@ -4,19 +4,19 @@
 
 ## Milestones
 
-### M1 — Foundation _(in progress)_
+### M1 — Foundation _(complete)_
 
 Deliver a working CLI that can load, validate, cache, and inspect a registry.
 
 - [x] Repository scaffold, module, Makefile, CI, docs
 - [x] Cobra entrypoint and `version` command
-- [ ] Manifest schema, strict loading, validation
-- [ ] Local registry source
-- [ ] Remote registry tarball: checksum verification, safe extraction, cache
-- [ ] `registry info`, `registry update`
-- [ ] `list stacks`, `list features`
-- [ ] `doctor`
-- [ ] Unit tests for all of the above; lint clean
+- [x] Manifest schema, strict loading, validation
+- [x] Local registry source
+- [x] Remote registry tarball: checksum verification, safe extraction, cache
+- [x] `registry info`, `registry update`
+- [x] `list stacks`, `list features`
+- [x] `doctor`
+- [x] Unit tests for all of the above; lint clean
 
 **Acceptance:** `smokeforge list stacks --registry <dir>` prints a validated
 manifest; a remote registry served by a test server is verified, cached, and

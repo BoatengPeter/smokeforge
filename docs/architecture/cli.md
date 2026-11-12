@@ -27,6 +27,7 @@ smokeforge
 | --- | --- | --- |
 | `--registry <url\|dir>` | built-in registry URL | Use a custom registry. A local directory is loaded directly. |
 | `--tag <tag>` | `latest` | Registry release tag. Validated before use. |
+| `--cache-dir <dir>` | user cache directory | Override the registry cache location. |
 | `--offline` | `false` | Forbid network; require cache. Fails clearly if missing. |
 | `--json` | `false` | Machine-readable output for supported commands. |
 | `--no-input` | `false` | Never prompt; missing required choices are errors. |

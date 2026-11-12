@@ -147,6 +147,7 @@ reported (and optionally retained with a debug flag) for inspection.
 
 ## Related documents
 
+- [Visual architecture with Mermaid diagrams](../architecture.md)
 - [CLI and lifecycle](cli.md)
 - [Generation engine](generation-engine.md)
 - [Project state](project-state.md)

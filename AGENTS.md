@@ -21,15 +21,34 @@ Docker, CI) as declarative overlays.
 
 1. This file.
 2. [docs/README.md](docs/README.md) — documentation index and status legend.
-3. [docs/architecture/overview.md](docs/architecture/overview.md) — components and invariants.
-4. [docs/architecture/cli.md](docs/architecture/cli.md) — command surface.
-5. [docs/registry/manifest.md](docs/registry/manifest.md) and
+3. [docs/architecture.md](docs/architecture.md) — visual architecture and Mermaid diagrams.
+4. [docs/architecture/overview.md](docs/architecture/overview.md) — components and invariants.
+5. [docs/architecture/cli.md](docs/architecture/cli.md) — command surface.
+6. [docs/registry/manifest.md](docs/registry/manifest.md) and
    [docs/registry/overlays.md](docs/registry/overlays.md) — registry contract.
-6. [docs/development/setup.md](docs/development/setup.md) and
+7. [docs/development/setup.md](docs/development/setup.md) and
    [docs/development/testing.md](docs/development/testing.md) — how to work here.
-7. [docs/development/roadmap.md](docs/development/roadmap.md) — what is next.
-8. Design record: [docs/superpowers/specs/2026-11-12-smokeforge-design.md](docs/superpowers/specs/2026-11-12-smokeforge-design.md).
-9. Active plan: [docs/superpowers/plans/2026-11-12-smokeforge-foundation.md](docs/superpowers/plans/2026-11-12-smokeforge-foundation.md).
+8. [docs/development/roadmap.md](docs/development/roadmap.md) — what is next.
+9. Design record: [docs/superpowers/specs/2026-11-12-smokeforge-design.md](docs/superpowers/specs/2026-11-12-smokeforge-design.md).
+10. Active plan: [docs/superpowers/plans/2026-11-12-smokeforge-foundation.md](docs/superpowers/plans/2026-11-12-smokeforge-foundation.md).
+
+## Project skills — use them
+
+Project-scoped Go skills are installed under `.agents/skills/` (OpenCode and
+AGENTS-compatible agents) and `.claude/skills/` (Claude Code). They are part of
+the repository; do not remove them. Apply the relevant skill whenever writing or
+reviewing Go code:
+
+`golang-code-style`, `golang-testing`, `golang-error-handling`,
+`golang-security`, `golang-safety`, `golang-context`, `golang-naming`,
+`golang-documentation`, `golang-design-patterns`, `golang-structs-interfaces`,
+`golang-performance`, `golang-concurrency`, `golang-lint`, `golang-benchmark`,
+`golang-troubleshooting`, `golang-spf13-viper`, `golang-swagger`.
+
+Baseline expectations derived from them: test-first, exported doc comments,
+wrapped lowercase errors, `errors.Is` sentinels, context first and propagated,
+no unchecked errors, path-traversal-safe I/O, bounded resources, `t.Parallel`
+for independent tests, named subtests, and `golangci-lint` clean.
 
 ## Non-negotiable architecture rules
 
@@ -61,9 +80,9 @@ Full details: [architecture overview](docs/architecture/overview.md).
 | --- | --- |
 | Repo scaffold, Makefile, CI, docs | Done |
 | CLI entrypoint + `version` | Done |
-| Manifest schema + validation | Next (plan Task 3-4) |
-| Registry local + remote/cache | Next (plan Task 5-6) |
-| `list`, `registry`, `doctor` | Next (plan Task 7-8) |
+| Manifest schema + validation | Done |
+| Registry local + remote/cache/checksum/extraction | Done |
+| `list`, `registry`, `doctor` | Done |
 | `new`, resolver, renderer, patches, engine | Planned (M2) |
 | Registry templates/overlays | Planned (M3) |
 | `add`/`remove`/`install`, fullstack | Planned (M4) |

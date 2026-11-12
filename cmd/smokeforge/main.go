@@ -1,3 +1,4 @@
+// Package main implements the smokeforge CLI entrypoint.
 package main
 
 import (

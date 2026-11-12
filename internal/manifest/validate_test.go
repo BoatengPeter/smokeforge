@@ -46,22 +46,50 @@ func validManifest() *Manifest {
 	}
 }
 
+type validationCase struct {
+	name   string
+	mutate func(*Manifest)
+	want   string
+}
+
+func runValidationCases(t *testing.T, cases []validationCase) {
+	t.Helper()
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			m := validManifest()
+			tt.mutate(m)
+
+			err := m.Validate()
+			if err == nil {
+				t.Fatal("expected error")
+			}
+
+			if !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("error %q does not contain %q", err, tt.want)
+			}
+		})
+	}
+}
+
 func TestValidateAcceptsValidManifest(t *testing.T) {
+	t.Parallel()
+
 	if err := validManifest().Validate(); err != nil {
 		t.Fatalf("validate: %v", err)
 	}
 }
 
-func TestValidateRejects(t *testing.T) {
-	tests := []struct {
-		name   string
-		mutate func(*Manifest)
-		want   string
-	}{
+func TestValidateRejectsStructure(t *testing.T) {
+	t.Parallel()
+
+	runValidationCases(t, []validationCase{
 		{
 			name:   "schema version",
 			mutate: func(m *Manifest) { m.SchemaVersion = 2 },
-			want:   "schemaVersion",
+			want:   "schema version",
 		},
 		{
 			name:   "empty name",
@@ -140,6 +168,23 @@ func TestValidateRejects(t *testing.T) {
 			want: "duplicate variant",
 		},
 		{
+			name: "two default variants",
+			mutate: func(m *Manifest) {
+				m.Features[0].Variants = append(
+					m.Features[0].Variants,
+					Variant{ID: "sqlite", Name: "SQLite", Default: true},
+				)
+			},
+			want: "default",
+		},
+	})
+}
+
+func TestValidateRejectsReferences(t *testing.T) {
+	t.Parallel()
+
+	runValidationCases(t, []validationCase{
+		{
 			name:   "unknown requirement",
 			mutate: func(m *Manifest) { m.Features[0].Requires = []string{"nope"} },
 			want:   "unknown feature",
@@ -159,30 +204,5 @@ func TestValidateRejects(t *testing.T) {
 			mutate: func(m *Manifest) { m.Features[0].Conflicts = []string{"nope"} },
 			want:   "unknown feature",
 		},
-		{
-			name: "two default variants",
-			mutate: func(m *Manifest) {
-				m.Features[0].Variants = append(
-					m.Features[0].Variants,
-					Variant{ID: "sqlite", Name: "SQLite", Default: true},
-				)
-			},
-			want: "default",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := validManifest()
-			tt.mutate(m)
-
-			err := m.Validate()
-			if err == nil {
-				t.Fatal("expected error")
-			}
-			if !strings.Contains(err.Error(), tt.want) {
-				t.Fatalf("error %q does not contain %q", err, tt.want)
-			}
-		})
-	}
+	})
 }

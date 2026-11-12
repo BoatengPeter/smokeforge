@@ -1,3 +1,5 @@
+// Package manifest defines the smokeforge template registry schema and its
+// validation rules.
 package manifest
 
 import (
@@ -10,6 +12,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Manifest describes a template registry: its stack catalog, feature catalog,
+// and per-kind selection limits.
 type Manifest struct {
 	SchemaVersion int             `yaml:"schemaVersion"`
 	Name          string          `yaml:"name"`
@@ -18,10 +22,12 @@ type Manifest struct {
 	Features      []Feature       `yaml:"features"`
 }
 
+// Kind declares how many targets of a kind a project may select.
 type Kind struct {
 	Max int `yaml:"max"`
 }
 
+// Stack identifies a base template and the variables it requires.
 type Stack struct {
 	ID        string   `yaml:"id"`
 	Kind      string   `yaml:"kind"`
@@ -30,6 +36,8 @@ type Stack struct {
 	Variables []string `yaml:"variables"`
 }
 
+// Feature declares a composable capability, its variants, and its dependency
+// and conflict rules.
 type Feature struct {
 	ID        string    `yaml:"id"`
 	Name      string    `yaml:"name"`
@@ -40,12 +48,14 @@ type Feature struct {
 	Conflicts []string  `yaml:"conflicts"`
 }
 
+// Variant selects an implementation of a feature.
 type Variant struct {
 	ID      string `yaml:"id"`
 	Name    string `yaml:"name"`
 	Default bool   `yaml:"default"`
 }
 
+// Parse decodes a single YAML manifest document and rejects unknown fields.
 func Parse(data []byte) (*Manifest, error) {
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	dec.KnownFields(true)
@@ -56,6 +66,7 @@ func Parse(data []byte) (*Manifest, error) {
 	}
 
 	var extra any
+
 	err := dec.Decode(&extra)
 	switch {
 	case err == nil:
@@ -67,10 +78,13 @@ func Parse(data []byte) (*Manifest, error) {
 	}
 }
 
+// LoadFile reads and parses a manifest from path.
 func LoadFile(path string) (*Manifest, error) {
+	//nolint:gosec // path is chosen by the CLI or resolved from a verified cache entry.
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read manifest %q: %w", path, err)
 	}
+
 	return Parse(data)
 }

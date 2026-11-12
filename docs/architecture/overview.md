@@ -60,8 +60,8 @@ filesystem side effects.
 | `internal/resolve` | Validate selections; build ordered generation plan | Implemented |
 | `internal/render` | Strict template rendering, variables, generated secrets | Implemented |
 | `internal/patch` | Anchor operations, config patches, dependency adapters | Implemented |
-| `internal/engine` | Preflight, staging, apply, atomic commit | Implemented |
-| `internal/project` | `.smokeforge.json`, lockfile, hashes | Implemented |
+| `internal/engine` | Preflight, staging, atomic commit, mutation transactions | Implemented |
+| `internal/project` | `.smokeforge.json`, lockfile, hashes, drift, backups | Implemented |
 | `internal/install` | Per-stack, idempotent dependency installation | Planned |
 | `internal/version` | Build-time version metadata | Implemented |
 

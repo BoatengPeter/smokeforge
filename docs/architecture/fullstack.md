@@ -103,7 +103,8 @@ introduces a new target. Planned behavior for v1.1:
 4. Apply root updates (compose, CI, env docs).
 5. Record the new target in state.
 
-v1 supports adding only feature overlays to existing targets.
+M4 lifecycle supports adding and removing feature overlays on single-target
+projects only. Adding client targets and multi-target mutation remain planned.
 
 ## Validation
 

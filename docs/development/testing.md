@@ -1,9 +1,10 @@
 # Testing strategy
 
-**Status:** M1 and M2 tests are implemented: manifest/registry unit tests,
-renderer/patch/resolver/project/engine tests, CLI flag tests, and a
-`integration`-tagged generate-and-build test. Registry contract tests and the
-native multi-language build matrix arrive with M3.
+**Status:** M1, M2, and M4 lifecycle tests are implemented: manifest/registry
+unit tests, renderer/patch/resolver/project/engine tests, drift/backup/rollback
+tests, CLI flag/lifecycle tests, and an `integration`-tagged
+generate/add/remove/build test. Registry contract tests and the native
+multi-language build matrix arrive with M3.
 
 ## Principles
 

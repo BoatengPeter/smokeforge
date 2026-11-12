@@ -64,6 +64,8 @@ During development, point the CLI at a local directory instead of the network:
 
 ```bash
 go run ./cmd/smokeforge list stacks --registry ./testdata/registry
+go run ./cmd/smokeforge add metrics --project-dir /tmp/demo
+go run ./cmd/smokeforge remove metrics --project-dir /tmp/demo
 ```
 
 A local registry is any directory containing a valid `manifest.yaml`. Create

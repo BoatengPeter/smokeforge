@@ -1,7 +1,7 @@
 # Overlay and patch model
 
-**Status:** implemented for project creation. Removal reversal, drift checks, and
-`add`/`remove` are planned for M4.
+**Status:** implemented for creation and reversible removal. `add`/`remove`,
+drift checks, backups, and rollback are available for single-target projects.
 
 ## Why overlays
 
@@ -238,11 +238,22 @@ and `.smokeforge/` are added to `.gitignore`.
 - Template directories reject symlinks and non-regular files.
 - Registry archives reject traversal, links, devices, and oversized entries.
 
-## Removal and mutation (planned)
+## Removal and mutation
 
-`smokeforge remove` will excise marked blocks and reverse supported operations
-when the affected content is unchanged. M2 records per-file hashes and markers in
-`.smokeforge.json` so M4 can implement drift detection and reversal safely.
+`smokeforge remove` excises marked blocks and deletes overlay-added files when
+the project has not drifted from its recorded hashes. Environment keys tracked in
+`.smokeforge.json` are removed from `.env` and `.env.example`.
+
+Automatic removal is limited to:
+
+- `addFiles`
+- `insertBefore` / `insertAfter`
+- `env`
+
+Overlays containing `patchJSON`, `patchYAML`, `patchTOML`, or `addDependency` are
+refused with a manual-removal message because their inverse operations are not
+recorded yet. Removal runs in reverse application order inside a backup-protected
+transaction.
 
 ## Authoring checklist
 

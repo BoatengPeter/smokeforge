@@ -359,5 +359,6 @@ Full testing details: [testing strategy](development/testing.md).
 | Local and remote registry loading, checksums, cache, safe extraction | Implemented |
 | Resolver, renderer, patch engine, staging, state/lock, wizard | Implemented (M2) |
 | Base templates and feature overlays | Planned (M3) |
-| Add/remove/install, fullstack composition | Planned (M4) |
+| Add/remove lifecycle, drift, backups, rollback | Implemented (M4 lifecycle) |
+| Install, fullstack composition | Planned (M4 remainder) |
 | Release pipeline | Planned (M5) |

@@ -54,5 +54,8 @@ docs/
 
 The authoritative decisions, including rejected alternatives, live in
 [specs/2026-11-12-smokeforge-design.md](superpowers/specs/2026-11-12-smokeforge-design.md).
-Implementation sequencing lives in
-[plans/2026-11-12-smokeforge-foundation.md](superpowers/plans/2026-11-12-smokeforge-foundation.md).
+Implementation sequencing lives in:
+
+- [Foundation plan](superpowers/plans/2026-11-12-smokeforge-foundation.md)
+- [Generation plan](superpowers/plans/2026-11-12-smokeforge-generation.md)
+- [Lifecycle plan](superpowers/plans/2026-11-12-smokeforge-lifecycle.md)

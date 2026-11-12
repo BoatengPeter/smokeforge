@@ -1,7 +1,7 @@
 # Project state and recovery
 
-**Status:** implemented for creation. Drift detection, backups, and `add`/
-`remove` transactions are planned for M4.
+**Status:** implemented for creation and mutation (`add`/`remove`). Drift
+detection and backup/restore are enforced for lifecycle commands.
 
 ## Files written into a generated project
 
@@ -60,9 +60,11 @@ rather than guessing.
       "registryTag": "v1.0.0",
       "files": {
         "internal/cache/redis.go": "sha256:6b1f...",
-        "internal/app/app.go": "sha256:91ab..."
+        "internal/app/app.go": "sha256:91ab...",
+        ".env.example": "sha256:48cd..."
       },
-      "markers": ["cache:redis"]
+      "markers": ["cache:redis"],
+      "env": ["REDIS_URL"]
     }
   ]
 }
@@ -72,8 +74,11 @@ Notes:
 
 - `commit` and `archiveSHA256` are currently empty for remote/local registries;
   populated remote archive digests arrive with a later registry metadata change.
-- `files` records hashes after generation for every file the overlay touched.
+- `files` records hashes after generation for every file the overlay touched,
+  including `.env.example` when the overlay contributes env keys. `.env` is not
+  hashed because it contains local secrets.
 - `markers` lists the begin/end marker names inserted, enabling exact removal.
+- `env` lists environment keys contributed by the overlay.
 - `rootFeatures` target the repository root rather than a specific app.
 
 ## `.smokeforge.lock.json`
@@ -103,7 +108,7 @@ against the exact registry content the project was created from.
 
 ## Drift detection
 
-Before `add` or `remove` mutates anything:
+Before `add` or `remove` mutates anything (implemented):
 
 1. Load state and lock.
 2. For every file the operation would touch, compare the current SHA-256 with
@@ -111,11 +116,10 @@ Before `add` or `remove` mutates anything:
 3. Classify: unchanged, modified, deleted, or newly created at an overlapping
    path.
 4. If drift exists:
-   - show a per-file summary;
-   - interactive: ask for confirmation (default: abort);
-   - `--no-input`: refuse unless `--force`;
-   - `remove`: refuse to delete a modified overlay-added file at all.
-5. `doctor` performs the same comparison read-only and reports drift.
+   - `add`: refuse and report the paths; `--force` proceeds and preserves edits;
+   - `remove`: always refuse;
+   - `doctor`: reports drift read-only and fails.
+5. `.env` is intentionally excluded from drift because it holds local secrets.
 
 Hashes are recorded for generated content only; files created by the user in
 generated directories are not managed.
@@ -124,25 +128,24 @@ generated directories are not managed.
 
 ```text
 add/remove
-  1. resolve overlay(s) against locked registry
-  2. validate ops against current files (anchors, patch paths)
-  3. snapshot impacted files -> .smokeforge/backups/<timestamp>/
-  4. apply atomic per-file writes + structured patches
-  5. verify results (re-parse patched files, confirm markers)
+  1. resolve overlay(s) against the locked registry
+  2. refuse on drift (add: --force may override)
+  3. snapshot impacted files + state/lock -> .smokeforge/backups/<timestamp>/
+  4. apply or revert overlays; update env files
+  5. rehash every tracked file for all applied overlays
   6. update .smokeforge.json + .smokeforge.lock.json
-  7. delete snapshot on success (keep on failure / --keep-backups)
+  7. discard snapshot on success
 ```
 
-Recovery guarantees:
+Recovery guarantees (implemented):
 
-- Failure before step 4: nothing changed.
-- Failure during step 4/5: snapshot restored automatically; state untouched.
-- Failure writing state: files are restored; rerunning is safe and idempotent.
-- Process crash: the timestamped backup remains; `doctor` detects a stale
-  transaction marker and reports the restore command.
-
-A transaction marker (`.smokeforge/transaction.json`) is written before mutation
-and removed after state commits, so interrupted runs are detectable.
+- Failure before step 3: nothing changed.
+- Failure during steps 4-6: snapshot restored automatically; state untouched.
+- A failed restore returns both errors and reports the retained backup path.
+- Backups of files that did not exist at snapshot time cause restore to delete
+  any partially created file.
+- A process crash mid-mutation can leave a timestamped backup; automatic crash
+  recovery markers are not implemented yet.
 
 ## `.env` generation
 

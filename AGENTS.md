@@ -15,7 +15,7 @@ Docker, CI) as declarative overlays.
 - **Language:** Go 1.25+
 - **Template registry:** separate repo,
   `github.com/BoatengPeter/smokeforge-registry` (planned)
-- **Status:** Milestones 1 (foundation) and 2 (single-target generation) complete.
+- **Status:** Milestones 1, 2, and the M4 lifecycle are complete; M3 registry content is deferred.
 
 ## Read order (agents)
 
@@ -85,8 +85,9 @@ Full details: [architecture overview](docs/architecture/overview.md).
 | Registry local + remote/cache/checksum/extraction | Done |
 | `list`, `registry`, `doctor` | Done |
 | `new`, resolver, renderer, patches, engine, state, wizard | Done (M2) |
-| Registry templates/overlays | Planned (M3) |
-| `add`/`remove`/`install`, fullstack | Planned (M4) |
+| `add`, `remove`, drift, backups, rollback, project doctor | Done (M4 lifecycle) |
+| Registry templates/overlays | Deferred (M3) |
+| `install`, fullstack | Planned (M4 remainder) |
 | Release/distribution | Planned (M5) |
 
 If the table and code disagree, the code wins — update the table.
@@ -107,6 +108,8 @@ go run ./cmd/smokeforge new /tmp/demo --registry ./testdata/registry \
 go test ./internal/cli/ -run TestVersionCommand -v
 go test ./... -race
 go test -tags=integration ./...
+go run ./cmd/smokeforge add metrics --project-dir /tmp/demo
+go run ./cmd/smokeforge remove metrics --project-dir /tmp/demo
 ```
 
 ## Repository map
@@ -120,8 +123,8 @@ internal/registry/     source dispatch, local dirs, HTTP tarball, cache
 internal/resolve/      selection -> ordered generation plan
 internal/render/       strict text/template rendering
 internal/patch/        anchors, markers, JSON/YAML/TOML, deps, env
-internal/engine/       staging, apply, env, git init, atomic commit
-internal/project/      state, lockfile, hashes
+internal/engine/       staging, apply, add/remove, backups, atomic commit
+internal/project/      state, lockfile, hashes, drift, backups
 internal/install/      per-stack install adapters (planned)
 internal/version/      build metadata
 docs/architecture/     system design and engine internals
@@ -153,6 +156,7 @@ touches the network. `registry` depends on `manifest`.
 | --- | --- |
 | Add/modify a CLI command | `internal/cli/<cmd>.go`, `internal/cli/root.go`, tests |
 | Change generation flow | `internal/engine`, `internal/resolve`, `internal/render`, `internal/patch`, `internal/project`; update Mermaid docs |
+| Change lifecycle behavior | `internal/engine/lifecycle.go`, `internal/project` (drift/backup), `internal/cli/add.go`, `remove.go`; update lifecycle docs |
 | Add a manifest field/rule | `internal/manifest/manifest.go`, `validate.go`, tests, `docs/registry/manifest.md` |
 | Change registry fetching/cache | `internal/registry/*`, tests with `httptest` |
 | Add a patch operation | `internal/patch/*`, `docs/registry/overlays.md`, contract fixtures |

@@ -1,23 +1,24 @@
 # CLI and lifecycle
 
-**Status:** `new`, `version`, `list`, `registry info/update`, and `doctor` are
-implemented. `add`, `remove`, `install`, `registry pin`, fullstack generation,
-and `--json` output are planned.
+**Status:** `new`, `add`, `remove`, `version`, `list`, `registry info/update`,
+and `doctor` are implemented for single-target projects. `install`,
+`registry pin`, fullstack generation, mutation dry-runs, and `--json` output are
+planned.
 
 ## Command tree
 
 ```text
 smokeforge
 ├── new [dir]                 scaffold a project (implemented)
-├── add <feature>...          apply overlays later (planned)
-├── remove <feature>...       revert overlays (planned)
+├── add <feature>...          add reversible overlays (implemented)
+├── remove <feature>...       revert reversible overlays (implemented)
 ├── install                   install target dependencies (planned)
 ├── list [stacks|features]    inspect registry contents (implemented)
 ├── registry
 │   ├── info                  show source, tag, schema, counts (implemented)
 │   ├── update                refresh the cached registry (implemented)
 │   └── pin <tag>             pin a registry tag (planned)
-├── doctor                    check environment and registry health (implemented)
+├── doctor                    check environment, registry, project drift (implemented)
 └── version                   print version information (implemented)
 ```
 
@@ -91,36 +92,44 @@ Fullstack flags (`--clients`, `--backend`) and `--json` are planned.
 are errors. Missing values in `--no-input` mode are errors, never silently
 defaulted; a declared non-empty default satisfies the variable.
 
-## `smokeforge add` (planned)
+## `smokeforge add`
 
 ```text
-smokeforge add <feature[:variant]>... [--dry-run] [--yes]
+smokeforge add <feature[:variant]>... [--project-dir <dir>] [--force]
 ```
 
-- Must run inside a generated project (locates `.smokeforge.json` upward).
-- Resolves overlays against the project's locked registry version by default.
-  `--registry-tag <tag>` opts into a newer registry explicitly.
-- Applies only the requested overlays to their recorded targets.
-- Compares every touched file's current SHA-256 against the hash recorded after
-  generation. Drifted files are never silently overwritten: the command shows a
-  summary and asks for confirmation; `--force` overrides, `--no-input` refuses.
-- Prompts for any new variables the overlay needs.
-- Updates `.smokeforge.json` and the lockfile only after successful commit.
+- Locates the project by walking up from `--project-dir` (default `.`) to
+  `.smokeforge.json`.
+- Loads the registry from the project's recorded source and locked tag; pass
+  `--registry` to override the source for development.
+- Resolves the combined feature selection and applies only the requested new
+  overlays in dependency order.
+- Refuses when any tracked file drifted from its recorded SHA-256. `--force`
+  overrides this for adds; the user's edits are preserved.
+- Backs up every impacted file plus state/lockfiles, applies the overlays,
+  updates env files, rehashes tracked files, and writes state/lock.
+- On any failure, restores the backup and leaves state unchanged.
+- Prints a boxed summary with the added overlays and resulting feature list.
 
-## `smokeforge remove` (planned)
+## `smokeforge remove`
 
 ```text
-smokeforge remove <feature[:variant]>... [--dry-run] [--yes]
+smokeforge remove <feature[:variant]>... [--project-dir <dir>]
 ```
 
-Removal is conservative and reversible:
-
-- Deletes files added by the overlay only if their hashes still match.
-- Excises inserted blocks using `smokeforge:begin/end` markers.
-- Reverses structured patches only when the affected entries are unchanged.
-- Refuses non-removable overlays (region replacements) with an explanation and
-  a manual-removal hint.
-- Restores backups automatically if any step fails.
+- Locates the project and locked registry like `add`.
+- Rejects features that are not applied and selections that would break
+  `requires` relationships.
+- Refuses when tracked files drifted. Removal is always strict; there is no
+  force flag.
+- Automatically reverses only:
+  - files added by overlays (deleted),
+  - marked insertion blocks (excised),
+  - env keys contributed by the overlay (removed from `.env` and `.env.example`).
+- Refuses overlays containing `patchJSON`, `patchYAML`, `patchTOML`, or
+  `addDependency` with a manual-removal message.
+- Backs up all impacted files, removes in reverse application order, rehashes
+  remaining overlays, updates state/lock, and restores on failure.
 
 ## `smokeforge install` (planned)
 
@@ -165,10 +174,10 @@ Checks, in order:
 
 1. Registry load/validation (cache or network, per flags).
 2. Cache directory writability.
-3. `git` availability (warning only, since `--no-git` exists).
-4. Project state integrity when run inside a generated project: schema version,
-   recorded targets exist, hashes match (reports drift without changing files).
-5. Toolchains for recorded targets (informational; never fails the command).
+3. `git` availability.
+4. When run inside a generated project: state/lock validity and drift against
+   recorded hashes. Drift is reported with the affected paths and fails the
+   command. Toolchain checks are planned.
 
 Exit code is non-zero only if a fatal check fails.
 

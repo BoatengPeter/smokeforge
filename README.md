@@ -7,12 +7,12 @@ fullstack projects for clients. Pick a stack, compose the features you need
 (database, cache, queues, auth, TOTP, Docker, CI), and get a wired, buildable
 monorepo — reproducibly, from a pinned template registry.
 
-> **Status:** M2 (single-target generation) is complete. `smokeforge new` resolves
-> a stack and features, renders a base template plus overlays into a staging
-> directory, writes project state/lockfiles and `.env`, and commits atomically.
-> `version`, `list`, `registry info/update`, and `doctor` are also available.
-> Fullstack composition, `add`/`remove`, and `install` are the next milestones.
-> See the [roadmap](docs/development/roadmap.md) for the exact state.
+> **Status:** M2 generation and the M4 lifecycle are complete. `smokeforge new`
+> creates a single-target project atomically; `smokeforge add` and
+> `smokeforge remove` evolve it with drift detection, backups, and automatic
+> rollback. `version`, `list`, `registry info/update`, and project-aware
+> `doctor` are also available. M3 registry content is deferred; fullstack and
+> `install` remain planned. See the [roadmap](docs/development/roadmap.md).
 
 ---
 
@@ -103,7 +103,17 @@ smokeforge new ./acme \
 
 cd acme
 go build ./...
+
+# Evolve the project later
+smokeforge add metrics --project-dir ./acme
+smokeforge remove metrics --project-dir ./acme
 ```
+
+Lifecycle commands locate `.smokeforge.json`, resolve overlays against the
+locked registry, refuse drifted files (add supports `--force`), and restore a
+snapshot automatically if a mutation fails. Removal is limited to overlays made
+of added files, marked insertions, and env entries; overlays with structured
+config or dependency patches are refused with a manual-removal message.
 
 M2 project layout:
 
@@ -169,13 +179,13 @@ Read more in the [architecture docs](docs/architecture/overview.md).
 | Command | Purpose | Status |
 | --- | --- | --- |
 | `smokeforge new [dir]` | Scaffold a project (wizard or flags) | Implemented |
-| `smokeforge add <feature>...` | Apply overlays to an existing project | Planned |
-| `smokeforge remove <feature>...` | Revert overlays safely | Planned |
+| `smokeforge add <feature>...` | Apply overlays to an existing project | Implemented |
+| `smokeforge remove <feature>...` | Revert reversible overlays safely | Implemented |
 | `smokeforge install` | Install dependencies for recorded targets | Planned |
 | `smokeforge list [stacks\|features]` | Inspect registry contents | Implemented |
 | `smokeforge registry info` | Show registry source/tag/schema/counts | Implemented |
 | `smokeforge registry update` | Refresh the local registry cache | Implemented |
-| `smokeforge doctor` | Check environment and registry health | Implemented |
+| `smokeforge doctor` | Check environment, registry, and project drift | Implemented |
 | `smokeforge version` | Print version information | Implemented |
 
 Global flags: `--registry <url|dir>`, `--tag <tag>`, `--cache-dir <dir>`,
@@ -231,6 +241,8 @@ Registry layout, manifest fields, and validation rules are documented in
 - **Design records**
   - [Design spec](docs/superpowers/specs/2026-11-12-smokeforge-design.md)
   - [Foundation plan](docs/superpowers/plans/2026-11-12-smokeforge-foundation.md)
+  - [Generation plan](docs/superpowers/plans/2026-11-12-smokeforge-generation.md)
+  - [Lifecycle plan](docs/superpowers/plans/2026-11-12-smokeforge-lifecycle.md)
 
 ---
 
@@ -276,10 +288,12 @@ docs/                  design, architecture, registry, and development docs
    fetch/cache/verify, `list`/`registry`/`doctor`. _(complete)_
 2. **Single-target generation** — resolver, renderer, patch engine, staging,
    state/lock, `new` wizard and flags. _(complete)_
-3. **Registry content and lifecycle** — official stack templates, feature
-   overlays, then `add`/`remove`/`install`.
-4. **Full matrix** — all bases, fullstack composition, `install`, `doctor`.
-5. **Release** — registry contract tests, golden/e2e suites, goreleaser,
+3. **Lifecycle** — `add`/`remove`, drift detection, backups, automatic
+   rollback, project-aware `doctor`. _(complete)_
+4. **Registry content** — official stack templates and feature overlays.
+   _(deferred pending generated-app decisions)_
+5. **Full matrix** — fullstack composition, `install`, client wiring.
+6. **Release** — registry contract tests, golden/e2e suites, goreleaser,
    Homebrew, v1.0.0.
 
 Details and acceptance criteria: [roadmap](docs/development/roadmap.md).

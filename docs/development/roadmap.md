@@ -1,6 +1,6 @@
 # Roadmap
 
-**Status:** Milestones 1 and 2 are complete. Registry content (M3) is next and is blocked on the pending generated-app decisions.
+**Status:** M1, M2, and the M4 lifecycle are complete. M3 registry content is deferred until the pending generated-app decisions are made.
 
 ## Milestones
 
@@ -35,7 +35,10 @@ usable offline.
 **Acceptance met:** a single-target project is generated atomically with state,
 lockfile, `.env`, optional git initialization, and a buildable Go fixture.
 
-### M3 — Registry content and overlays
+### M3 — Registry content and overlays _(deferred)_
+
+Deferred by decision on 2026-11-12; work continues on unblocked milestones and
+returns here after generated-app internals are agreed.
 
 - [ ] Registry repo governance, layout, release process
 - [ ] Base templates: `go/chi`, `rust/axum`, `python/fastapi`, `next`,
@@ -48,11 +51,12 @@ lockfile, `.env`, optional git initialization, and a buildable Go fixture.
 **Acceptance:** every declared stack builds standalone; every feature overlay
 applies to every supported base and the result builds.
 
-### M4 — Lifecycle and fullstack
+### M4 — Lifecycle and fullstack _(lifecycle complete)_
 
-- [ ] `add` / `remove` with drift detection, backups, automatic rollback
+- [x] `add` / `remove` with drift detection, backups, automatic rollback
+- [x] `doctor` project-state drift checks
 - [ ] `install` per-stack idempotent setup
-- [ ] `doctor` project-state and toolchain checks
+- [ ] Toolchain checks in `doctor`
 - [ ] `workspace/fullstack` root base
 - [ ] Multi-target monorepo generation (`apps/api`, `apps/web`, `apps/ios`,
       `apps/android`, `apps/desktop`)
@@ -60,8 +64,9 @@ applies to every supported base and the result builds.
 - [ ] Root compose/CI aggregation
 - [ ] End-to-end matrix for representative fullstack combos
 
-**Acceptance:** generate, add, remove, and install a fullstack project; all
-targets build; interrupted mutations recover automatically.
+**Acceptance (lifecycle):** generate, add, and remove reversible features;
+drifted files block mutation; failures restore backups and leave state unchanged.
+Fullstack/install acceptance remains pending.
 
 ### M5 — Release
 

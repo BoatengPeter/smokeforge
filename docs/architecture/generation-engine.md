@@ -1,7 +1,8 @@
 # Generation engine
 
-**Status:** implemented for single-target creation (M2). Mutation
-(`add`/`remove`), drift enforcement, and fullstack targets are planned for M4.
+**Status:** implemented for single-target creation (M2) and lifecycle mutation
+(`add`/`remove`, drift, backups, rollback). Fullstack targets are planned for
+M4 remainder.
 
 ## Responsibilities
 
@@ -138,9 +139,11 @@ parent/
 - On failure: remove staging (or retain it with `--keep-staging`) and return an
   error. The target path is never partially written.
 
-`add`/`remove` will use the same transactional model: validate the full set,
-snapshot impacted files, apply and verify, then update state last. That lifecycle
-is planned for M4.
+`add`/`remove` use the same transactional model: validate the full set, refuse
+on drift, snapshot impacted files plus state/lock, apply or revert, rehash every
+tracked file, then write state last. Any failure restores the snapshot. Removal
+automatically supports added files, marked insertions, and env keys; structured
+config and dependency patches are refused.
 
 ## `--dry-run`
 

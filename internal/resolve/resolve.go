@@ -305,6 +305,14 @@ func requestedFeatures(m *manifest.Manifest, sel Selection) ([]string, error) {
 		return nil, fmt.Errorf("unknown preset %q", sel.Preset)
 	}
 
+	if !preset.AppliesToKind(sel.Kind) {
+		return nil, fmt.Errorf(
+			"preset %q does not support kind %q",
+			sel.Preset,
+			sel.Kind,
+		)
+	}
+
 	features := make([]string, 0, len(preset.Features)+len(sel.Features))
 	features = append(features, preset.Features...)
 	features = append(features, sel.Features...)

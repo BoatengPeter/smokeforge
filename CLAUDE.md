@@ -24,8 +24,9 @@ feature overlays.
 
 Module: `github.com/BoatengPeter/smokeforge`
 Status: M1, M2, the M4 lifecycle (add/remove, drift, backups), and M5 release
-engineering are complete. M3 is in progress, starting with the Next.js template;
-publishing remains pending. See [STACKS.md](STACKS.md),
+engineering are complete. M3 has the Next.js template and the Go/Gin backend
+(four architectures, database/auth/TOTP/Docker/CI overlays); mobile and desktop
+remain pending. See [STACKS.md](STACKS.md),
 [docs/development/roadmap.md](docs/development/roadmap.md), and
 [docs/development/release.md](docs/development/release.md).
 
@@ -85,10 +86,9 @@ go run ./cmd/smokeforge list stacks --registry ./testdata/registry
 
 ## Scope
 
-Generated-app internals (HTTP frameworks, UI approaches, ORMs, Redis/queue
-clients, auth libraries, migration tools) are **not decided** — do not choose or
-implement them. Stack IDs are provisional. Work on CLI/registry infrastructure
-only until those decisions are discussed and recorded.
+Go/Gin backend internals are decided and implemented. Rust, Python, mobile, and
+desktop internals remain undecided; do not choose those without an approved
+design.
 
 Do not add SSE, search, storage, MySQL/SQLite, Redis Streams, observability,
 third-party registries, or template upgrades without an approved design. Stop

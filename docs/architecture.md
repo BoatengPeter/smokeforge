@@ -144,7 +144,7 @@ rename into place.
 
 ```mermaid
 flowchart LR
-    base["Base template\ngo/chi, rust, python,\nnext, swiftui, compose,\ngpui, egui"] --> render["Strict render\nvariables + secrets"]
+    base["Base template\ngo/gin-layered, rust, python,\nnext, swiftui, compose,\ngpui, egui"] --> render["Strict render\nvariables + secrets"]
     render --> anchors["Anchored file tree\nsmokeforge:anchor imports\nsmokeforge:anchor routes"]
 
     subgraph overlays["Feature overlays (dependency ordered)"]

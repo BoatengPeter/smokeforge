@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 
 	"gopkg.in/yaml.v3"
 )
@@ -28,14 +29,25 @@ type Preset struct {
 	ID          string   `yaml:"id"`
 	Name        string   `yaml:"name"`
 	Description string   `yaml:"description"`
+	Kinds       []string `yaml:"kinds"`
 	Default     bool     `yaml:"default"`
 	Features    []string `yaml:"features"`
 }
 
-// DefaultPreset returns the preset marked as default, if any.
-func (m *Manifest) DefaultPreset() *Preset {
+// AppliesToKind reports whether the preset is available for kind. A preset
+// without kinds applies to every kind.
+func (p Preset) AppliesToKind(kind string) bool {
+	if len(p.Kinds) == 0 {
+		return true
+	}
+
+	return slices.Contains(p.Kinds, kind)
+}
+
+// DefaultPresetForKind returns the default preset for kind, if any.
+func (m *Manifest) DefaultPresetForKind(kind string) *Preset {
 	for index := range m.Presets {
-		if m.Presets[index].Default {
+		if m.Presets[index].Default && m.Presets[index].AppliesToKind(kind) {
 			return &m.Presets[index]
 		}
 	}

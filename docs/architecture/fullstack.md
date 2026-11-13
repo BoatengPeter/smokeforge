@@ -9,7 +9,7 @@ The registry manifest declares per-kind selection limits:
 
 | Kind | Max in a project | Examples |
 | --- | --- | --- |
-| `backend` | 1 | `go/chi`, `rust/axum`, `python/fastapi` |
+| `backend` | 1 | `go/gin-layered`, `rust/axum`, `python/fastapi` |
 | `frontend` | 1 | `next` |
 | `mobile` | 2 | `ios/swiftui` + `android/compose` |
 | `desktop` | 1 | `desktop/gpui` **or** `desktop/egui` |

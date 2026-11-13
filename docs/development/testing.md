@@ -72,7 +72,7 @@ Generated projects must actually build/test. Representative matrix:
 
 | Target | Commands |
 | --- | --- |
-| Go | `go build ./...`, `go test ./...` |
+| Go/Gin | `go build ./...`, `go test ./...`, `golangci-lint run ./...` |
 | Rust backends/desktop | `cargo check`, `cargo test` (GPUI/EGUI use `cargo check`) |
 | Python | `uv sync`, `pytest` |
 | Next.js | install, `npm run build`, `npm run lint` |

@@ -55,7 +55,8 @@ prompts, and `NO_COLOR=1` disables color.
 2. **Stack** — filtered to the chosen kind; one stack for M2.
 3. **Name** — the display name; `project_slug` is derived from it.
 4. **Preset** — when the registry declares presets, choose a starting bundle.
-   The default preset is preselected.
+   Presets may declare kinds; the default preset for the selected kind is
+   preselected.
 5. **Features** — filtered by the chosen stack, prefilled from the preset.
    Variant features appear as `feature — variant`; boolean features appear by
    name. Required companions are added automatically.
@@ -86,8 +87,9 @@ staging for debugging). Fullstack flags (`--clients`, `--backend`) and `--json`
 are planned.
 
 With `--no-input`, an empty feature selection uses the registry's default
-preset. Explicit features are merged with an explicit preset, and requirements
-are resolved transitively.
+preset for the selected kind. Explicit features are merged with an explicit
+preset, and requirements are resolved transitively. Selecting a preset outside
+its declared kinds is an error.
 
 ### Variable precedence
 

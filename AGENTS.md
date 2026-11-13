@@ -15,7 +15,7 @@ Docker, CI) as declarative overlays.
 - **Language:** Go 1.26.11+
 - **Template registry:** separate repo,
   `github.com/BoatengPeter/smokeforge-registry` (planned)
-- **Status:** M1, M2, the M4 lifecycle, and M5 release engineering are complete. M3 is in progress, starting with the Next.js template; publishing is pending.
+- **Status:** M1, M2, the M4 lifecycle, and M5 release engineering are complete. M3 has the Next.js template and the Go/Gin backend (four architectures, database/auth/TOTP/Docker/CI overlays); mobile and desktop remain pending.
 
 ## Read order (agents)
 
@@ -93,7 +93,7 @@ Full details: [architecture overview](docs/architecture/overview.md).
 | `add`, `remove`, drift, backups, rollback, project doctor | Done (M4 lifecycle) |
 | Version metadata, goreleaser, release workflow, release docs | Done (M5 engineering) |
 | Cross-platform CI matrix, cross-build, govulncheck, security policy | Done |
-| Registry templates/overlays | In progress (M3, Next first) |
+| Registry templates/overlays | Next.js and Go/Gin implemented; other stacks pending |
 | `install`, fullstack | Planned (M4 remainder) |
 | Release/distribution | Planned (M5) |
 
@@ -205,12 +205,10 @@ touches the network. `registry` depends on `manifest`.
 
 ## Scope discipline
 
-**Generated-app internals are not decided.** Do not choose or implement
-frameworks, libraries, ORMs, clients, migration tools, or project layouts for
-the apps smokeforge generates. Backend HTTP frameworks, mobile UI approaches,
-desktop framework selection (GPUI vs EGUI), and feature library choices are
-pending discussion with the operator. Stack IDs are provisional. Work only on
-CLI/registry infrastructure until those decisions are recorded.
+The Go/Gin backend internals are decided and implemented: four architectures,
+Gin, spec-first OpenAPI, Zap, pgx/sqlc/goose, JWT auth, and TOTP. Rust, Python,
+mobile, and desktop frameworks, ORMs, clients, migration tools, and layouts
+remain undecided. Do not choose those without an approved design.
 
 In v1: Go/Rust/Python backends, Next.js, SwiftUI, Compose, GPUI/EGUI, Postgres,
 Redis cache, RabbitMQ, JWT + TOTP, Docker, GitHub Actions, local/remote registry,

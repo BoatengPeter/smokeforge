@@ -520,6 +520,26 @@ func TestResolvePresetFeatures(t *testing.T) {
 	}
 }
 
+func TestResolvePresetKindMismatch(t *testing.T) {
+	t.Parallel()
+
+	registryDir, m := variantRegistry(t)
+	m.Presets = []manifest.Preset{
+		{ID: "web", Name: "Web", Kinds: []string{"frontend"}, Features: []string{"auth"}},
+	}
+
+	_, err := Resolve(m, registryDir, Selection{
+		Name:      "Go App",
+		Kind:      "backend",
+		Stack:     "go/chi",
+		Preset:    "web",
+		Variables: map[string]string{"module_path": "example.com/app"},
+	})
+	if err == nil || !strings.Contains(err.Error(), "does not support kind") {
+		t.Fatalf("error = %v, want kind mismatch", err)
+	}
+}
+
 func TestResolveUnknownPreset(t *testing.T) {
 	t.Parallel()
 

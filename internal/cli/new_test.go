@@ -391,3 +391,19 @@ func mustReadFile(t *testing.T, path string) []byte {
 
 	return data
 }
+
+func TestWithDefaultPresetUsesKind(t *testing.T) {
+	t.Parallel()
+
+	m := &manifest.Manifest{
+		Presets: []manifest.Preset{
+			{ID: "web", Default: true, Kinds: []string{"frontend"}},
+			{ID: "api", Default: true, Kinds: []string{"backend"}},
+		},
+	}
+
+	selection := withDefaultPreset(resolve.Selection{Kind: "backend"}, m)
+	if selection.Preset != "api" {
+		t.Fatalf("preset = %q, want api", selection.Preset)
+	}
+}

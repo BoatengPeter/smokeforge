@@ -1,8 +1,8 @@
 # smokeforge stack catalog
 
-The stacks, versions, and defaults smokeforge targets. M3 is in progress; the
-Next.js slice is implemented first. Items marked **deferred** are not yet shipped
-and require the decisions noted.
+The stacks, versions, and defaults smokeforge targets. Next.js and the Go/Gin
+backend are implemented; Rust, Python, mobile, and desktop remain provisional.
+Items marked **deferred** are not yet shipped and require the decisions noted.
 
 ## Status legend
 
@@ -109,23 +109,100 @@ They are scoped to the generated frontend app, not the smokeforge CLI repo.
 | `totp` | Deferred | Better Auth TOTP plugin later |
 | `analytics:posthog` | Implemented | Client-only, consent-first |
 | `docker` | Implemented | Non-root multi-stage, package-manager aware |
-| `ci:github` | Implemented | GitHub Actions; requires `testing:e2e` |
+| `ci:github` | Implemented | GitHub Actions; E2E steps run only when Playwright exists |
 | `cache:redis` | Deferred | After deployment/DB flow is proven |
 | `queue` | Deferred | Next worker model unsupported in this pass |
 
-## Backend options — provisional
+## Backend — Go/Gin
 
-Language/platform choices are recorded, but HTTP frameworks, ORMs, clients, and
-migration tools still require discussion.
+**Status:** implemented; all four architecture bases and the PostgreSQL, JWT,
+TOTP, Docker, and CI overlays are wired.
+
+| Component | Version | Notes |
+| --- | --- | --- |
+| Go | 1.26.11 | Same toolchain baseline as the CLI |
+| Gin | 1.12.0 | HTTP router and middleware |
+| OpenAPI | `oapi-codegen` 2.5.0 | Spec-first generated Gin server interfaces |
+| Swagger UI | `swaggest/swgui` 1.8.9 | Embedded UI served at `/docs` |
+| Validation | `go-playground/validator` 10.30.6 | Request boundary validation |
+| Config | `caarlos0/env` 11.4.2 | Typed env config; local `godotenv` |
+| Logging | Zap 1.28.0 | Structured JSON/console logs |
+| Rate limiting | `golang.org/x/time` 0.16.0 | Bounded per-IP token buckets |
+| UUID | `google/uuid` 1.6.0 | UUIDv7 identifiers |
+| Postgres | 17 | Optional database overlay |
+| pgx | 5.13.0 | Connection pool and SQL driver |
+| sqlc | 1.31.1 | Compile-checked queries |
+| goose | 3.30.1 | Embedded migrations |
+| JWT | `golang-jwt/jwt/v5` 5.3.1 | HS256 access and MFA tokens |
+| Passwords | `x/crypto` 0.59.0 | Argon2id |
+| TOTP | `pquerna/otp` 1.5.0 | Enrollment, verification, recovery codes |
+| Dev reload | Air 1.67.4 | `make dev` |
+| Lint/security | golangci-lint 2.11.0, govulncheck | `make ci` and `make vulncheck` |
+| Deployment | Docker | Multi-stage, non-root Alpine runtime |
+
+### Architecture choices
+
+Choose one stack ID at generation time:
+
+| Stack ID | Use it for |
+| --- | --- |
+| `go/gin-flat` | Small services and prototypes; one application package |
+| `go/gin-layered` | General-purpose API; transport → app → service seams |
+| `go/gin-hexagonal` | Boundary-heavy services; domain, ports, adapters |
+| `go/gin-ddd` | Complex domains; bounded context with domain/application layers |
+
+All four share the same scaffold contract: `cmd/api`, `internal/httpapi`,
+configuration anchors, feature-owned packages, and one overlay family.
+
+### Defaults
+
+- Presets: `api` (default; Postgres + JWT), `api-minimal`, `api-production`
+  (Postgres + JWT + TOTP + Docker + CI).
+- Base API: `/healthz`, `/readyz`, `/api/v1/ping`, Swagger UI, merged OpenAPI,
+  RFC 9457 errors, request IDs, recovery, body limits, CORS, rate limiting, and
+  graceful shutdown.
+- Database: explicit goose migrations through `cmd/migrate`; the API never
+  migrates on startup.
+- Auth: email/password, HS256 access tokens, rotating hashed refresh sessions,
+  Google OAuth via Gothic, email verification/reset, and optional TOTP.
+- Database workflow: goose migrations embedded in a migrator binary, `sqlc.yaml`
+  at the project root, and an opt-in deterministic seed command.
+- Skills: all 17 Go skills plus `sql-optimization-patterns` and
+  `postgresql-optimization` are installed under `.agents/skills` and
+  `.claude/skills`, with `skills-lock.json`, `AGENTS.md`, `CLAUDE.md`, and
+  `CONTEXT.md`.
+
+### Project-scoped Go skills
+
+Every generated Go app receives:
+
+- `golang-code-style`, `golang-testing`, `golang-error-handling`,
+  `golang-security`, `golang-safety`, `golang-context`, `golang-naming`,
+  `golang-documentation`, `golang-design-patterns`,
+  `golang-structs-interfaces`, `golang-performance`, `golang-concurrency`,
+  `golang-lint`, `golang-benchmark`, `golang-troubleshooting`,
+  `golang-spf13-viper`, and `golang-swagger`.
+
+### Overlays
+
+| Overlay | Status | Notes |
+| --- | --- | --- |
+| `database:postgres` | Implemented | pgx pool, embedded goose migrator, readiness |
+| `auth:jwt` | Implemented | Users, HS256, rotating refresh, Google OAuth, SMTP/local email |
+| `totp` | Implemented | Enrollment, recovery codes, second-factor login |
+| `docker` | Implemented | Multi-stage, non-root, health check |
+| `ci:github` | Implemented | Format, vet, lint, tests, race, build, govulncheck |
+| `cache:redis` | Deferred | Next Go slice |
+| `queue:rabbitmq` | Deferred | Worker overlay next |
+| Observability | Deferred | OTel, Prometheus, Sentry, pprof overlay next |
+| Scheduler/admin CLI | Deferred | Runtime scenarios reserved by the scaffold contract |
+
+## Backend options — provisional
 
 | Stack ID (provisional) | Language | Framework | Status |
 | --- | --- | --- | --- |
-| `go/chi` | Go | chi candidate | Provisional |
 | `rust/axum` | Rust | axum candidate | Provisional |
 | `python/fastapi` | Python | FastAPI candidate | Provisional |
-
-Database, cache, queue, auth, and TOTP implementation packages for these stacks
-remain undecided.
 
 ## Mobile — provisional
 
@@ -145,9 +222,9 @@ remain undecided.
 
 | Area | Default | Status |
 | --- | --- | --- |
-| Containers | Docker, multi-stage, non-root | In progress for Next |
-| CI | GitHub Actions | In progress for Next |
-| Database | Postgres 17 | In progress for Next |
+| Containers | Docker, multi-stage, non-root | Implemented for Next and Go |
+| CI | GitHub Actions | Implemented for Next and Go |
+| Database | Postgres 17 | Implemented for Next and Go |
 | Cache | Redis | Deferred for Next |
 | Queue | RabbitMQ (backend stacks) | Deferred for Next |
 | Storage/search | MinIO/imgproxy/nginx, R2, Meilisearch/Elasticsearch | Deferred |

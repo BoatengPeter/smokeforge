@@ -4,6 +4,21 @@ All notable changes to smokeforge are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 semantic versioning with pre-1.0 releases using `v0.x.y`.
 
+## [0.1.1] - 2026-11-13
+
+### Added
+
+- Kind-scoped presets with one default preset per project kind.
+- Go/Gin backend presets in the `new` help and wizard: `api`, `api-minimal`,
+  and `api-production`.
+- Tests for kind-scoped preset selection and preset/kind mismatch errors.
+
+### Changed
+
+- Preset validation now rejects unknown kinds and duplicate defaults per kind.
+- The wizard filters presets to the selected kind.
+- Documentation and stack catalog now cover the Go/Gin backend templates.
+
 ## [Unreleased]
 
 ### Added

@@ -9,7 +9,7 @@ smokeforge-registry/
 ├── manifest.yaml
 ├── templates/
 │   ├── backend/
-│   │   ├── go/chi/
+│   │   ├── go/gin-layered/
 │   │   ├── rust/axum/
 │   │   └── python/fastapi/
 │   ├── frontend/next/
@@ -65,10 +65,10 @@ kinds:
   mobile:   {max: 2}
   desktop:  {max: 1}
 stacks:
-  - id: go/chi
+  - id: go/gin-layered
     kind: backend
     name: Go (chi)
-    template: templates/backend/go/chi
+    template: templates/backend/go/gin-layered
     variables: [module_path, port]
   - id: rust/axum
     kind: backend
@@ -118,13 +118,13 @@ features:
   - id: database
     name: Database
     kinds: [backend]
-    stacks: [go/chi, rust/axum]
+    stacks: [go/gin-layered, rust/axum]
     variants:
       - id: postgres
         name: PostgreSQL
         default: true
         overlays:
-          go/chi: overlays/backend/go/database/postgres
+          go/gin-layered: overlays/backend/go/database/postgres
           rust/axum: overlays/backend/rust/database/postgres
   - id: auth
     name: Authentication
@@ -134,30 +134,31 @@ features:
         name: JWT
         default: true
         overlays:
-          go/chi: overlays/backend/go/auth/jwt
+          go/gin-layered: overlays/backend/go/auth/jwt
           rust/axum: overlays/backend/rust/auth/jwt
   - id: totp
     name: TOTP two-factor authentication
     kinds: [backend]
     requires: [auth:jwt]
     overlays:
-      go/chi: overlays/backend/go/totp
+      go/gin-layered: overlays/backend/go/totp
       rust/axum: overlays/backend/rust/totp
   - id: docker
     name: Docker and dev compose
     kinds: [backend, frontend]
     overlays:
-      go/chi: overlays/shared/docker/go
+      go/gin-layered: overlays/shared/docker/go
       rust/axum: overlays/shared/docker/rust
       next: overlays/shared/docker/next
   - id: ci
     name: CI pipeline
+    kinds: [backend, frontend]
     variants:
       - id: github
         name: GitHub Actions
         default: true
         overlays:
-          go/chi: overlays/shared/ci/github/go
+          go/gin-layered: overlays/shared/ci/github/go
           rust/axum: overlays/shared/ci/github/rust
           next: overlays/shared/ci/github/next
 ```
@@ -173,7 +174,7 @@ features:
 | `kinds` | map[string]Kind | Non-empty; keys are kind names. |
 | `stacks` | []Stack | Non-empty; IDs unique. |
 | `features` | []Feature | IDs unique. |
-| `presets` | []Preset | IDs unique; at most one default. Optional. |
+| `presets` | []Preset | IDs unique; at most one default per kind. Optional. |
 
 ### Preset
 
@@ -182,12 +183,14 @@ features:
 | `id` | string | Unique; referenced by `--preset`. |
 | `name` | string | Human-readable label. |
 | `description` | string | Optional label shown in the wizard. |
-| `default` | bool | At most one default across all presets. |
+| `kinds` | []string | Kinds this preset applies to. Empty applies to every kind. |
+| `default` | bool | At most one default per kind applies. An empty `kinds` list makes the preset a default candidate for every kind. |
 | `features` | []string | `feature` or `feature:variant`; entries unique by feature. Empty is valid. |
 
 Presets are starting selections, not a fourth overlay layer. Explicit
 `--feature` values are merged after the preset, and required companions are
-still resolved transitively.
+still resolved transitively. The CLI chooses the default preset for the
+selected kind.
 
 ### Kind
 
@@ -244,7 +247,7 @@ Loading is strict: unknown YAML fields are rejected (`KnownFields(true)`), and
 2. Non-empty `name`, `kinds`, and `stacks`.
 3. Unique stack IDs; stack kinds exist; templates and variables non-empty.
 4. Unique feature IDs; `kinds`/`stacks` references exist.
-5. Unique variant IDs per feature; at most one default.
+5. Unique variant IDs per feature; at most one default variant.
 6. `requires`/`conflicts` reference declared features; self-references rejected.
 7. Variant references in `requires`/`conflicts` must exist on the target
    feature (resolved during selection).
@@ -256,7 +259,8 @@ Loading is strict: unknown YAML fields are rejected (`KnownFields(true)`), and
     clean, relative, forward-slash paths that cannot escape the registry.
 11. Features with variants must not define feature-level overlays; each variant
     must cover every supported stack.
-12. Preset IDs are unique; names are non-empty; at most one preset is default.
+12. Preset IDs are unique; names are non-empty; preset kinds reference declared
+    kinds; at most one default preset applies per kind.
 13. Preset feature references use `feature[:variant]` syntax, reference declared
     features/variants, and do not duplicate a feature.
 
@@ -267,7 +271,7 @@ Validation failures are fatal before any resolution or generation work.
 Each base template carries `template.yaml` and a `files/` tree:
 
 ```text
-templates/backend/go/chi/
+templates/backend/go/gin-layered/
 ├── template.yaml
 └── files/
     ├── go.mod.tmpl
@@ -278,7 +282,7 @@ templates/backend/go/chi/
 `template.yaml` declares identity and variables:
 
 ```yaml
-id: go/chi
+id: go/gin-layered
 variables:
   - name: module_path
     prompt: Go module path

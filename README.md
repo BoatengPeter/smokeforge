@@ -9,10 +9,10 @@ fullstack projects for clients. Pick a stack, compose the features you need
 (database, auth, client state, analytics, Docker, CI), and get a wired,
 buildable project — reproducibly, from a pinned template registry.
 
-> **Status:** v0.1.0 is published. CLI generation, lifecycle, and release engineering are complete.
-> The Next.js template and fullstack presets are implemented. Backend, mobile,
-> and desktop templates remain provisional. `smokeforge install` and Homebrew
-> are not available yet. See the [stack catalog](STACKS.md) and
+> **Status:** v0.1.1 is published. CLI generation, lifecycle, and release engineering are complete.
+> The Next.js template, Go/Gin backend (four architectures), and their presets
+> and overlays are implemented. Mobile and desktop templates remain provisional.
+> `smokeforge install` and Homebrew are not available yet. See the [stack catalog](STACKS.md) and
 > [roadmap](docs/development/roadmap.md).
 
 ---
@@ -154,7 +154,7 @@ same template data. For local registry development, pass `--registry <dir>`.
 If you have Go 1.26.11+:
 
 ```bash
-go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.1.0
+go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.1.1
 smokeforge version
 ```
 
@@ -178,13 +178,20 @@ Presets are starting points. Required companions are added automatically.
 | `frontend` | A polished frontend or landing page | Next.js, shadcn/ui, SEO, API helpers, Jest |
 | `fullstack` | A SaaS or app with accounts | Frontend + Postgres + Better Auth + Zustand |
 | `production` | A deployable fullstack app | Fullstack + Docker + GitHub Actions + E2E + PostHog |
+| `api` | A Go API with persistence and accounts | Go + Postgres + JWT auth |
+| `api-minimal` | A Go API without database or auth | Go base only |
+| `api-production` | A deployable Go API | Go + Postgres + JWT + TOTP + Docker + CI |
 
-Default: `fullstack`.
+Defaults are kind-scoped: `fullstack` for frontend, `api` for backend.
 
 ```bash
 smokeforge new my-frontend --preset frontend
 smokeforge new my-saas --preset fullstack
 smokeforge new my-production-app --preset production
+
+# Go API: choose an architecture and start from the backend preset
+smokeforge new my-api --kind backend --stack go/gin-layered --preset api
+smokeforge new my-api-prod --kind backend --stack go/gin-hexagonal --preset api-production
 ```
 
 Select individual features instead:
@@ -324,7 +331,8 @@ Restart your shell after installing completion.
 | Kind | Stack ID | Status |
 | --- | --- | --- |
 | Frontend | `next` | Implemented |
-| Backend | `go/chi`, `rust/axum`, `python/fastapi` | Provisional |
+| Backend | `go/gin-flat`, `go/gin-layered`, `go/gin-hexagonal`, `go/gin-ddd` | Implemented |
+| Backend | `rust/axum`, `python/fastapi` | Provisional |
 | Mobile | `ios/swiftui`, `android/compose` | Provisional |
 | Desktop | `desktop/gpui`, `desktop/egui` | Provisional |
 | Workspace | `workspace/fullstack` | Provisional |
@@ -340,9 +348,9 @@ Restart your shell after installing completion.
 | `analytics` | `posthog` | Implemented; opt-in |
 | `docker` | — | Implemented |
 | `ci` | `github` | Implemented; requires E2E |
-| `cache` | `redis` | Backend only, provisional |
-| `queue` | `rabbitmq` | Backend only, provisional |
-| `totp` | — | Deferred |
+| `cache` | `redis` | Backend only, deferred |
+| `queue` | `rabbitmq` | Backend only, deferred |
+| `totp` | — | Implemented for Go (`auth:jwt` required) |
 
 ## Requirements and troubleshooting
 
@@ -614,7 +622,7 @@ docs/                  design, architecture, registry, and development docs
    Next.js base, fullstack presets, overlays, and project-scoped skills. _(Next.js implemented; other stacks provisional)_
 5. **Full matrix** — fullstack composition, `install`, client wiring.
 6. **Release** — goreleaser, checksums, release workflow, and install docs.
-   _(v0.1.0 published)_
+   _(v0.1.1 published)_
 
 Details and acceptance criteria: [roadmap](docs/development/roadmap.md).
 

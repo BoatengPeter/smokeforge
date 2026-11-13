@@ -10,9 +10,58 @@ func TestDefaultPreset(t *testing.T) {
 
 	m := validManifest()
 
-	p := m.DefaultPreset()
+	p := m.DefaultPresetForKind("backend")
 	if p == nil || p.ID != "fullstack" {
 		t.Fatalf("default preset = %+v, want fullstack", p)
+	}
+}
+
+func TestDefaultPresetForKind(t *testing.T) {
+	t.Parallel()
+
+	m := validManifest()
+	m.Kinds["frontend"] = Kind{Max: 1}
+	m.Stacks = append(m.Stacks, Stack{
+		ID:        "next",
+		Kind:      "frontend",
+		Name:      "Next",
+		Template:  "templates/next",
+		Variables: []string{"package_manager"},
+	})
+	m.Presets = []Preset{
+		{ID: "api", Name: "API", Default: true, Kinds: []string{"backend"}},
+		{ID: "web", Name: "Web", Default: true, Kinds: []string{"frontend"}},
+	}
+
+	if p := m.DefaultPresetForKind("backend"); p == nil || p.ID != "api" {
+		t.Fatalf("backend default preset = %+v, want api", p)
+	}
+
+	if p := m.DefaultPresetForKind("frontend"); p == nil || p.ID != "web" {
+		t.Fatalf("frontend default preset = %+v, want web", p)
+	}
+
+	if p := m.DefaultPresetForKind("mobile"); p != nil {
+		t.Fatalf("mobile default preset = %+v, want nil", p)
+	}
+}
+
+func TestPresetAppliesToKind(t *testing.T) {
+	t.Parallel()
+
+	all := Preset{ID: "all"}
+	backend := Preset{ID: "backend", Kinds: []string{"backend"}}
+
+	if !all.AppliesToKind("backend") {
+		t.Fatal("preset with no kinds should apply to every kind")
+	}
+
+	if !backend.AppliesToKind("backend") {
+		t.Fatal("backend preset should apply to backend")
+	}
+
+	if backend.AppliesToKind("frontend") {
+		t.Fatal("backend preset should not apply to frontend")
 	}
 }
 
@@ -42,11 +91,18 @@ func TestValidatePresets(t *testing.T) {
 			want: "duplicate preset",
 		},
 		{
-			name: "multiple defaults",
+			name: "multiple defaults for one kind",
 			mutate: func(m *Manifest) {
 				m.Presets[1].Default = true
 			},
 			want: "default preset",
+		},
+		{
+			name: "unknown preset kind",
+			mutate: func(m *Manifest) {
+				m.Presets[0].Kinds = []string{"mobile"}
+			},
+			want: "unknown kind",
 		},
 		{
 			name: "unknown feature",

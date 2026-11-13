@@ -44,9 +44,12 @@ func newNewCmd(opts *options) *cobra.Command {
 		Long: `Create a project from the official registry.
 
 Presets:
-  frontend    Next.js app with shadcn/ui, SEO, API helpers, and Jest
-  fullstack   Frontend plus Postgres, Better Auth, and Zustand
-  production  Fullstack plus Docker, GitHub Actions, E2E, and PostHog
+  frontend       Next.js app with shadcn/ui, SEO, API helpers, and Jest
+  fullstack      Frontend plus Postgres, Better Auth, and Zustand
+  production     Fullstack plus Docker, GitHub Actions, E2E, and PostHog
+  api            Go/Gin API with Postgres and JWT authentication
+  api-minimal    Go/Gin base without database or authentication
+  api-production Go/Gin API plus TOTP, Docker, and GitHub Actions
 
 Required companions are added automatically: auth adds database, and CI adds
 E2E. Use --feature to select individual features instead of a preset.`,
@@ -288,7 +291,7 @@ func withDefaultPreset(selection resolve.Selection, m *manifest.Manifest) resolv
 		return selection
 	}
 
-	if preset := m.DefaultPreset(); preset != nil {
+	if preset := m.DefaultPresetForKind(selection.Kind); preset != nil {
 		selection.Preset = preset.ID
 	}
 

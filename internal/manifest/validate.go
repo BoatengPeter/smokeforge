@@ -46,36 +46,57 @@ func (m *Manifest) Validate() error {
 		return err
 	}
 
-	return validatePresets(m.Presets, m.Features)
+	return validatePresets(m.Presets, m.Features, m.Kinds)
 }
 
-func validatePresets(presets []Preset, features []Feature) error {
+func validatePresets(
+	presets []Preset,
+	features []Feature,
+	kinds map[string]Kind,
+) error {
 	byID := make(map[string]Feature, len(features))
 	for _, feature := range features {
 		byID[feature.ID] = feature
 	}
 
 	seen := make(map[string]bool, len(presets))
-	defaults := 0
+	defaults := make(map[string]int, len(kinds))
 
 	for _, preset := range presets {
-		if err := validatePreset(preset, byID, seen); err != nil {
+		if err := validatePreset(preset, byID, kinds, seen); err != nil {
 			return err
 		}
 
-		if preset.Default {
-			defaults++
+		if !preset.Default {
+			continue
+		}
+
+		if len(preset.Kinds) == 0 {
+			for kind := range kinds {
+				defaults[kind]++
+			}
+		} else {
+			for _, kind := range preset.Kinds {
+				defaults[kind]++
+			}
 		}
 	}
 
-	if defaults > 1 {
-		return errors.New("at most one default preset is allowed")
+	for kind, count := range defaults {
+		if count > 1 {
+			return fmt.Errorf("kind %q: at most one default preset is allowed", kind)
+		}
 	}
 
 	return nil
 }
 
-func validatePreset(preset Preset, byID map[string]Feature, seen map[string]bool) error {
+func validatePreset(
+	preset Preset,
+	byID map[string]Feature,
+	kinds map[string]Kind,
+	seen map[string]bool,
+) error {
 	if strings.TrimSpace(preset.ID) == "" {
 		return errors.New("preset id must not be empty")
 	}
@@ -88,6 +109,12 @@ func validatePreset(preset Preset, byID map[string]Feature, seen map[string]bool
 
 	if strings.TrimSpace(preset.Name) == "" {
 		return fmt.Errorf("preset %q: name must not be empty", preset.ID)
+	}
+
+	for _, kind := range preset.Kinds {
+		if _, ok := kinds[kind]; !ok {
+			return fmt.Errorf("preset %q: unknown kind %q", preset.ID, kind)
+		}
 	}
 
 	featuresSeen := make(map[string]bool, len(preset.Features))

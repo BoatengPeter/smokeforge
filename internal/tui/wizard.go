@@ -65,7 +65,7 @@ func (w *Wizard) Run(ctx context.Context) error {
 		return err
 	}
 
-	preset, err := w.selectPreset(ctx)
+	preset, err := w.selectPreset(ctx, kind)
 	if err != nil {
 		return err
 	}
@@ -178,22 +178,30 @@ func (w *Wizard) askName(ctx context.Context) (string, error) {
 	return strings.TrimSpace(name), nil
 }
 
-func (w *Wizard) selectPreset(ctx context.Context) (*manifest.Preset, error) {
-	if len(w.Manifest.Presets) == 0 || len(w.Result.Features) > 0 {
+func (w *Wizard) selectPreset(
+	ctx context.Context,
+	kind string,
+) (*manifest.Preset, error) {
+	presets := presetsForKind(w.Manifest, kind)
+	if len(presets) == 0 || len(w.Result.Features) > 0 {
 		return nil, nil
 	}
 
 	selected := w.Result.Preset
+	if !presetIDIn(selected, presets) {
+		selected = ""
+	}
+
 	if selected == "" {
-		if preset := w.Manifest.DefaultPreset(); preset != nil {
+		if preset := w.Manifest.DefaultPresetForKind(kind); preset != nil {
 			selected = preset.ID
 		} else {
-			selected = w.Manifest.Presets[0].ID
+			selected = presets[0].ID
 		}
 	}
 
-	options := make([]huh.Option[string], 0, len(w.Manifest.Presets))
-	for _, preset := range w.Manifest.Presets {
+	options := make([]huh.Option[string], 0, len(presets))
+	for _, preset := range presets {
 		label := preset.Name
 		if preset.Description != "" {
 			label += " — " + preset.Description
@@ -213,13 +221,34 @@ func (w *Wizard) selectPreset(ctx context.Context) (*manifest.Preset, error) {
 		return nil, fmt.Errorf("wizard: %w", err)
 	}
 
-	for index := range w.Manifest.Presets {
-		if w.Manifest.Presets[index].ID == selected {
-			return &w.Manifest.Presets[index], nil
+	for index := range presets {
+		if presets[index].ID == selected {
+			return &presets[index], nil
 		}
 	}
 
 	return nil, fmt.Errorf("wizard: unknown preset %q", selected)
+}
+
+func presetsForKind(m *manifest.Manifest, kind string) []manifest.Preset {
+	presets := make([]manifest.Preset, 0, len(m.Presets))
+	for _, preset := range m.Presets {
+		if preset.AppliesToKind(kind) {
+			presets = append(presets, preset)
+		}
+	}
+
+	return presets
+}
+
+func presetIDIn(id string, presets []manifest.Preset) bool {
+	for _, preset := range presets {
+		if preset.ID == id {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (w *Wizard) selectFeatures(

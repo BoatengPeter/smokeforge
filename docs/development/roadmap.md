@@ -1,6 +1,6 @@
 # Roadmap
 
-**Status:** M1, M2, the M4 lifecycle, and M5 release engineering are complete. M3 is in progress with the Next.js template and project-scoped frontend skills; backend/mobile/desktop templates and publishing remain pending.
+**Status:** M1, M2, the M4 lifecycle, and M5 release engineering are complete. M3 has Next.js and the Go/Gin backend with project-scoped skills; Rust, Python, mobile, and desktop remain pending.
 
 ## Milestones
 
@@ -37,16 +37,17 @@ lockfile, `.env`, optional git initialization, and a buildable Go fixture.
 
 ### M3 — Registry content and overlays _(in progress)_
 
-The Next.js slice started on 2026-11-12. The registry repository, base template,
-DB/auth/TOTP/PostHog/Docker/CI overlays, and project-scoped frontend skills are
-being added. Backend/mobile/desktop templates remain deferred until their
-internals are agreed.
+The Next.js template and the Go/Gin backend are implemented. The Go slice has
+four architecture bases, PostgreSQL/sqlc/goose, JWT auth, TOTP, Docker, CI,
+Swagger UI, and all 17 Go skills. Rust, Python, mobile, desktop, and remaining
+backend overlays are still pending.
 
 - [ ] Registry repo governance, layout, release process
-- [ ] Base templates: `go/chi`, `rust/axum`, `python/fastapi`, `next`,
+- [x] Go/Gin bases: `go/gin-flat`, `go/gin-layered`, `go/gin-hexagonal`, `go/gin-ddd`
+- [x] Go overlays: `database:postgres`, `auth:jwt`, `totp`, `docker`, `ci:github`
+- [ ] Base templates: `rust/axum`, `python/fastapi`,
       `ios/swiftui`, `android/compose`, `desktop/gpui`, `desktop/egui`
-- [ ] Overlays: `database:postgres`, `cache:redis`, `queue:rabbitmq`,
-      `auth:jwt`, `totp`, `docker`, `ci:github`
+- [ ] Overlays: `cache:redis`, `queue:rabbitmq`
 - [ ] Contract tests for every overlay×base pair
 - [ ] Native build matrix in registry CI
 

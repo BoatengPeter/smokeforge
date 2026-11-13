@@ -2,12 +2,14 @@
 
 **Scaffold production-ready projects from a versioned template registry.**
 
+[**Download the latest release →**](https://github.com/BoatengPeter/smokeforge/releases/latest)
+
 `smokeforge` is a Go CLI for generating backend, frontend, mobile, desktop, and
 fullstack projects for clients. Pick a stack, compose the features you need
 (database, auth, client state, analytics, Docker, CI), and get a wired,
 buildable project — reproducibly, from a pinned template registry.
 
-> **Status:** CLI generation, lifecycle, and release engineering are complete.
+> **Status:** v0.1.0 is published. CLI generation, lifecycle, and release engineering are complete.
 > The Next.js template and fullstack presets are implemented. Backend, mobile,
 > and desktop templates remain provisional. `smokeforge install` and Homebrew
 > are not available yet. See the [stack catalog](STACKS.md) and
@@ -511,7 +513,7 @@ docs/                  design, architecture, registry, and development docs
    Next.js base, fullstack presets, overlays, and project-scoped skills. _(Next.js implemented; other stacks provisional)_
 5. **Full matrix** — fullstack composition, `install`, client wiring.
 6. **Release** — goreleaser, checksums, release workflow, and install docs.
-   _(releasing v0.1.0)_
+   _(v0.1.0 published)_
 
 Details and acceptance criteria: [roadmap](docs/development/roadmap.md).
 

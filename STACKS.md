@@ -43,6 +43,7 @@ CLI tests: Go unit/integration/race, generated fixture build, cross-build matrix
 | Package managers | pnpm 11.13.1 default; npm 11.18.0; bun 1.3.14 | Chosen via `package_manager` |
 | Tailwind CSS | 4.3.3 | `@tailwindcss/turbopack` 4.3.3 |
 | UI system | shadcn/ui (CLI-generated) | Lucide icons |
+| Motion | 14.13.0 | Scroll reveals, reduced-motion support, interaction feedback |
 | Logging | Pino 10.4.0 | Server-side structured logs |
 | ESLint | 9.39.5 | Flat config + `eslint-config-next` 16.4.6 |
 | Jest | 30.5.2 | `next/jest`, jsdom |

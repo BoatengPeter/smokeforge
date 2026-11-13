@@ -14,7 +14,11 @@ func newListCmd(opts *options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list [stacks|features]",
 		Short: "List registry contents",
-		Args:  cobra.MaximumNArgs(1),
+		Long:  "List the stacks or features available in the selected registry.",
+		Example: `  smokeforge list stacks
+  smokeforge list features
+  smokeforge list features --registry ./smokeforge-registry`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			what := "stacks"
 			if len(args) == 1 {

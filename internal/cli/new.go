@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 
@@ -40,7 +41,22 @@ func newNewCmd(opts *options) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "new [dir]",
 		Short: "Create a project from the template registry",
-		Args:  cobra.MaximumNArgs(1),
+		Long: `Create a project from the official registry.
+
+Presets:
+  frontend    Next.js app with shadcn/ui, SEO, API helpers, and Jest
+  fullstack   Frontend plus Postgres, Better Auth, and Zustand
+  production  Fullstack plus Docker, GitHub Actions, E2E, and PostHog
+
+Required companions are added automatically: auth adds database, and CI adds
+E2E. Use --feature to select individual features instead of a preset.`,
+		Example: `  smokeforge new my-app
+  smokeforge new my-app --preset frontend
+  smokeforge new my-saas --preset fullstack
+  smokeforge new my-app --preset production
+  smokeforge new my-app --preset frontend --feature docker --feature ci:github
+  smokeforge new my-app --registry ./smokeforge-registry --tag v0.1.0`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir := ""
 			if len(args) == 1 {
@@ -174,7 +190,13 @@ func (e newExecution) generate() error {
 		return printDryRun(e.opts.out, result)
 	}
 
-	return printSuccess(e.opts.out, result, e.newOpts.noGit)
+	return printSuccess(
+		e.opts.out,
+		result,
+		e.newOpts.noGit,
+		e.plan,
+		isDockerInstalled(),
+	)
 }
 
 func collectSelection(
@@ -353,7 +375,13 @@ func printDryRun(out io.Writer, result *engine.Result) error {
 	return err
 }
 
-func printSuccess(out io.Writer, result *engine.Result, noGit bool) error {
+func printSuccess(
+	out io.Writer,
+	result *engine.Result,
+	noGit bool,
+	plan *resolve.Plan,
+	dockerInstalled bool,
+) error {
 	lines := []string{
 		tui.Field("Path", result.Target),
 		tui.Field("Files", strconv.Itoa(len(result.Files))),
@@ -363,16 +391,80 @@ func printSuccess(out io.Writer, result *engine.Result, noGit bool) error {
 		lines = append(lines, tui.Field("Git", "initialized"))
 	}
 
-	lines = append(
-		lines,
-		"",
-		tui.Muted("Next steps:"),
-		"  cd "+result.Target,
-	)
+	lines = append(lines, "", "")
+	lines = append(lines, nextStepLines(plan, result.Target, dockerInstalled)...)
 
 	_, err := fmt.Fprintln(out, tui.Box("Project created", lines))
 
 	return err
+}
+
+func nextStepLines(plan *resolve.Plan, path string, dockerInstalled bool) []string {
+	lines := []string{
+		tui.Muted("Next steps:"),
+		"  cd " + path,
+	}
+
+	if plan.Target.Stack.ID != "next" {
+		return append(lines, "  See README.md for project commands.")
+	}
+
+	packageManager := plan.Target.Variables["package_manager"]
+	if packageManager == "" {
+		packageManager = "pnpm"
+	}
+
+	lines = append(
+		lines,
+		"  make install        # or: "+packageInstallCommand(packageManager),
+	)
+
+	if hasFeature(plan, "database") {
+		if dockerInstalled {
+			lines = append(
+				lines,
+				"  make db-up          # start Postgres with Docker",
+				"  make db-migrate     # create the database schema",
+			)
+		} else {
+			lines = append(
+				lines,
+				"  # Docker is not installed: https://docs.docker.com/get-docker/",
+				"  # Install it, then run: make db-up",
+				"  # Or point DATABASE_URL in .env at an existing Postgres and run:",
+				"  make db-migrate",
+			)
+		}
+	}
+
+	return append(lines, "  make dev")
+}
+
+func isDockerInstalled() bool {
+	_, err := exec.LookPath("docker")
+
+	return err == nil
+}
+
+func packageInstallCommand(packageManager string) string {
+	switch packageManager {
+	case "npm":
+		return "npm install"
+	case "bun":
+		return "bun install"
+	default:
+		return "pnpm install"
+	}
+}
+
+func hasFeature(plan *resolve.Plan, featureID string) bool {
+	for _, overlay := range plan.Target.Overlays {
+		if overlay.FeatureID == featureID {
+			return true
+		}
+	}
+
+	return false
 }
 
 func isInteractive(cmd *cobra.Command, newOpts *newOptions) bool {

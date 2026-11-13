@@ -10,8 +10,11 @@ import (
 
 func newVersionCmd(out io.Writer) *cobra.Command {
 	return &cobra.Command{
-		Use:   "version",
-		Short: "Print version information",
+		Use:     "version",
+		Short:   "Print version information",
+		Long:    "Print the smokeforge version, commit, and build date.",
+		Example: `  smokeforge version`,
+
 		RunE: func(_ *cobra.Command, _ []string) error {
 			_, err := fmt.Fprintf(out, "smokeforge %s\n", version.String())
 			return err

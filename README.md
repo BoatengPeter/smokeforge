@@ -19,8 +19,10 @@ buildable project — reproducibly, from a pinned template registry.
 
 ## Install
 
-You do **not** need Go to use a prebuilt release. Go is only needed if you
-build smokeforge from source.
+> **Do I need Go? No.** Download the prebuilt binary for your operating system.
+> Go is only needed if you choose to run `go install` or build from source.
+
+You do **not** need Go to use a prebuilt release.
 
 ### 1. Check what you need
 
@@ -118,7 +120,36 @@ Open <http://localhost:3000>.
 If you prefer the guided experience, run `smokeforge new` with no arguments and
 answer the prompts.
 
-### Alternative installs
+## What happens when you run `smokeforge new`
+
+1. The CLI contacts the official registry release on GitHub.
+2. It downloads the versioned `registry.tar.gz` and verifies it before use.
+3. It caches the registry locally for faster and offline runs.
+4. It validates the registry manifest.
+5. It resolves your preset, features, and required companions.
+6. It renders the template and overlays into a staging directory.
+7. It generates local secrets such as `BETTER_AUTH_SECRET`.
+8. It writes `.smokeforge.json`, `.smokeforge.lock.json`, `.env`, and
+   `.env.example`.
+9. It initializes Git unless `--no-git` is used.
+10. It atomically moves the finished project into place.
+
+The CLI does not install Node.js, pnpm, Postgres, or Docker for you. Those are
+needed only when you run the generated app.
+
+## Where templates come from
+
+smokeforge has two separate releases:
+
+- The **CLI release** contains the smokeforge binary for your operating system.
+- The **registry release** contains the templates, presets, overlays, skills, and
+  `manifest.yaml` that the CLI reads.
+
+The CLI downloads the latest registry release automatically. Projects record the
+registry version in `.smokeforge.lock.json`, so repeated generation can use the
+same template data. For local registry development, pass `--registry <dir>`.
+
+## Only if you already have Go
 
 If you have Go 1.26.11+:
 
@@ -174,27 +205,27 @@ The fullstack preset needs Postgres.
 
 ### With Docker
 
+Install Docker Desktop or Docker Engine first:
+<https://docs.docker.com/get-docker/>.
+
 ```bash
 smokeforge new my-saas --preset fullstack
 cd my-saas
-
-docker run -d --name my-saas-db \
-  -e POSTGRES_DB=app \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=postgres \
-  -p 5432:5432 \
-  postgres:17-alpine
-
-pnpm install
-pnpm db:migrate
-pnpm dev
+make db-up
+make install
+make db-migrate
+make dev
 ```
 
-Open <http://localhost:3000/signup>. The verification code is printed in the
-terminal during local development. Enter it on the verify page, then log in.
+`make db-up` checks Docker and explains what to do if Docker is missing or not
+running. Open <http://localhost:3000/signup>. The verification code is printed
+in the terminal during local development.
 
-If port `5432` is already used, choose another host port and update
-`DATABASE_URL` in `.env` to match.
+If port `5432` is already used, change the host port in `compose.db.yaml` and
+update `DATABASE_URL` in `.env` to match.
+
+If you do not want to install Docker, point `DATABASE_URL` at an existing
+Postgres instance and run `make db-migrate` instead.
 
 ### With the production preset
 
@@ -203,10 +234,10 @@ The production preset includes Docker Compose for the app and database:
 ```bash
 smokeforge new my-app --preset production
 cd my-app
-pnpm install
-docker compose up -d db
-pnpm db:migrate
-pnpm dev
+make install
+make db-up
+make db-migrate
+make dev
 ```
 
 To run the full stack in containers:
@@ -244,6 +275,34 @@ make ci
 ```
 
 Docker, E2E, and database targets appear only when their overlays are selected.
+
+## Help and shell completion
+
+```bash
+smokeforge --help
+smokeforge help new
+smokeforge new --help
+smokeforge add --help
+smokeforge remove --help
+```
+
+Enable completion in your shell:
+
+```bash
+# Bash
+source <(smokeforge completion bash)
+
+# Zsh
+smokeforge completion zsh > "${fpath[1]}/_smokeforge"
+
+# Fish
+smokeforge completion fish | source
+
+# PowerShell
+smokeforge completion powershell | Out-String | Invoke-Expression
+```
+
+Restart your shell after installing completion.
 
 ## Why smokeforge
 
@@ -307,9 +366,19 @@ corepack enable
 corepack prepare pnpm@11.13.1 --activate
 ```
 
+**Docker is not installed**
+`make db-up` checks for Docker and prints an installation link. Install Docker
+Desktop or Docker Engine from <https://docs.docker.com/get-docker/>. If you
+already have Postgres, set `DATABASE_URL` in `.env` and run `make db-migrate`
+instead.
+
+**Docker is installed but not running**
+Start Docker Desktop (macOS/Windows) or the Docker service (Linux), then run
+`make db-up` again.
+
 **Fullstack app cannot connect to the database**
 Make sure Postgres is running on the host and port in `.env` (`DATABASE_URL`),
-then run `pnpm db:migrate`.
+then run `pnpm db:migrate` or `make db-migrate`.
 
 **Port 3000 is already in use**
 
@@ -334,6 +403,37 @@ pnpm test:e2e
 The overlay may change files that cannot be reversed automatically, such as
 package dependencies. The command refuses rather than corrupting the project;
 follow the printed manual-removal instructions.
+
+## Uninstall smokeforge
+
+There is no `smokeforge uninstall` command. `smokeforge remove` removes project
+features, not the CLI.
+
+macOS/Linux:
+
+```bash
+rm -f /usr/local/bin/smokeforge
+# or, if installed there:
+rm -f ~/.local/bin/smokeforge
+
+rm -rf "${XDG_CACHE_HOME:-$HOME/.cache}/smokeforge"   # Linux
+rm -rf "$HOME/Library/Caches/smokeforge"              # macOS
+```
+
+Windows:
+
+```powershell
+Remove-Item "$env:LOCALAPPDATA\smokeforge" -Recurse -Force
+Remove-Item "C:\path\to\smokeforge.exe"
+```
+
+If installed with Go:
+
+```bash
+rm -f "$(go env GOPATH)/bin/smokeforge"
+```
+
+Also remove any `PATH` entry you added. Generated projects are not deleted.
 
 ## Platforms and security
 
@@ -395,6 +495,7 @@ Read more in the [architecture docs](docs/architecture/overview.md).
 | `smokeforge registry info` | Show registry source/tag/schema/counts | Implemented |
 | `smokeforge registry update` | Refresh the local registry cache | Implemented |
 | `smokeforge doctor` | Check environment, registry, and project drift | Implemented |
+| `smokeforge completion <shell>` | Generate shell completion | Implemented |
 | `smokeforge version` | Print version information | Implemented |
 
 Global flags: `--registry <url|dir>`, `--tag <tag>`, `--cache-dir <dir>`,

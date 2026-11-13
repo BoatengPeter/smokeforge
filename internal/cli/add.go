@@ -18,7 +18,13 @@ func newAddCmd(opts *options) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add <feature[:variant]>...",
 		Short: "Add features to an existing project",
-		Args:  cobra.MinimumNArgs(1),
+		Long: `Apply feature overlays to a generated project.
+
+Required companions are added automatically. For example, adding auth also
+adds its Postgres database overlay. Existing files and secrets are preserved.`,
+		Example: `  smokeforge add auth --project-dir my-app
+  smokeforge add analytics:posthog --project-dir my-app`,
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			projectContext, reg, err := loadMutationTargets(cmd, opts, projectDir)
 			if err != nil {

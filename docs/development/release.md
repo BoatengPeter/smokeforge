@@ -89,11 +89,11 @@ Homebrew publishing is commented out in `.goreleaser.yaml` until a tap exists.
    the release workflow environment.
 5. Cut a release and verify `brew install BoatengPeter/tap/smokeforge`.
 
-## Registry release (deferred with M3)
+## Registry release
 
-The template registry is a separate repository. When M3 is unblocked:
+The template registry is released separately from the CLI:
 
-1. Tag the registry (`v1.0.0`).
+1. Tag the registry (`v0.1.0`, `v0.2.0`, ...).
 2. Package the tree so the archive contains a top-level `registry/` directory:
 
    ```bash
@@ -102,19 +102,24 @@ The template registry is a separate repository. When M3 is unblocked:
    ```
 
 3. Attach `registry.tar.gz` and `registry.sha256` to the registry GitHub release.
-4. The resulting URL layout must be:
+4. Mark the release latest so the CLI's default `latest` tag resolves it.
+5. The URL layout is:
 
    ```text
    <source>/download/<tag>/registry.tar.gz
    <source>/download/<tag>/registry.sha256
+   <source>/latest/download/registry.tar.gz       # tag "latest"
    ```
 
-5. Smoke-test fetching and caching:
+6. Smoke-test fetching and caching:
 
    ```bash
-   smokeforge --tag v1.0.0 registry update
-   smokeforge --tag v1.0.0 list stacks --offline
+   smokeforge registry update
+   smokeforge list stacks --offline
    ```
+
+The CLI downloads and caches the registry automatically. Users normally do not
+download registry assets by hand.
 
 ## Pre-release checklist
 

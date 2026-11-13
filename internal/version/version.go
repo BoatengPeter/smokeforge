@@ -1,7 +1,10 @@
 // Package version provides build-time version metadata for smokeforge.
 package version
 
-import "runtime/debug"
+import (
+	"runtime/debug"
+	"strings"
+)
 
 // Build metadata. Release builds set these with -ldflags.
 var (
@@ -36,9 +39,28 @@ func Current() Info {
 
 // String returns the human-readable version, commit, and build date.
 func String() string {
-	info := Current()
+	return format(Current())
+}
 
-	return info.Version + " (" + info.Commit + ", " + info.Date + ")"
+func format(info Info) string {
+	details := make([]string, 0, 2)
+	if knownMetadata(info.Commit) {
+		details = append(details, info.Commit)
+	}
+
+	if knownMetadata(info.Date) {
+		details = append(details, info.Date)
+	}
+
+	if len(details) == 0 {
+		return info.Version
+	}
+
+	return info.Version + " (" + strings.Join(details, ", ") + ")"
+}
+
+func knownMetadata(value string) bool {
+	return value != "" && value != "none" && value != "unknown"
 }
 
 func mergeBuildInfo(current Info, buildInfo *debug.BuildInfo) Info {

@@ -13,7 +13,14 @@ func newRemoveCmd(opts *options) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "remove <feature[:variant]>...",
 		Short: "Remove features from an existing project",
-		Args:  cobra.MinimumNArgs(1),
+		Long: `Revert feature overlays from a generated project.
+
+Removal is refused when another active feature requires the target. Use
+--cascade to remove the dependent features first. Overlays that patch package
+dependencies may still require manual removal.`,
+		Example: `  smokeforge remove analytics --project-dir my-app
+  smokeforge remove database --cascade --project-dir my-app`,
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			projectContext, reg, err := loadMutationTargets(cmd, opts, projectDir)
 			if err != nil {

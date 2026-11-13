@@ -1,9 +1,8 @@
 # CLI and lifecycle
 
 **Status:** `new`, `add`, `remove`, `version`, `list`, `registry info/update`,
-and `doctor` are implemented for single-target projects. `install`,
-`registry pin`, fullstack generation, mutation dry-runs, and `--json` output are
-planned.
+`doctor`, and shell completion are implemented. `install`, `registry pin`,
+mutation dry-runs, and `--json` output are planned.
 
 ## Command tree
 
@@ -19,6 +18,7 @@ smokeforge
 │   ├── update                refresh the cached registry (implemented)
 │   └── pin <tag>             pin a registry tag (planned)
 ├── doctor                    check environment, registry, project drift (implemented)
+├── completion <shell>        generate bash/zsh/fish/PowerShell completion
 └── version                   print version information (implemented)
 ```
 
@@ -188,6 +188,31 @@ Checks, in order:
    command. Toolchain checks are planned.
 
 Exit code is non-zero only if a fatal check fails.
+
+## Help and completion
+
+Every command supports `--help`, and `smokeforge help <command>` is equivalent:
+
+```bash
+smokeforge --help
+smokeforge help new
+smokeforge new --help
+smokeforge remove --help
+```
+
+Help text includes purpose, examples, flags, and required-companion behavior. It
+does not load the registry or access the network.
+
+Generate completion scripts with:
+
+```bash
+smokeforge completion bash
+smokeforge completion zsh
+smokeforge completion fish
+smokeforge completion powershell
+```
+
+The scripts are written to stdout.
 
 ## Output and exit conventions
 

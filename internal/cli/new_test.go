@@ -5,6 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/BoatengPeter/smokeforge/internal/manifest"
+	"github.com/BoatengPeter/smokeforge/internal/resolve"
 )
 
 const newManifestYAML = `schemaVersion: 1
@@ -165,6 +168,68 @@ func TestNew(t *testing.T) {
 
 	if _, err := os.Stat(filepath.Join(target, ".git")); err == nil {
 		t.Fatal("git repository created despite --no-git")
+	}
+}
+
+func TestNextStepLines(t *testing.T) {
+	t.Parallel()
+
+	plan := &resolve.Plan{
+		Target: resolve.TargetPlan{
+			Stack: manifest.Stack{ID: "next", Name: "Next.js"},
+			Variables: map[string]string{
+				"package_manager": "bun",
+			},
+			Overlays: []resolve.OverlayPlan{
+				{FeatureID: "database", VariantID: "postgres"},
+			},
+		},
+	}
+
+	lines := strings.Join(nextStepLines(plan, "my-app", true), "\n")
+	for _, want := range []string{
+		"cd my-app",
+		"make install",
+		"bun install",
+		"make db-up",
+		"make db-migrate",
+		"make dev",
+	} {
+		if !strings.Contains(lines, want) {
+			t.Fatalf("next steps missing %q:\n%s", want, lines)
+		}
+	}
+}
+
+func TestNextStepLinesWithoutDocker(t *testing.T) {
+	t.Parallel()
+
+	plan := &resolve.Plan{
+		Target: resolve.TargetPlan{
+			Stack: manifest.Stack{ID: "next", Name: "Next.js"},
+			Variables: map[string]string{
+				"package_manager": "pnpm",
+			},
+			Overlays: []resolve.OverlayPlan{
+				{FeatureID: "database", VariantID: "postgres"},
+			},
+		},
+	}
+
+	lines := strings.Join(nextStepLines(plan, "my-app", false), "\n")
+	for _, want := range []string{
+		"Docker is not installed",
+		"https://docs.docker.com/get-docker/",
+		"DATABASE_URL",
+		"make db-migrate",
+	} {
+		if !strings.Contains(lines, want) {
+			t.Fatalf("next steps missing %q:\n%s", want, lines)
+		}
+	}
+
+	if !strings.Contains(lines, "Install it, then run: make db-up") {
+		t.Fatalf("next steps missing Docker install instruction:\n%s", lines)
 	}
 }
 

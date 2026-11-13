@@ -5,6 +5,42 @@ import (
 	"testing"
 )
 
+func TestFormat(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		info Info
+		want string
+	}{
+		{
+			name: "omits unknown metadata",
+			info: Info{Version: "v0.1.0", Commit: "none", Date: "unknown"},
+			want: "v0.1.0",
+		},
+		{
+			name: "includes commit only",
+			info: Info{Version: "v0.1.0", Commit: "abc123", Date: "unknown"},
+			want: "v0.1.0 (abc123)",
+		},
+		{
+			name: "includes commit and date",
+			info: Info{Version: "v0.1.0", Commit: "abc123", Date: "2026-11-13T10:00:00Z"},
+			want: "v0.1.0 (abc123, 2026-11-13T10:00:00Z)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := format(tt.info); got != tt.want {
+				t.Fatalf("format = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestMergeBuildInfo(t *testing.T) {
 	t.Parallel()
 

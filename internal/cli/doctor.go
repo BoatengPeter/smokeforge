@@ -22,6 +22,10 @@ func newDoctorCmd(opts *options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "doctor",
 		Short: "Check the local environment and registry",
+		Long:  "Check Git, the registry cache, network access, and project drift. Run it from a generated project to include project checks.",
+		Example: `  smokeforge doctor
+  smokeforge doctor --project-dir my-app`,
+
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			checks := []doctorCheck{
 				{name: "registry", checkErr: checkRegistry(cmd, opts)},

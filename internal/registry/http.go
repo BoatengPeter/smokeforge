@@ -78,15 +78,23 @@ func loadRemote(ctx context.Context, opts Options) (*Result, error) {
 	}
 
 	cached, cacheErr := resultFromManifest(target.options, target.dir, true)
-	if cacheErr == nil {
+	if cacheErr == nil && cacheUsable(target.options, target.dir) {
 		return cached, nil
 	}
 
 	if target.options.Offline {
+		if cacheErr == nil {
+			return cached, nil
+		}
+
 		return nil, fmt.Errorf("%w: %w", ErrOffline, cacheErr)
 	}
 
 	if err := download(ctx, target.options, target.dir); err != nil {
+		return nil, err
+	}
+
+	if err := writeCacheVersion(target.dir); err != nil {
 		return nil, err
 	}
 
@@ -122,6 +130,10 @@ func Refresh(ctx context.Context, opts Options) (*Result, error) {
 	}
 
 	if err := download(ctx, target.options, target.dir); err != nil {
+		return nil, err
+	}
+
+	if err := writeCacheVersion(target.dir); err != nil {
 		return nil, err
 	}
 

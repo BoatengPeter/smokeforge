@@ -9,7 +9,7 @@ fullstack projects for clients. Pick a stack, compose the features you need
 (database, auth, client state, analytics, Docker, CI), and get a wired,
 buildable project — reproducibly, from a pinned template registry.
 
-> **Status:** v0.1.1 is published. CLI generation, lifecycle, and release engineering are complete.
+> **Status:** v0.1.2 is published. CLI generation, lifecycle, and release engineering are complete.
 > The Next.js template, Go/Gin backend (four architectures), and their presets
 > and overlays are implemented. Mobile and desktop templates remain provisional.
 > `smokeforge install` and Homebrew are not available yet. See the [stack catalog](STACKS.md) and
@@ -154,7 +154,7 @@ same template data. For local registry development, pass `--registry <dir>`.
 If you have Go 1.26.11+:
 
 ```bash
-go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.1.1
+go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.1.2
 smokeforge version
 ```
 
@@ -622,7 +622,7 @@ docs/                  design, architecture, registry, and development docs
    Next.js base, fullstack presets, overlays, and project-scoped skills. _(Next.js implemented; other stacks provisional)_
 5. **Full matrix** — fullstack composition, `install`, client wiring.
 6. **Release** — goreleaser, checksums, release workflow, and install docs.
-   _(v0.1.1 published)_
+   _(v0.1.2 published)_
 
 Details and acceptance criteria: [roadmap](docs/development/roadmap.md).
 

@@ -33,6 +33,14 @@ type Wizard struct {
 	Result      WizardResult
 }
 
+type wizardVariable struct {
+	name         string
+	prompt       string
+	defaultValue string
+	choices      []string
+	value        *string
+}
+
 // Run executes the interactive wizard. It aborts cleanly when the user cancels.
 func (w *Wizard) Run(ctx context.Context) error {
 	kinds := availableKinds(w.Manifest)
@@ -45,50 +53,187 @@ func (w *Wizard) Run(ctx context.Context) error {
 		kind = kinds[0]
 	}
 
-	kindForm := newForm(w, huh.NewGroup(
-		huh.NewSelect[string]().
-			Title("What kind of project is this?").
-			Options(kindOptions(kinds)...).
-			Value(&kind),
-	))
-	if err := kindForm.RunWithContext(ctx); err != nil {
+	selectedStackID := initialStackID(w.Manifest, kind, w.Result.Stack)
+	name := w.Result.Name
+	presetID := initialPresetID(w.Manifest, kind, w.Result.Preset)
+	explicitFeatures := len(w.Result.Features) > 0
+	features := slices.Clone(w.Result.Features)
+
+	if !explicitFeatures {
+		features = presetFeatures(w.Manifest, presetID)
+	}
+
+	lastPresetID := presetID
+
+	variableValues, err := loadWizardVariables(w.RegistryDir, w.Manifest, w.Result.Variables)
+	if err != nil {
+		return err
+	}
+
+	groups := w.basicGroups(kinds, &kind, &selectedStackID, &name)
+	groups = append(groups, w.presetGroup(&kind, &presetID, &features, &lastPresetID, explicitFeatures))
+	groups = append(groups, w.featureGroup(&selectedStackID, &features))
+	groups = append(groups, w.variableGroups(selectableStacks(w.Manifest, kinds), variableValues, &selectedStackID)...)
+
+	form := newForm(w, groups...)
+	if err := form.RunWithContext(ctx); err != nil {
 		return fmt.Errorf("wizard: %w", err)
 	}
 
-	stack, err := w.selectStack(ctx, kind)
-	if err != nil {
-		return err
+	stack, ok := findStackByID(w.Manifest, selectedStackID)
+	if !ok {
+		return fmt.Errorf("wizard: unknown stack %q", selectedStackID)
 	}
 
-	name, err := w.askName(ctx)
-	if err != nil {
-		return err
-	}
+	features = filterFeatureValues(features, featureOptions(w.Manifest, stack))
 
-	preset, err := w.selectPreset(ctx, kind)
-	if err != nil {
-		return err
-	}
-
-	features, err := w.selectFeatures(ctx, stack, preset)
-	if err != nil {
-		return err
-	}
-
-	variables, err := w.askVariables(ctx, stack)
-	if err != nil {
-		return err
+	variables := make(map[string]string, len(variableValues[selectedStackID]))
+	for _, variable := range variableValues[selectedStackID] {
+		variables[variable.name] = strings.TrimSpace(*variable.value)
 	}
 
 	w.Result = WizardResult{
 		Kind:      kind,
-		Stack:     stack.ID,
-		Name:      name,
+		Stack:     selectedStackID,
+		Name:      strings.TrimSpace(name),
+		Preset:    presetID,
 		Features:  features,
 		Variables: variables,
 	}
 
 	return nil
+}
+
+func (w *Wizard) basicGroups(
+	kinds []string,
+	kind, selectedStackID, name *string,
+) []*huh.Group {
+	return []*huh.Group{
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("What kind of project is this?").
+				Options(kindOptions(kinds)...).
+				Value(kind),
+		),
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Which stack should it use?").
+				OptionsFunc(func() []huh.Option[string] {
+					stacks := stacksForKind(w.Manifest, *kind)
+					if !stackIDIn(*selectedStackID, stacks) {
+						*selectedStackID = stacks[0].ID
+					}
+
+					return stackOptions(stacks)
+				}, kind).
+				Value(selectedStackID),
+		),
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Project name").
+				Placeholder("Acme App").
+				Value(name).
+				Validate(nonEmpty("project name")).
+				WithWidth(60),
+		),
+	}
+}
+
+func (w *Wizard) presetGroup(
+	kind, presetID *string,
+	features *[]string,
+	lastPresetID *string,
+	explicitFeatures bool,
+) *huh.Group {
+	return huh.NewGroup(
+		huh.NewSelect[string]().
+			Title("Which preset should it start from?").
+			Description("You can adjust individual features next. Shift+Tab goes back.").
+			OptionsFunc(func() []huh.Option[string] {
+				presets := presetsForKind(w.Manifest, *kind)
+				if !presetIDIn(*presetID, presets) {
+					*presetID = defaultPresetID(w.Manifest, *kind)
+				}
+
+				if !explicitFeatures && *presetID != *lastPresetID {
+					*features = presetFeatures(w.Manifest, *presetID)
+					*lastPresetID = *presetID
+				}
+
+				return presetOptions(presets)
+			}, kind).
+			Value(presetID),
+	).WithHideFunc(func() bool {
+		return explicitFeatures || len(presetsForKind(w.Manifest, *kind)) == 0
+	})
+}
+
+func (w *Wizard) featureGroup(selectedStackID *string, features *[]string) *huh.Group {
+	return huh.NewGroup(
+		huh.NewMultiSelect[string]().
+			Title("Which features should be included?").
+			Description("Required companions are added automatically.").
+			OptionsFunc(func() []huh.Option[string] {
+				stack, ok := findStackByID(w.Manifest, *selectedStackID)
+				if !ok {
+					return nil
+				}
+
+				options := featureOptions(w.Manifest, stack)
+				*features = filterFeatureValues(*features, options)
+
+				return options
+			}, selectedStackID).
+			Value(features),
+	).WithHideFunc(func() bool {
+		stack, ok := findStackByID(w.Manifest, *selectedStackID)
+
+		return !ok || len(featureOptions(w.Manifest, stack)) == 0
+	})
+}
+
+func (w *Wizard) variableGroups(
+	stacks []manifest.Stack,
+	variableValues map[string][]wizardVariable,
+	selectedStackID *string,
+) []*huh.Group {
+	groups := make([]*huh.Group, 0, len(stacks))
+
+	for _, stack := range stacks {
+		variables := variableValues[stack.ID]
+		if len(variables) == 0 {
+			continue
+		}
+
+		fields := make([]huh.Field, 0, len(variables))
+
+		for index := range variables {
+			variable := &variables[index]
+			if len(variable.choices) > 0 {
+				fields = append(fields, huh.NewSelect[string]().
+					Title(variable.prompt).
+					Options(huh.NewOptions(variable.choices...)...).
+					Value(variable.value))
+
+				continue
+			}
+
+			fields = append(fields, huh.NewInput().
+				Title(variable.prompt).
+				Placeholder(variable.defaultValue).
+				Value(variable.value).
+				Validate(nonEmpty(variable.name)).
+				WithWidth(60))
+		}
+
+		groupStackID := stack.ID
+
+		groups = append(groups, huh.NewGroup(fields...).WithHideFunc(func() bool {
+			return *selectedStackID != groupStackID
+		}))
+	}
+
+	return groups
 }
 
 func availableKinds(m *manifest.Manifest) []string {
@@ -108,6 +253,17 @@ func availableKinds(m *manifest.Manifest) []string {
 	return kinds
 }
 
+func selectableStacks(m *manifest.Manifest, kinds []string) []manifest.Stack {
+	stacks := make([]manifest.Stack, 0, len(m.Stacks))
+	for _, stack := range m.Stacks {
+		if slices.Contains(kinds, stack.Kind) {
+			stacks = append(stacks, stack)
+		}
+	}
+
+	return stacks
+}
+
 func stacksForKind(m *manifest.Manifest, kind string) []manifest.Stack {
 	stacks := make([]manifest.Stack, 0, len(m.Stacks))
 	for _, stack := range m.Stacks {
@@ -117,6 +273,48 @@ func stacksForKind(m *manifest.Manifest, kind string) []manifest.Stack {
 	}
 
 	return stacks
+}
+
+func initialStackID(m *manifest.Manifest, kind, selected string) string {
+	stacks := stacksForKind(m, kind)
+	if len(stacks) == 0 {
+		return ""
+	}
+
+	if stackIDIn(selected, stacks) {
+		return selected
+	}
+
+	return stacks[0].ID
+}
+
+func stackIDIn(id string, stacks []manifest.Stack) bool {
+	for _, stack := range stacks {
+		if stack.ID == id {
+			return true
+		}
+	}
+
+	return false
+}
+
+func findStackByID(m *manifest.Manifest, id string) (manifest.Stack, bool) {
+	for _, stack := range m.Stacks {
+		if stack.ID == id {
+			return stack, true
+		}
+	}
+
+	return manifest.Stack{}, false
+}
+
+func stackOptions(stacks []manifest.Stack) []huh.Option[string] {
+	options := make([]huh.Option[string], 0, len(stacks))
+	for _, stack := range stacks {
+		options = append(options, huh.NewOption(stack.Name+" ("+stack.ID+")", stack.ID))
+	}
+
+	return options
 }
 
 func kindOptions(kinds []string) []huh.Option[string] {
@@ -129,77 +327,29 @@ func kindOptions(kinds []string) []huh.Option[string] {
 	return options
 }
 
-func (w *Wizard) selectStack(ctx context.Context, kind string) (manifest.Stack, error) {
-	stacks := stacksForKind(w.Manifest, kind)
-
-	options := make([]huh.Option[string], 0, len(stacks))
-	for _, stack := range stacks {
-		options = append(options, huh.NewOption(stack.Name+" ("+stack.ID+")", stack.ID))
+func initialPresetID(m *manifest.Manifest, kind, selected string) string {
+	presets := presetsForKind(m, kind)
+	if presetIDIn(selected, presets) {
+		return selected
 	}
 
-	selected := w.Result.Stack
-	if selected == "" {
-		selected = stacks[0].ID
-	}
-
-	form := newForm(w, huh.NewGroup(
-		huh.NewSelect[string]().
-			Title("Which stack should it use?").
-			Options(options...).
-			Value(&selected),
-	))
-	if err := form.RunWithContext(ctx); err != nil {
-		return manifest.Stack{}, fmt.Errorf("wizard: %w", err)
-	}
-
-	for _, stack := range stacks {
-		if stack.ID == selected {
-			return stack, nil
-		}
-	}
-
-	return manifest.Stack{}, fmt.Errorf("wizard: unknown stack %q", selected)
+	return defaultPresetID(m, kind)
 }
 
-func (w *Wizard) askName(ctx context.Context) (string, error) {
-	name := w.Result.Name
-
-	form := newForm(w, huh.NewGroup(
-		huh.NewInput().
-			Title("Project name").
-			Placeholder("Acme App").
-			Value(&name).
-			Validate(nonEmpty("project name")),
-	))
-	if err := form.RunWithContext(ctx); err != nil {
-		return "", fmt.Errorf("wizard: %w", err)
+func defaultPresetID(m *manifest.Manifest, kind string) string {
+	if preset := m.DefaultPresetForKind(kind); preset != nil {
+		return preset.ID
 	}
 
-	return strings.TrimSpace(name), nil
+	presets := presetsForKind(m, kind)
+	if len(presets) == 0 {
+		return ""
+	}
+
+	return presets[0].ID
 }
 
-func (w *Wizard) selectPreset(
-	ctx context.Context,
-	kind string,
-) (*manifest.Preset, error) {
-	presets := presetsForKind(w.Manifest, kind)
-	if len(presets) == 0 || len(w.Result.Features) > 0 {
-		return nil, nil
-	}
-
-	selected := w.Result.Preset
-	if !presetIDIn(selected, presets) {
-		selected = ""
-	}
-
-	if selected == "" {
-		if preset := w.Manifest.DefaultPresetForKind(kind); preset != nil {
-			selected = preset.ID
-		} else {
-			selected = presets[0].ID
-		}
-	}
-
+func presetOptions(presets []manifest.Preset) []huh.Option[string] {
 	options := make([]huh.Option[string], 0, len(presets))
 	for _, preset := range presets {
 		label := preset.Name
@@ -210,24 +360,16 @@ func (w *Wizard) selectPreset(
 		options = append(options, huh.NewOption(label, preset.ID))
 	}
 
-	form := newForm(w, huh.NewGroup(
-		huh.NewSelect[string]().
-			Title("Which preset should it start from?").
-			Description("You can adjust individual features next.").
-			Options(options...).
-			Value(&selected),
-	))
-	if err := form.RunWithContext(ctx); err != nil {
-		return nil, fmt.Errorf("wizard: %w", err)
+	return options
+}
+
+func presetFeatures(m *manifest.Manifest, presetID string) []string {
+	preset := m.FindPreset(presetID)
+	if preset == nil {
+		return make([]string, 0)
 	}
 
-	for index := range presets {
-		if presets[index].ID == selected {
-			return &presets[index], nil
-		}
-	}
-
-	return nil, fmt.Errorf("wizard: unknown preset %q", selected)
+	return slices.Clone(preset.Features)
 }
 
 func presetsForKind(m *manifest.Manifest, kind string) []manifest.Preset {
@@ -249,37 +391,6 @@ func presetIDIn(id string, presets []manifest.Preset) bool {
 	}
 
 	return false
-}
-
-func (w *Wizard) selectFeatures(
-	ctx context.Context,
-	stack manifest.Stack,
-	preset *manifest.Preset,
-) ([]string, error) {
-	options := featureOptions(w.Manifest, stack)
-	if len(options) == 0 {
-		return make([]string, 0), nil
-	}
-
-	selected := slices.Clone(w.Result.Features)
-	if len(selected) == 0 && preset != nil {
-		selected = slices.Clone(preset.Features)
-	}
-
-	selected = filterFeatureValues(selected, options)
-
-	form := newForm(w, huh.NewGroup(
-		huh.NewMultiSelect[string]().
-			Title("Which features should be included?").
-			Description("Required companions are added automatically.").
-			Options(options...).
-			Value(&selected),
-	))
-	if err := form.RunWithContext(ctx); err != nil {
-		return nil, fmt.Errorf("wizard: %w", err)
-	}
-
-	return selected, nil
 }
 
 func featureOptions(m *manifest.Manifest, stack manifest.Stack) []huh.Option[string] {
@@ -339,64 +450,54 @@ func supportsStack(feature manifest.Feature, stack manifest.Stack) bool {
 	return len(feature.Kinds) == 0 || slices.Contains(feature.Kinds, stack.Kind)
 }
 
-func (w *Wizard) askVariables(ctx context.Context, stack manifest.Stack) (map[string]string, error) {
-	path := filepath.Join(
-		w.RegistryDir,
-		filepath.FromSlash(stack.Template),
-		"template.yaml",
-	)
+func loadWizardVariables(
+	registryDir string,
+	m *manifest.Manifest,
+	provided map[string]string,
+) (map[string][]wizardVariable, error) {
+	result := make(map[string][]wizardVariable, len(m.Stacks))
 
-	tmpl, err := manifest.LoadTemplateFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("wizard: load template variables: %w", err)
-	}
+	for _, stack := range m.Stacks {
+		path := filepath.Join(
+			registryDir,
+			filepath.FromSlash(stack.Template),
+			"template.yaml",
+		)
 
-	if err := tmpl.Validate(); err != nil {
-		return nil, fmt.Errorf("wizard: validate template variables: %w", err)
-	}
+		tmpl, err := manifest.LoadTemplateFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("wizard: load template variables for %q: %w", stack.ID, err)
+		}
 
-	if len(tmpl.Variables) == 0 {
-		return make(map[string]string), nil
-	}
+		if err := tmpl.Validate(); err != nil {
+			return nil, fmt.Errorf("wizard: validate template variables for %q: %w", stack.ID, err)
+		}
 
-	values := make([]string, len(tmpl.Variables))
-	fields := make([]huh.Field, 0, len(tmpl.Variables))
-
-	for index, variable := range tmpl.Variables {
-		values[index] = variable.Default
-		if provided := w.Result.Variables[variable.Name]; provided != "" {
-			if len(variable.Choices) == 0 || slices.Contains(variable.Choices, provided) {
-				values[index] = provided
+		variables := make([]wizardVariable, 0, len(tmpl.Variables))
+		for _, variable := range tmpl.Variables {
+			value := variable.Default
+			if providedValue := provided[variable.Name]; providedValue != "" {
+				if len(variable.Choices) == 0 || slices.Contains(variable.Choices, providedValue) {
+					value = providedValue
+				}
 			}
+
+			valuePointer := new(string)
+			*valuePointer = value
+
+			variables = append(variables, wizardVariable{
+				name:         variable.Name,
+				prompt:       variable.Prompt,
+				defaultValue: variable.Default,
+				choices:      variable.Choices,
+				value:        valuePointer,
+			})
 		}
 
-		if len(variable.Choices) > 0 {
-			fields = append(fields, huh.NewSelect[string]().
-				Title(variable.Prompt).
-				Options(huh.NewOptions(variable.Choices...)...).
-				Value(&values[index]))
-
-			continue
-		}
-
-		fields = append(fields, huh.NewInput().
-			Title(variable.Prompt).
-			Placeholder(variable.Default).
-			Value(&values[index]).
-			Validate(nonEmpty(variable.Name)))
+		result[stack.ID] = variables
 	}
 
-	form := newForm(w, huh.NewGroup(fields...))
-	if err := form.RunWithContext(ctx); err != nil {
-		return nil, fmt.Errorf("wizard: %w", err)
-	}
-
-	resolved := make(map[string]string, len(tmpl.Variables))
-	for index, variable := range tmpl.Variables {
-		resolved[variable.Name] = strings.TrimSpace(values[index])
-	}
-
-	return resolved, nil
+	return result, nil
 }
 
 func newForm(w *Wizard, groups ...*huh.Group) *huh.Form {

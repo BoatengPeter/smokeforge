@@ -65,6 +65,9 @@ prompts, and `NO_COLOR=1` disables color.
 7. **Review and generate** — the CLI prints a project summary and asks for
    confirmation, then renders staged progress and a generated-project box.
 
+The wizard runs as one grouped form. `Shift+Tab` moves back to the previous
+step so earlier answers can be changed without aborting.
+
 ### Flag parity
 
 Every wizard choice has a flag; CI never needs a TTY.

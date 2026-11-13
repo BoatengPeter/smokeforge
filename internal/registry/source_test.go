@@ -93,7 +93,7 @@ func TestLoadLocalDirUsesAbsolutePath(t *testing.T) {
 
 	relative, err := filepath.Rel(workingDir, dir)
 	if err != nil {
-		t.Fatal(err)
+		t.Skipf("cannot make a relative path across volumes: %v", err)
 	}
 
 	res, err := Load(t.Context(), Options{Source: relative})

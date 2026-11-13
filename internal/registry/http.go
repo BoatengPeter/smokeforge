@@ -241,6 +241,9 @@ func download(ctx context.Context, opts Options, dir string) error {
 
 func releaseURL(opts Options, name string) string {
 	base := strings.TrimSuffix(opts.Source, "/")
+	if opts.Tag == "latest" {
+		return base + "/latest/download/" + name
+	}
 
 	return base + "/download/" + url.PathEscape(opts.Tag) + "/" + name
 }

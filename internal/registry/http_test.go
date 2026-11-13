@@ -332,3 +332,17 @@ func TestCheckRedirect(t *testing.T) {
 		})
 	}
 }
+
+func TestReleaseURLLatest(t *testing.T) {
+	t.Parallel()
+
+	got := releaseURL(Options{
+		Source: "https://example.com/releases/",
+		Tag:    "latest",
+	}, "registry.tar.gz")
+
+	want := "https://example.com/releases/latest/download/registry.tar.gz"
+	if got != want {
+		t.Fatalf("url = %q, want %q", got, want)
+	}
+}

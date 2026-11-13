@@ -4,69 +4,334 @@
 
 `smokeforge` is a Go CLI for generating backend, frontend, mobile, desktop, and
 fullstack projects for clients. Pick a stack, compose the features you need
-(database, cache, queues, auth, TOTP, Docker, CI), and get a wired, buildable
-monorepo — reproducibly, from a pinned template registry.
+(database, auth, client state, analytics, Docker, CI), and get a wired,
+buildable project — reproducibly, from a pinned template registry.
 
-> **Status:** M1/M2 generation, the M4 lifecycle, and M5 release engineering are
-> complete. M3 is now in progress, starting with the Next.js frontend template.
-> `smokeforge new`, `add`, and `remove` work for single-target projects with
-> drift detection, backups, and rollback. Publishing, fullstack, and `install`
-> remain pending. See the [stack catalog](STACKS.md) and
+> **Status:** CLI generation, lifecycle, and release engineering are complete.
+> The Next.js template and fullstack presets are implemented. Backend, mobile,
+> and desktop templates remain provisional. `smokeforge install` and Homebrew
+> are not available yet. See the [stack catalog](STACKS.md) and
 > [roadmap](docs/development/roadmap.md).
 
 ---
 
+## Install
+
+You do **not** need Go to use a prebuilt release. Go is only needed if you
+build smokeforge from source.
+
+### 1. Check what you need
+
+| You want to... | You need |
+| --- | --- |
+| Create a project | smokeforge only |
+| Run a generated Next.js app | Node.js 24+ and pnpm 11+ (npm and bun also work) |
+| Use the fullstack preset | Postgres 17; Docker is the easiest way to run it |
+| Use Docker/CI/E2E overlays | Docker and/or a GitHub repository |
+
+### 2. Download smokeforge
+
+Open the [latest release](https://github.com/BoatengPeter/smokeforge/releases/latest)
+and download the file for your computer:
+
+| Computer | File |
+| --- | --- |
+| macOS Apple Silicon | `smokeforge_<version>_darwin_arm64.tar.gz` |
+| macOS Intel | `smokeforge_<version>_darwin_amd64.tar.gz` |
+| Linux Intel/AMD | `smokeforge_<version>_linux_amd64.tar.gz` |
+| Linux ARM | `smokeforge_<version>_linux_arm64.tar.gz` |
+| Windows | `smokeforge_<version>_windows_amd64.zip` |
+
+`amd64` means a standard Intel/AMD computer. `arm64` means Apple Silicon or an
+ARM server.
+
+#### macOS and Linux
+
+```bash
+tar -xzf smokeforge_*.tar.gz
+sudo install -m 0755 smokeforge /usr/local/bin/smokeforge
+smokeforge version
+```
+
+If `sudo` is not available, put the binary somewhere on your `PATH`:
+
+```bash
+mkdir -p ~/.local/bin
+mv smokeforge ~/.local/bin/
+export PATH="$HOME/.local/bin:$PATH"
+smokeforge version
+```
+
+Add the `export PATH=...` line to `~/.zshrc` or `~/.bashrc` to make it permanent.
+
+#### Windows
+
+1. Download the `.zip` file.
+2. Right-click and choose **Extract All**.
+3. Open the extracted folder in PowerShell.
+4. Run:
+
+```powershell
+.\smokeforge.exe version
+```
+
+To run `smokeforge` from any folder, add the extracted folder to your Windows
+`PATH`.
+
+#### Verify the download (recommended)
+
+The release page includes `checksums.txt`. Compute the hash of the archive you
+downloaded:
+
+```bash
+# Linux
+sha256sum smokeforge_*.tar.gz
+
+# macOS
+shasum -a 256 smokeforge_*.tar.gz
+```
+
+Compare it with the matching line in `checksums.txt`. If the values differ, do
+not run the binary.
+
+### 3. Create your first project
+
+Open a terminal and run:
+
+```bash
+smokeforge new my-first-app --preset frontend
+```
+
+The command creates a complete Next.js app in `my-first-app` with the official
+registry. Then:
+
+```bash
+cd my-first-app
+pnpm install
+pnpm dev
+```
+
+Open <http://localhost:3000>.
+
+If you prefer the guided experience, run `smokeforge new` with no arguments and
+answer the prompts.
+
+### Alternative installs
+
+If you have Go 1.26.11+:
+
+```bash
+go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.1.0
+smokeforge version
+```
+
+From source:
+
+```bash
+git clone https://github.com/BoatengPeter/smokeforge.git
+cd smokeforge
+make build
+./bin/smokeforge version
+```
+
+Homebrew is not available yet.
+
+## Choose a preset
+
+Presets are starting points. Required companions are added automatically.
+
+| Preset | Use it for | Includes |
+| --- | --- | --- |
+| `frontend` | A polished frontend or landing page | Next.js, shadcn/ui, SEO, API helpers, Jest |
+| `fullstack` | A SaaS or app with accounts | Frontend + Postgres + Better Auth + Zustand |
+| `production` | A deployable fullstack app | Fullstack + Docker + GitHub Actions + E2E + PostHog |
+
+Default: `fullstack`.
+
+```bash
+smokeforge new my-frontend --preset frontend
+smokeforge new my-saas --preset fullstack
+smokeforge new my-production-app --preset production
+```
+
+Select individual features instead:
+
+```bash
+smokeforge new my-app --preset frontend --feature docker --feature ci:github
+```
+
+Feature dependencies are automatic:
+
+- `auth` adds `database:postgres`.
+- `ci` adds `testing:e2e`.
+- Removing a required feature is blocked unless you pass `--cascade`.
+
+## Run a fullstack app locally
+
+The fullstack preset needs Postgres.
+
+### With Docker
+
+```bash
+smokeforge new my-saas --preset fullstack
+cd my-saas
+
+docker run -d --name my-saas-db \
+  -e POSTGRES_DB=app \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -p 5432:5432 \
+  postgres:17-alpine
+
+pnpm install
+pnpm db:migrate
+pnpm dev
+```
+
+Open <http://localhost:3000/signup>. The verification code is printed in the
+terminal during local development. Enter it on the verify page, then log in.
+
+If port `5432` is already used, choose another host port and update
+`DATABASE_URL` in `.env` to match.
+
+### With the production preset
+
+The production preset includes Docker Compose for the app and database:
+
+```bash
+smokeforge new my-app --preset production
+cd my-app
+pnpm install
+docker compose up -d db
+pnpm db:migrate
+pnpm dev
+```
+
+To run the full stack in containers:
+
+```bash
+docker compose up --build
+```
+
+## Everyday commands
+
+```bash
+# See available stacks and features
+smokeforge list stacks
+smokeforge list features
+
+# Add auth to an existing frontend project
+smokeforge add auth --project-dir my-app
+
+# Remove a feature (fails if another active feature needs it)
+smokeforge remove auth --project-dir my-app
+
+# Check tooling, registry, and project drift
+smokeforge doctor --project-dir my-app
+```
+
+Inside a generated project, use the Makefile:
+
+```bash
+make dev
+make lint
+make typecheck
+make test
+make build
+make ci
+```
+
+Docker, E2E, and database targets appear only when their overlays are selected.
+
 ## Why smokeforge
 
-- **Multi-stack, one workflow** — Go, Rust, Python APIs; Next.js web; native
-  SwiftUI iOS; Jetpack Compose Android; GPUI and EGUI desktop.
-- **Composable features** — start from a base template, then overlay database,
-  cache, queues, auth, TOTP, Docker, and CI without waiting for a new preset.
-- **Reproducible** — every project records the registry tag, commit, and
-  template checksums in a lockfile. The same choices regenerate the same tree.
-- **Recoverable** — generation stages files and commits atomically; `add` and
-  `remove` snapshot touched files, detect drift, and roll back on failure.
-- **Safe by design** — templates are declarative data. No template shell hooks,
-  no arbitrary code execution, checksum-verified downloads.
-- **Agent- and CI-friendly** — the interactive wizard has full flag parity.
-- **Project-scoped agent skills** — generated frontend apps receive their own
-  Next.js/React/Tailwind/Zod/robots skills, `AGENTS.md`, and `CLAUDE.md`.
+- **One command, production-shaped output** — auth, database, API conventions,
+  logging, tests, and agent instructions arrive together.
+- **Composable overlays** — add or remove features later without regenerating
+  the project.
+- **Reproducible** — projects pin the registry tag, commit, and template
+  checksums.
+- **Recoverable** — generation is atomic; `add`/`remove` take backups and roll
+  back on failure.
+- **Safe by design** — templates are declarative data, downloads are
+  checksum-verified, and secrets stay local in `.env`.
+- **Agent-ready** — generated apps include `AGENTS.md`, `CLAUDE.md`,
+  `CONTEXT.md`, and project-scoped skills.
 
----
+## Supported stacks
 
-## Supported stacks (v1)
-
-Next.js decisions are recorded in the [stack catalog](STACKS.md); backend,
-mobile, desktop, and remaining feature internals are still provisional.
-
-| Kind | Stack ID | Language / platform | Status |
-| --- | --- | --- | --- |
-| Backend | `go/chi` | Go — HTTP framework TBD | Provisional |
-| Backend | `rust/axum` | Rust — HTTP framework TBD | Provisional |
-| Backend | `python/fastapi` | Python — HTTP framework TBD | Provisional |
-| Frontend | `next` | Next.js 16 / React 19 / TypeScript | M3 in progress |
-| Mobile | `ios/swiftui` | Swift — UI approach TBD | Provisional |
-| Mobile | `android/compose` | Kotlin — UI approach TBD | Provisional |
-| Desktop | `desktop/gpui` | Rust — GPUI candidate | Provisional |
-| Desktop | `desktop/egui` | Rust — EGUI candidate | Provisional |
-| Workspace | `workspace/fullstack` | Monorepo root for multi-target projects | Provisional |
-
-## Supported features (v1)
-
-| Feature | Variants | Applies to |
+| Kind | Stack ID | Status |
 | --- | --- | --- |
-| `database` | `postgres` | Backends; Next (in progress) |
-| `cache` | `redis` | Backends; Next later |
-| `queue` | `rabbitmq` | Backends; unsupported for Next |
-| `auth` | `jwt`, `session` | Backends; Next uses `session` (in progress) |
-| `totp` | — (requires `auth`) | Backends; Next (in progress) |
-| `analytics` | `posthog` | Next (in progress) |
-| `docker` | — | Repo root |
-| `ci` | `github` | Repo root |
+| Frontend | `next` | Implemented |
+| Backend | `go/chi`, `rust/axum`, `python/fastapi` | Provisional |
+| Mobile | `ios/swiftui`, `android/compose` | Provisional |
+| Desktop | `desktop/gpui`, `desktop/egui` | Provisional |
+| Workspace | `workspace/fullstack` | Provisional |
 
-Out of v1: SSE, search (Meilisearch/Elasticsearch), storage
-(MinIO/imgproxy/nginx or Cloudflare R2), MySQL/SQLite variants, Redis-streams
-queues, observability, third-party registries, and three-way template upgrades.
+## Supported features
+
+| Feature | Variants | Next.js status |
+| --- | --- | --- |
+| `database` | `postgres` | Implemented |
+| `auth` | `session` | Implemented; requires database |
+| `state` | `zustand` | Implemented |
+| `testing` | `e2e` | Implemented |
+| `analytics` | `posthog` | Implemented; opt-in |
+| `docker` | — | Implemented |
+| `ci` | `github` | Implemented; requires E2E |
+| `cache` | `redis` | Backend only, provisional |
+| `queue` | `rabbitmq` | Backend only, provisional |
+| `totp` | — | Deferred |
+
+## Requirements and troubleshooting
+
+**`smokeforge: command not found`**
+The binary is not on your `PATH`. Move it to `/usr/local/bin` or add its folder
+to `PATH`, then reopen the terminal.
+
+**Registry download fails**
+Check your internet connection. If you are working on the registry itself, use
+a local checkout instead:
+
+```bash
+smokeforge new my-app --registry /path/to/smokeforge-registry
+```
+
+**`pnpm: command not found`**
+Install Node.js 24 from <https://nodejs.org>, then run:
+
+```bash
+corepack enable
+corepack prepare pnpm@11.13.1 --activate
+```
+
+**Fullstack app cannot connect to the database**
+Make sure Postgres is running on the host and port in `.env` (`DATABASE_URL`),
+then run `pnpm db:migrate`.
+
+**Port 3000 is already in use**
+
+```bash
+pnpm dev -- -p 3001
+```
+
+Use the matching URL in `NEXT_PUBLIC_APP_URL` and `BETTER_AUTH_URL`.
+
+**No verification email arrives locally**
+That is expected. During local development the OTP is printed in the terminal
+running `pnpm dev`. Production requires `RESEND_API_KEY` and `EMAIL_FROM`.
+
+**E2E tests say the browser is missing**
+
+```bash
+pnpm test:e2e:install
+pnpm test:e2e
+```
+
+**Removing a feature fails**
+The overlay may change files that cannot be reversed automatically, such as
+package dependencies. The command refuses rather than corrupting the project;
+follow the printed manual-removal instructions.
 
 ## Platforms and security
 
@@ -79,95 +344,6 @@ queues, observability, third-party registries, and three-way template upgrades.
 
 See [cross-platform compatibility](docs/development/cross-platform.md) and the
 [security policy](SECURITY.md).
-
----
-
-## Quick start
-
-Requires Go 1.26.11+ and `git`.
-
-### Install
-
-After the first tagged release:
-
-```bash
-go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.1.0
-smokeforge version
-```
-
-Prebuilt Linux, macOS, and Windows archives (`amd64`/`arm64`) with
-`checksums.txt` are attached to GitHub releases. A Homebrew tap is planned; see
-the [release guide](docs/development/release.md).
-
-From source:
-
-```bash
-git clone https://github.com/BoatengPeter/smokeforge.git
-cd smokeforge
-make build
-
-./bin/smokeforge version
-./bin/smokeforge list stacks
-```
-
-Generate a single-target project against the bundled neutral fixture:
-
-```bash
-# Interactive wizard
-smokeforge new --registry ./testdata/registry
-
-# Non-interactive CI usage
-smokeforge new ./acme \
-  --registry ./testdata/registry \
-  --kind backend \
-  --stack test/plain \
-  --name "Acme App" \
-  --feature logging \
-  --var module_path=example.com/acme \
-  --no-input --no-git
-
-# Official registry: fullstack is the default preset
-smokeforge new ./app \
-  --registry https://github.com/BoatengPeter/smokeforge-registry/releases \
-  --kind frontend --stack next --name "App" \
-  --preset fullstack --no-input
-
-cd acme
-go build ./...
-
-# Evolve the project later
-smokeforge add metrics --project-dir ./acme
-smokeforge remove metrics --project-dir ./acme
-```
-
-Lifecycle commands locate `.smokeforge.json`, resolve overlays against the
-locked registry, refuse drifted files (add supports `--force`), and restore a
-snapshot automatically if a mutation fails. Removal is limited to overlays made
-of added files, marked insertions, and env entries; overlays with structured
-config or dependency patches are refused with a manual-removal message.
-
-M2 project layout:
-
-```text
-acme/
-  main.go                 # rendered from the registry template
-  go.mod
-  internal/log/logger.go  # added by the logging overlay
-  .env.example            # documented environment variables
-  .env                    # local values and generated secrets (gitignored)
-  .gitignore
-  .smokeforge.json        # choices, targets, applied overlays, file hashes
-  .smokeforge.lock.json   # registry pin and template/overlay checksums
-```
-
-The fixture is deliberately neutral. Official stack templates wait for the
-generated-app framework and package decisions listed under
-[pending decisions](docs/development/roadmap.md#pending-decisions-blocking-m3-templates).
-
-The CLI uses Charm-style prompts, boxed summaries, and checkmark progress. Set
-`NO_COLOR=1` to disable color.
-
----
 
 ## How it works
 
@@ -332,10 +508,10 @@ docs/                  design, architecture, registry, and development docs
 3. **Lifecycle** — `add`/`remove`, drift detection, backups, automatic
    rollback, project-aware `doctor`. _(complete)_
 4. **Registry content** — official stack templates and feature overlays.
-   Next.js base, fullstack presets, overlays, and project-scoped skills. _(in progress)_
+   Next.js base, fullstack presets, overlays, and project-scoped skills. _(Next.js implemented; other stacks provisional)_
 5. **Full matrix** — fullstack composition, `install`, client wiring.
-6. **Release** — goreleaser, checksums, draft release workflow, install/release
-   docs. _(engineering complete; publishing pending)_
+6. **Release** — goreleaser, checksums, release workflow, and install docs.
+   _(releasing v0.1.0)_
 
 Details and acceptance criteria: [roadmap](docs/development/roadmap.md).
 

@@ -4,6 +4,14 @@ All notable changes to smokeforge are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 semantic versioning with pre-1.0 releases using `v0.x.y`.
 
+## [0.1.3] - 2026-11-13
+
+### Fixed
+
+- Preset/kind mismatch errors now list the presets valid for the selected
+  kind.
+- Frontend and Go production presets are labelled distinctly in help output.
+
 ## [0.1.2] - 2026-11-13
 
 ### Fixed

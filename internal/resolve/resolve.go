@@ -306,10 +306,18 @@ func requestedFeatures(m *manifest.Manifest, sel Selection) ([]string, error) {
 	}
 
 	if !preset.AppliesToKind(sel.Kind) {
+		valid := make([]string, 0, len(m.Presets))
+		for _, candidate := range m.Presets {
+			if candidate.AppliesToKind(sel.Kind) {
+				valid = append(valid, candidate.ID)
+			}
+		}
+
 		return nil, fmt.Errorf(
-			"preset %q does not support kind %q",
+			"preset %q does not support kind %q (use one of: %s)",
 			sel.Preset,
 			sel.Kind,
+			strings.Join(valid, ", "),
 		)
 	}
 

@@ -46,10 +46,10 @@ func newNewCmd(opts *options) *cobra.Command {
 Presets:
   frontend       Next.js app with shadcn/ui, SEO, API helpers, and Jest
   fullstack      Frontend plus Postgres, Better Auth, and Zustand
-  production     Fullstack plus Docker, GitHub Actions, E2E, and PostHog
+  production     Production Next.js plus Docker, GitHub Actions, E2E, and PostHog
   api            Go/Gin API with Postgres and JWT authentication
   api-minimal    Go/Gin base without database or authentication
-  api-production Go/Gin API plus TOTP, Docker, and GitHub Actions
+  api-production Production Go/Gin API with Postgres, auth, TOTP, Docker, and CI
 
 Required companions are added automatically: auth adds database, and CI adds
 E2E. Use --feature to select individual features instead of a preset.`,

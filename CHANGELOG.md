@@ -4,6 +4,16 @@ All notable changes to smokeforge are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 semantic versioning with pre-1.0 releases using `v0.x.y`.
 
+## [0.1.4] - 2026-11-14
+
+### Changed
+
+- Backend presets now default to Postgres + JWT. `api-custom` starts from the
+  base API so users can choose database, auth, TOTP, Docker, and CI features.
+- Removed the `api-minimal`, `api-production`, and frontend `production`
+  presets, along with production-labelled preset names. Users can add the
+  optional deployment features to the default presets.
+
 ## [0.1.3] - 2026-11-13
 
 ### Fixed
@@ -66,14 +76,6 @@ semantic versioning with pre-1.0 releases using `v0.x.y`.
   - `govulncheck`, registry URL credential/host validation, and redirect validation
 - Neutral `testdata/registry` fixture and integration tests covering
   generate → build → add → build → remove → build.
-
-### Changed
-
-- Backend presets now default to Postgres + JWT. `api-custom` starts from the
-  base API so users can choose database, auth, TOTP, Docker, and CI features.
-- Removed the `api-minimal`, `api-production`, and frontend `production`
-  presets, along with production-labelled preset names. Users can add the
-  optional deployment features to the default presets.
 
 ### Deferred
 

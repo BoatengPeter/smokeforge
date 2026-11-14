@@ -39,13 +39,18 @@ func TestNewHelp(t *testing.T) {
 		"--preset",
 		"fullstack",
 		"frontend",
-		"production",
+		"api",
+		"api-custom",
 		"Examples:",
 		"smokeforge new my-app",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("new help missing %q:\n%s", want, out)
 		}
+	}
+
+	if strings.Contains(out, "Production") {
+		t.Fatalf("new help should not label a preset as production:\n%s", out)
 	}
 }
 

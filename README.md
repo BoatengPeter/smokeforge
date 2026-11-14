@@ -177,21 +177,20 @@ Presets are starting points. Required companions are added automatically.
 | --- | --- | --- |
 | `frontend` | A polished frontend or landing page | Next.js, shadcn/ui, SEO, API helpers, Jest |
 | `fullstack` | A SaaS or app with accounts | Frontend + Postgres + Better Auth + Zustand |
-| `production` | A deployable fullstack app | Fullstack + Docker + GitHub Actions + E2E + PostHog |
 | `api` | A Go API with persistence and accounts | Go + Postgres + JWT auth |
-| `api-minimal` | A Go API without database or auth | Go base only |
-| `api-production` | A deployable Go API | Go + Postgres + JWT + TOTP + Docker + CI |
+| `api-custom` | Choosing your own Go API features | Select database, auth, TOTP, Docker, and CI |
 
 Defaults are kind-scoped: `fullstack` for frontend, `api` for backend.
 
 ```bash
 smokeforge new my-frontend --preset frontend
 smokeforge new my-saas --preset fullstack
-smokeforge new my-production-app --preset production
 
 # Go API: choose an architecture and start from the backend preset
 smokeforge new my-api --kind backend --stack go/gin-layered --preset api
-smokeforge new my-api-prod --kind backend --stack go/gin-hexagonal --preset api-production
+
+# Custom Go API: choose the features yourself
+smokeforge new my-api --kind backend --stack go/gin-hexagonal --preset api-custom --feature database:postgres --feature auth:jwt
 ```
 
 Select individual features instead:
@@ -234,12 +233,12 @@ update `DATABASE_URL` in `.env` to match.
 If you do not want to install Docker, point `DATABASE_URL` at an existing
 Postgres instance and run `make db-migrate` instead.
 
-### With the production preset
+### With Docker and CI
 
-The production preset includes Docker Compose for the app and database:
+Add Docker Compose and CI to the default fullstack preset when you want them:
 
 ```bash
-smokeforge new my-app --preset production
+smokeforge new my-app --preset fullstack --feature docker --feature ci:github
 cd my-app
 make install
 make db-up

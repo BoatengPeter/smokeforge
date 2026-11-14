@@ -40,7 +40,7 @@ Quick start:
 
 Documentation: https://github.com/BoatengPeter/smokeforge`,
 		Example: `  smokeforge new my-app
-  smokeforge new my-app --preset production
+  smokeforge new my-app --preset fullstack
   smokeforge list stacks
   smokeforge doctor --project-dir my-app`,
 		SilenceUsage:  true,

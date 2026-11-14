@@ -61,7 +61,7 @@ CLI tests: Go unit/integration/race, generated fixture build, cross-build matrix
 ### Defaults
 
 - Master preset is `fullstack`: `database:postgres`, `auth:session`, `state:zustand`.
-- `frontend` is the base-only preset; `production` adds E2E, Docker, CI, and PostHog.
+- `frontend` is the base-only preset; add E2E, Docker, CI, and PostHog with feature flags.
 - Required companions are auto-added; removal of a required feature is blocked
   unless `--cascade` is explicit.
 - One composable `next` base; standalone = base only, fullstack = base + overlays.
@@ -156,8 +156,8 @@ configuration anchors, feature-owned packages, and one overlay family.
 
 ### Defaults
 
-- Presets: `api` (default; Postgres + JWT), `api-minimal`, `api-production`
-  (Postgres + JWT + TOTP + Docker + CI).
+- Presets: `api` (default; Postgres + JWT) and `api-custom` (select database,
+  auth, TOTP, Docker, and CI).
 - Base API: `/healthz`, `/readyz`, `/api/v1/ping`, Swagger UI, merged OpenAPI,
   RFC 9457 errors, request IDs, recovery, body limits, CORS, rate limiting, and
   graceful shutdown.

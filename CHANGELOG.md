@@ -67,6 +67,14 @@ semantic versioning with pre-1.0 releases using `v0.x.y`.
 - Neutral `testdata/registry` fixture and integration tests covering
   generate → build → add → build → remove → build.
 
+### Changed
+
+- Backend presets now default to Postgres + JWT. `api-custom` starts from the
+  base API so users can choose database, auth, TOTP, Docker, and CI features.
+- Removed the `api-minimal`, `api-production`, and frontend `production`
+  presets, along with production-labelled preset names. Users can add the
+  optional deployment features to the default presets.
+
 ### Deferred
 
 - M3 registry content: official stack templates and feature overlays.

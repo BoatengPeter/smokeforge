@@ -46,17 +46,16 @@ func newNewCmd(opts *options) *cobra.Command {
 Presets:
   frontend       Next.js app with shadcn/ui, SEO, API helpers, and Jest
   fullstack      Frontend plus Postgres, Better Auth, and Zustand
-  production     Production Next.js plus Docker, GitHub Actions, E2E, and PostHog
   api            Go/Gin API with Postgres and JWT authentication
-  api-minimal    Go/Gin base without database or authentication
-  api-production Production Go/Gin API with Postgres, auth, TOTP, Docker, and CI
+  api-custom     Go/Gin API where you choose database, auth, TOTP, Docker, and CI
 
 Required companions are added automatically: auth adds database, and CI adds
 E2E. Use --feature to select individual features instead of a preset.`,
 		Example: `  smokeforge new my-app
   smokeforge new my-app --preset frontend
   smokeforge new my-saas --preset fullstack
-  smokeforge new my-app --preset production
+  smokeforge new my-api --kind backend --preset api
+  smokeforge new my-api --kind backend --preset api-custom --feature database:postgres --feature auth:jwt
   smokeforge new my-app --preset frontend --feature docker --feature ci:github
   smokeforge new my-app --registry ./smokeforge-registry --tag v0.1.0`,
 		Args: cobra.MaximumNArgs(1),

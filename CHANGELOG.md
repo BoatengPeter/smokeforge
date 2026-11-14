@@ -4,6 +4,13 @@ All notable changes to smokeforge are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 semantic versioning with pre-1.0 releases using `v0.x.y`.
 
+## [0.1.5] - 2026-11-14
+
+### Fixed
+
+- Registry cache version markers now use the resolved build version, so
+  `go install` builds invalidate stale `latest` caches across upgrades.
+
 ## [0.1.4] - 2026-11-14
 
 ### Changed

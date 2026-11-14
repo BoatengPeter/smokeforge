@@ -48,13 +48,13 @@ func cacheVersionMatches(dir string) bool {
 		return false
 	}
 
-	return strings.TrimSpace(string(data)) == version.Version
+	return strings.TrimSpace(string(data)) == version.Current().Version
 }
 
 func writeCacheVersion(dir string) error {
 	if err := os.WriteFile(
 		filepath.Join(dir, cacheVersionFile),
-		[]byte(version.Version+"\n"),
+		[]byte(version.Current().Version+"\n"),
 		0o600,
 	); err != nil {
 		return fmt.Errorf("write cache version: %w", err)

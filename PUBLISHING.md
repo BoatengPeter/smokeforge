@@ -4,10 +4,13 @@ Manual release instructions for maintainers. Follow these steps when you want to
 publish a version. For background and rationale, see
 [docs/development/release.md](docs/development/release.md).
 
-**Current policy:** pre-1.0 releases use `v0.x.y`. Reserve `v1.0.0` until M3
-registry content, `install`, fullstack composition, and final verification are
-complete. The GitHub release workflow creates a **draft** release; review it
-before publishing.
+**Current versions:** CLI `v0.1.8`, registry `v0.2.10`.
+
+**Current policy:** pre-1.0 releases use `v0.x.y`. Reserve `v1.0.0` until
+`install`, fullstack composition, Homebrew, and final verification are complete.
+The CLI release workflow creates a **draft** release; review it before publishing.
+The registry workflow publishes its release immediately when a registry tag is
+pushed.
 
 ---
 
@@ -40,7 +43,7 @@ Pick the next semantic version:
 Set it once for the session:
 
 ```bash
-VERSION=v0.1.0
+VERSION=v0.1.9
 ```
 
 ## 3. Pre-flight verification
@@ -90,8 +93,8 @@ Edit [CHANGELOG.md](CHANGELOG.md):
    ```
 
 2. Leave a fresh empty `## [Unreleased]` section.
-3. Do not claim features that are not shipped (M3 registry content, `install`,
-   fullstack, Homebrew, v1.0.0).
+3. Do not claim features that are not shipped (`install`, fullstack, Homebrew,
+   v1.0.0).
 
 Commit:
 
@@ -145,6 +148,14 @@ Publish the draft:
 
 ```bash
 gh release edit "$VERSION" --draft=false --latest
+```
+
+Verify the release and the updater:
+
+```bash
+gh release view "$VERSION" --json isDraft,assets
+smokeforge update --check
+smokeforge update --version "$VERSION" --force
 ```
 
 ## 6. Manual publish without the workflow
@@ -235,34 +246,63 @@ Homebrew is configured but commented out in `.goreleaser.yaml`.
    smokeforge version
    ```
 
-## 9. Registry assets (deferred with M3)
+## 9. Registry release
 
-Do this only after official registry content is ready.
+The registry is versioned separately from the CLI. Current latest is
+`v0.2.10`.
+
+### Recommended: tag-driven workflow
 
 In the registry repository:
 
 ```bash
-mkdir -p release/registry
-# copy manifest.yaml, templates/, overlays/ into release/registry/
-tar -czf registry.tar.gz -C release registry
-sha256sum registry.tar.gz > registry.sha256
+git switch main
+git pull --ff-only
+git tag -a v0.2.11 -m "smokeforge-registry v0.2.11"
+git push origin v0.2.11
 ```
 
-Attach both files to the registry GitHub release for the chosen tag. The URL
-layout must be:
+The registry release workflow packages `registry.tar.gz` with a top-level
+`registry/` directory, writes `registry.sha256`, creates the GitHub release, and
+marks it latest. Watch it with:
+
+```bash
+gh run list --repo BoatengPeter/smokeforge-registry --workflow=release.yml
+gh release view v0.2.11 --repo BoatengPeter/smokeforge-registry --json isDraft,assets
+```
+
+### Manual fallback
+
+```bash
+rm -rf dist
+mkdir -p dist/registry
+rsync -a --exclude .git --exclude dist ./ dist/registry/
+tar -czf dist/registry.tar.gz -C dist registry
+(cd dist && sha256sum registry.tar.gz > registry.sha256)
+
+gh release create v0.2.11 \
+  --repo BoatengPeter/smokeforge-registry \
+  dist/registry.tar.gz \
+  dist/registry.sha256 \
+  --title "smokeforge-registry v0.2.11" \
+  --notes "Registry release v0.2.11" \
+  --latest
+```
+
+The URL layout is:
 
 ```text
 <source>/download/<tag>/registry.tar.gz
 <source>/download/<tag>/registry.sha256
+<source>/latest/download/registry.tar.gz
 ```
 
 Smoke-test:
 
 ```bash
-smokeforge --tag <tag> registry update
-smokeforge --tag <tag> list stacks --offline
-smokeforge new /tmp/registry-smoke --registry <source> --tag <tag> \
-  --kind backend --stack test/plain --name "Smoke" --no-input --no-git
+smokeforge registry update
+smokeforge registry info
+smokeforge list stacks --offline
 ```
 
 ## 10. Post-release
@@ -270,8 +310,8 @@ smokeforge new /tmp/registry-smoke --registry <source> --tag <tag> \
 - Confirm the release is not a draft and is marked latest.
 - Confirm checksums and both `go install` and archive installs work.
 - Announce only the capabilities that shipped.
-- Open follow-up issues for deferred items (M3 content, `install`, fullstack,
-  Homebrew tap, mutation dry-runs).
+- Open follow-up issues for deferred items (`install`, fullstack, Homebrew tap,
+  mutation dry-runs).
 - If a release is broken:
   - If still a draft, delete it: `gh release delete "$VERSION" --yes`.
   - If published, do not delete the tag. Mark the release as a pre-release or
@@ -288,7 +328,7 @@ smokeforge new /tmp/registry-smoke --registry <source> --tag <tag> \
 - [ ] Draft assets and `checksums.txt` reviewed.
 - [ ] `go install` and archive verification pass.
 - [ ] Homebrew configured only after the tap exists.
-- [ ] Registry assets only after M3 is complete.
+- [ ] Registry tag or manual assets published; `registry update` and `list stacks` pass.
 - [ ] License chosen before a public v1 release.
 
 ## Related documents

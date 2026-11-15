@@ -154,7 +154,7 @@ same template data. For local registry development, pass `--registry <dir>`.
 If you have Go 1.26.11+:
 
 ```bash
-go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.1.5
+go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.1.8
 smokeforge version
 ```
 

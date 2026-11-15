@@ -1,7 +1,7 @@
 # Release guide
 
-**Status:** release engineering is prepared. Publishing a release, creating the
-Homebrew tap, and tagging `v1.0.0` are pending.
+**Status:** CLI and registry releases are active. Current CLI is `v0.1.8`;
+current registry is `v0.2.10`. The Homebrew tap and `v1.0.0` remain pending.
 
 ## Versioning policy
 
@@ -64,12 +64,17 @@ The version output must include the snapshot version, commit, and date.
 5. The `release` workflow runs tests, builds six platform archives, generates
    `checksums.txt`, and creates a **draft** GitHub release.
 6. Review the draft: artifacts, checksums, changelog, and version metadata.
-7. Publish the release.
-8. Verify installation:
+7. Publish it:
 
    ```bash
-   go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.1.0
+   gh release edit v0.1.8 --draft=false --latest
+   ```
+8. Verify installation and self-update:
+
+   ```bash
+   go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.1.8
    smokeforge version
+   smokeforge update --check
    ```
 
 ## Homebrew
@@ -91,35 +96,51 @@ Homebrew publishing is commented out in `.goreleaser.yaml` until a tap exists.
 
 ## Registry release
 
-The template registry is released separately from the CLI:
+The template registry is released separately from the CLI. Current latest is
+`v0.2.10`.
 
-1. Tag the registry (`v0.1.0`, `v0.2.0`, ...).
-2. Package the tree so the archive contains a top-level `registry/` directory:
+### Recommended: tag-driven workflow
 
-   ```bash
-   tar -czf registry.tar.gz registry/
-   sha256sum registry.tar.gz > registry.sha256
-   ```
+```bash
+git tag -a v0.2.11 -m "smokeforge-registry v0.2.11"
+git push origin v0.2.11
+```
 
-3. Attach `registry.tar.gz` and `registry.sha256` to the registry GitHub release.
-4. Mark the release latest so the CLI's default `latest` tag resolves it.
-5. The URL layout is:
+The registry workflow publishes `registry.tar.gz` and `registry.sha256`
+immediately. It packages the archive with a top-level `registry/` directory.
 
-   ```text
-   <source>/download/<tag>/registry.tar.gz
-   <source>/download/<tag>/registry.sha256
-   <source>/latest/download/registry.tar.gz       # tag "latest"
-   ```
+### Manual fallback
 
-6. Smoke-test fetching and caching:
+```bash
+rm -rf dist
+mkdir -p dist/registry
+rsync -a --exclude .git --exclude dist ./ dist/registry/
+tar -czf dist/registry.tar.gz -C dist registry
+(cd dist && sha256sum registry.tar.gz > registry.sha256)
 
-   ```bash
-   smokeforge registry update
-   smokeforge list stacks --offline
-   ```
+gh release create v0.2.11 \
+  --repo BoatengPeter/smokeforge-registry \
+  dist/registry.tar.gz dist/registry.sha256 \
+  --title "smokeforge-registry v0.2.11" \
+  --notes "Registry release v0.2.11" \
+  --latest
+```
 
-The CLI downloads and caches the registry automatically. Users normally do not
-download registry assets by hand.
+The URL layout is:
+
+```text
+<source>/download/<tag>/registry.tar.gz
+<source>/download/<tag>/registry.sha256
+<source>/latest/download/registry.tar.gz
+```
+
+Smoke-test:
+
+```bash
+smokeforge registry update
+smokeforge registry info
+smokeforge list stacks --offline
+```
 
 ## Pre-release checklist
 
@@ -130,7 +151,7 @@ download registry assets by hand.
 - [ ] Version metadata appears in `smokeforge version`.
 - [ ] Draft release reviewed before publishing.
 - [ ] License chosen and added before a public v1 release.
-- [ ] Registry assets published when M3 is complete.
+- [ ] Registry release published; `registry update` and `list stacks` pass.
 
 ## Related documents
 

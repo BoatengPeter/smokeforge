@@ -176,7 +176,7 @@ Presets are starting points. Required companions are added automatically.
 | Preset | Use it for | Includes |
 | --- | --- | --- |
 | `frontend` | A polished frontend or landing page | Next.js, shadcn/ui, SEO, API helpers, Jest |
-| `fullstack` | A SaaS or app with accounts | Frontend + Postgres + Better Auth + Zustand |
+| `fullstack` | A SaaS or app with accounts | Frontend + Postgres + Better Auth + Zustand + TanStack Query |
 | `api` | A backend API with persistence and accounts | Backend + Postgres + JWT auth |
 | `api-custom` | Choosing your own backend features | Select database, cache, queue, scheduler, dedupe, compression, auth, TOTP, media, search, search sync, pagination, Docker, and CI |
 

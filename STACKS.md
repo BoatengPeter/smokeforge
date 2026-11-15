@@ -50,7 +50,8 @@ CLI tests: Go unit/integration/race, generated fixture build, cross-build matrix
 | Testing Library | React 16.3.3; jest-dom 7.0.1 | Component tests |
 | Playwright | 1.65.0 | E2E overlay |
 | React Hook Form | 7.92.0 | Auth/forms overlay; `@hookform/resolvers` 7.0.6 |
-| Zustand | 5.1.0 | State overlay; per-request provider for SSR safety |
+| Zustand | 5.1.0 | Client UI state; per-request provider for SSR safety |
+| TanStack Query | 5.107.1 | Server-state cache, query keys, and mutation hooks |
 | Zod | 4.6.7 | API and form validation |
 | Postgres | 17 | Optional database overlay |
 | Drizzle ORM | 0.45.4 | `drizzle-kit` 0.31.11 |
@@ -60,7 +61,7 @@ CLI tests: Go unit/integration/race, generated fixture build, cross-build matrix
 
 ### Defaults
 
-- Master preset is `fullstack`: `database:postgres`, `auth:session`, `state:zustand`.
+- Master preset is `fullstack`: `database:postgres`, `auth:session`, `state:zustand`, `data:tanstack-query`.
 - `frontend` is the base-only preset; add E2E, Docker, CI, and PostHog with feature flags.
 - Required companions are auto-added; removal of a required feature is blocked
   unless `--cascade` is explicit.
@@ -72,7 +73,7 @@ CLI tests: Go unit/integration/race, generated fixture build, cross-build matrix
 - Metadata API, generated OpenGraph image, sitemap, robots.
 - Tailwind v4 CSS-first tokens; no `tailwind.config.ts`.
 - Forms: React Hook Form + Zod with auth. State: Zustand provider with the state
-  overlay; no module-level request state.
+  overlay; TanStack Query owns server state; no module-level request state.
 - Jest for unit tests; Playwright for e2e with the testing overlay.
 - PostHog: client-only, opt-in, autocapture off, no session recording.
 - Lockfiles are created by the first install (pnpm-lock.yaml, package-lock.json,
@@ -104,6 +105,7 @@ They are scoped to the generated frontend app, not the smokeforge CLI repo.
 | --- | --- | --- |
 | `database:postgres` | Implemented | Drizzle schema, migrations, compose override |
 | `state:zustand` | Implemented | Store, actions, provider, selectors, tests |
+| `data:tanstack-query` | Implemented | QueryClient provider, typed query/mutation/auth hooks |
 | `testing:e2e` | Implemented | Playwright config, smoke test, Makefile targets |
 | `auth:session` | Implemented | Better Auth email/password, OTP verification/reset |
 | `totp` | Deferred | Better Auth TOTP plugin later |

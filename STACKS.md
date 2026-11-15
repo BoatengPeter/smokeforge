@@ -243,13 +243,15 @@ Every generated Go app receives:
 
 | Stack ID (provisional) | Language | Framework | Status |
 | --- | --- | --- | --- |
-| `rust/axum` | Rust | Axum, SQLx/Postgres, JWT, Docker, CI | Implemented |
+| `rust/axum` | Rust | Axum, SQLx/Postgres, JWT, email/OAuth, TOTP, Redis, RabbitMQ, Meilisearch, S3 media, Docker, CI | Implemented |
 | `python/fastapi` | Python | FastAPI candidate | Provisional |
 
 The Rust base includes `src/response.rs` with success helpers, RFC 9457
 `ProblemDetails`, typed field errors, and automatic `instance`/`request_id`
 context. `src/error.rs` owns the application error and delegates HTTP mapping to
-the response layer.
+the response layer. Rust overlays cover TOTP login/recovery, email
+verification/reset, Google OAuth, Redis dedupe, scheduler leadership, RabbitMQ
+search sync, retry queues, and imgproxy/nginx minio transformations.
 
 ## Mobile — provisional
 

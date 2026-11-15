@@ -1,7 +1,7 @@
 # Release guide
 
 **Status:** CLI and registry releases are active. Current CLI is `v0.2.0`;
-current registry is `v0.5.2`. The Homebrew tap and `v1.0.0` remain pending.
+current registry is `v0.6.0`. The Homebrew tap and `v1.0.0` remain pending.
 
 ## Versioning policy
 
@@ -97,13 +97,13 @@ Homebrew publishing is commented out in `.goreleaser.yaml` until a tap exists.
 ## Registry release
 
 The template registry is released separately from the CLI. Current latest is
-`v0.5.2`.
+`v0.6.0`.
 
 ### Recommended: tag-driven workflow
 
 ```bash
-git tag -a v0.5.3 -m "smokeforge-registry v0.5.3"
-git push origin v0.5.3
+git tag -a v0.6.1 -m "smokeforge-registry v0.6.1"
+git push origin v0.6.1
 ```
 
 The registry workflow publishes `registry.tar.gz` and `registry.sha256`
@@ -118,11 +118,11 @@ rsync -a --exclude .git --exclude dist ./ dist/registry/
 tar -czf dist/registry.tar.gz -C dist registry
 (cd dist && sha256sum registry.tar.gz > registry.sha256)
 
-gh release create v0.5.3 \
+gh release create v0.6.1 \
   --repo BoatengPeter/smokeforge-registry \
   dist/registry.tar.gz dist/registry.sha256 \
-  --title "smokeforge-registry v0.5.3" \
-  --notes "Registry release v0.5.3" \
+  --title "smokeforge-registry v0.6.1" \
+  --notes "Registry release v0.6.1" \
   --latest
 ```
 

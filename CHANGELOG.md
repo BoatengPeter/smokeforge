@@ -68,6 +68,13 @@ semantic versioning with pre-1.0 releases using `v0.x.y`.
 - Backend presets are now labeled stack-neutrally, so Rust and Go stacks both see
   `Backend API` and `Custom backend API` instead of Go-specific names.
 
+## [0.1.8] - 2026-11-15
+
+### Changed
+
+- The wizard now presents media providers as one dropdown and only shows queue
+  compression after the RabbitMQ queue is selected.
+
 ## [Unreleased]
 
 ### Added

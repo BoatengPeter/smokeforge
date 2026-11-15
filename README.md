@@ -9,7 +9,7 @@ fullstack projects for clients. Pick a stack, compose the features you need
 (database, auth, client state, analytics, Docker, CI), and get a wired,
 buildable project — reproducibly, from a pinned template registry.
 
-> **Status:** v0.1.7 is published. CLI generation, lifecycle, and release engineering are complete.
+> **Status:** v0.1.8 is published. CLI generation, lifecycle, and release engineering are complete.
 > The Next.js template, Go/Gin backend (four architectures), and their presets
 > and overlays are implemented. Mobile and desktop templates remain provisional.
 > `smokeforge install` and Homebrew are not available yet. See the [stack catalog](STACKS.md) and

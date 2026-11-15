@@ -64,6 +64,8 @@ func (w *Wizard) Run(ctx context.Context) error {
 	}
 
 	lastPresetID := presetID
+	mediaProvider := currentVariant(features, "media-provider")
+	compressionEnabled := slices.Contains(features, "compression:gzip")
 
 	variableValues, err := loadWizardVariables(w.RegistryDir, w.Manifest, w.Result.Variables)
 	if err != nil {
@@ -73,6 +75,8 @@ func (w *Wizard) Run(ctx context.Context) error {
 	groups := w.basicGroups(kinds, &kind, &selectedStackID, &name)
 	groups = append(groups, w.presetGroup(&kind, &presetID, &features, &lastPresetID, explicitFeatures))
 	groups = append(groups, w.featureGroup(&selectedStackID, &features))
+	groups = append(groups, w.mediaProviderGroup(&selectedStackID, &features, &mediaProvider))
+	groups = append(groups, w.compressionGroup(&features, &compressionEnabled))
 	groups = append(groups, w.variableGroups(selectableStacks(w.Manifest, kinds), variableValues, &selectedStackID)...)
 
 	form := newForm(w, groups...)
@@ -85,7 +89,9 @@ func (w *Wizard) Run(ctx context.Context) error {
 		return fmt.Errorf("wizard: unknown stack %q", selectedStackID)
 	}
 
-	features = filterFeatureValues(features, featureOptions(w.Manifest, stack))
+	features = filterFeatureValues(features, allFeatureOptions(w.Manifest, stack))
+	features = syncMediaProvider(w.Manifest, stack, features, mediaProvider)
+	features = syncCompression(stack, features, compressionEnabled)
 
 	variables := make(map[string]string, len(variableValues[selectedStackID]))
 	for _, variable := range variableValues[selectedStackID] {
@@ -189,6 +195,42 @@ func (w *Wizard) featureGroup(selectedStackID *string, features *[]string) *huh.
 		stack, ok := findStackByID(w.Manifest, *selectedStackID)
 
 		return !ok || len(featureOptions(w.Manifest, stack)) == 0
+	})
+}
+
+func (w *Wizard) mediaProviderGroup(
+	selectedStackID *string,
+	features *[]string,
+	mediaProvider *string,
+) *huh.Group {
+	return huh.NewGroup(
+		huh.NewSelect[string]().
+			Title("Which media provider should it use?").
+			Description("Choose storage and transformation infrastructure.").
+			OptionsFunc(func() []huh.Option[string] {
+				stack, ok := findStackByID(w.Manifest, *selectedStackID)
+				if !ok {
+					return nil
+				}
+
+				return variantOptions(w.Manifest, "media-provider", stack)
+			}, features).
+			Value(mediaProvider),
+	).WithHideFunc(func() bool {
+		stack, ok := findStackByID(w.Manifest, *selectedStackID)
+
+		return !ok || !slices.Contains(*features, "media") || len(variantOptions(w.Manifest, "media-provider", stack)) == 0
+	})
+}
+
+func (w *Wizard) compressionGroup(features *[]string, enabled *bool) *huh.Group {
+	return huh.NewGroup(
+		huh.NewConfirm().
+			Title("Enable gzip queue compression?").
+			Description("Only available with the RabbitMQ queue.").
+			Value(enabled),
+	).WithHideFunc(func() bool {
+		return !slices.Contains(*features, "queue:rabbitmq")
 	})
 }
 
@@ -394,6 +436,22 @@ func presetIDIn(id string, presets []manifest.Preset) bool {
 }
 
 func featureOptions(m *manifest.Manifest, stack manifest.Stack) []huh.Option[string] {
+	options := allFeatureOptions(m, stack)
+	filtered := make([]huh.Option[string], 0, len(options))
+
+	for _, option := range options {
+		featureID, _, _ := strings.Cut(option.Value, ":")
+		if featureID == "media-provider" || featureID == "compression" {
+			continue
+		}
+
+		filtered = append(filtered, option)
+	}
+
+	return filtered
+}
+
+func allFeatureOptions(m *manifest.Manifest, stack manifest.Stack) []huh.Option[string] {
 	options := make([]huh.Option[string], 0, len(m.Features))
 
 	for _, feature := range m.Features {
@@ -448,6 +506,89 @@ func supportsStack(feature manifest.Feature, stack manifest.Stack) bool {
 	}
 
 	return len(feature.Kinds) == 0 || slices.Contains(feature.Kinds, stack.Kind)
+}
+
+func variantOptions(
+	m *manifest.Manifest,
+	featureID string,
+	stack manifest.Stack,
+) []huh.Option[string] {
+	for _, feature := range m.Features {
+		if feature.ID != featureID || !supportsStack(feature, stack) {
+			continue
+		}
+
+		options := make([]huh.Option[string], 0, len(feature.Variants))
+		for _, variant := range feature.Variants {
+			if variant.Overlays[stack.ID] == "" {
+				continue
+			}
+
+			options = append(options, huh.NewOption(variant.Name, variant.ID))
+		}
+
+		return options
+	}
+
+	return nil
+}
+
+func currentVariant(features []string, featureID string) string {
+	for _, value := range features {
+		id, variant, ok := strings.Cut(value, ":")
+		if ok && id == featureID {
+			return variant
+		}
+	}
+
+	return ""
+}
+
+func syncMediaProvider(
+	m *manifest.Manifest,
+	stack manifest.Stack,
+	features []string,
+	provider string,
+) []string {
+	filtered := make([]string, 0, len(features))
+	for _, value := range features {
+		if !strings.HasPrefix(value, "media-provider:") {
+			filtered = append(filtered, value)
+		}
+	}
+
+	if !slices.Contains(filtered, "media") {
+		return filtered
+	}
+
+	options := variantOptions(m, "media-provider", stack)
+	if len(options) == 0 {
+		return filtered
+	}
+
+	chosen := provider
+	if chosen == "" {
+		chosen = options[0].Value
+	}
+
+	return append(filtered, "media-provider:"+chosen)
+}
+
+func syncCompression(stack manifest.Stack, features []string, enabled bool) []string {
+	filtered := make([]string, 0, len(features))
+	for _, value := range features {
+		if value != "compression:gzip" {
+			filtered = append(filtered, value)
+		}
+	}
+
+	if enabled && slices.Contains(features, "queue:rabbitmq") && supportsStack(manifest.Feature{
+		ID: "compression",
+	}, stack) {
+		filtered = append(filtered, "compression:gzip")
+	}
+
+	return filtered
 }
 
 func loadWizardVariables(

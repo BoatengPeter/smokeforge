@@ -53,13 +53,15 @@ semantic versioning with pre-1.0 releases using `v0.x.y`.
 - The wizard filters presets to the selected kind.
 - Documentation and stack catalog now cover the Go/Gin backend templates.
 
-## [Unreleased]
+## [0.1.6] - 2026-11-15
 
 ### Added
 
 - `smokeforge update` command with `--check`, `--version`, `--force`, and
   `--json`; downloads the matching release archive, verifies `checksums.txt`,
   and atomically replaces the binary.
+
+## [Unreleased]
 
 ### Added
 

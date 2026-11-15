@@ -14,10 +14,14 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
+const fullstackKind = "fullstack"
+
 // WizardResult holds the choices collected by the interactive wizard.
 type WizardResult struct {
 	Kind      string
 	Stack     string
+	Backend   string
+	Frontend  string
 	Name      string
 	Preset    string
 	Features  []string
@@ -53,7 +57,12 @@ func (w *Wizard) Run(ctx context.Context) error {
 		kind = kinds[0]
 	}
 
-	selectedStackID := initialStackID(w.Manifest, kind, w.Result.Stack)
+	initialStack := w.Result.Stack
+	if kind == fullstackKind && w.Result.Backend != "" {
+		initialStack = w.Result.Backend
+	}
+
+	selectedStackID := initialStackID(w.Manifest, kind, initialStack)
 	name := w.Result.Name
 	presetID := initialPresetID(w.Manifest, kind, w.Result.Preset)
 	explicitFeatures := len(w.Result.Features) > 0
@@ -74,7 +83,7 @@ func (w *Wizard) Run(ctx context.Context) error {
 
 	groups := w.basicGroups(kinds, &kind, &selectedStackID, &name)
 	groups = append(groups, w.presetGroup(&kind, &presetID, &features, &lastPresetID, explicitFeatures))
-	groups = append(groups, w.featureGroup(&selectedStackID, &features))
+	groups = append(groups, w.featureGroup(&kind, &selectedStackID, &features))
 	groups = append(groups, w.mediaProviderGroup(&selectedStackID, &features, &mediaProvider))
 	groups = append(groups, w.compressionGroup(&features, &compressionEnabled))
 	groups = append(groups, w.variableGroups(selectableStacks(w.Manifest, kinds), variableValues, &selectedStackID)...)
@@ -89,7 +98,7 @@ func (w *Wizard) Run(ctx context.Context) error {
 		return fmt.Errorf("wizard: unknown stack %q", selectedStackID)
 	}
 
-	features = filterFeatureValues(features, allFeatureOptions(w.Manifest, stack))
+	features = filterFeatureValues(features, wizardFeatureOptions(w.Manifest, kind, stack))
 	features = syncMediaProvider(w.Manifest, stack, features, mediaProvider)
 	features = syncCompression(stack, features, compressionEnabled)
 
@@ -98,7 +107,7 @@ func (w *Wizard) Run(ctx context.Context) error {
 		variables[variable.name] = strings.TrimSpace(*variable.value)
 	}
 
-	w.Result = WizardResult{
+	result := WizardResult{
 		Kind:      kind,
 		Stack:     selectedStackID,
 		Name:      strings.TrimSpace(name),
@@ -106,6 +115,19 @@ func (w *Wizard) Run(ctx context.Context) error {
 		Features:  features,
 		Variables: variables,
 	}
+
+	if kind == fullstackKind {
+		frontend := w.Result.Frontend
+		if frontend == "" {
+			frontend = "next"
+		}
+
+		result.Backend = selectedStackID
+		result.Frontend = frontend
+		result.Stack = ""
+	}
+
+	w.Result = result
 
 	return nil
 }
@@ -125,7 +147,7 @@ func (w *Wizard) basicGroups(
 			huh.NewSelect[string]().
 				Title("Which stack should it use?").
 				OptionsFunc(func() []huh.Option[string] {
-					stacks := stacksForKind(w.Manifest, *kind)
+					stacks := wizardStacksForKind(w.Manifest, *kind)
 					if !stackIDIn(*selectedStackID, stacks) {
 						*selectedStackID = stacks[0].ID
 					}
@@ -174,7 +196,7 @@ func (w *Wizard) presetGroup(
 	})
 }
 
-func (w *Wizard) featureGroup(selectedStackID *string, features *[]string) *huh.Group {
+func (w *Wizard) featureGroup(kind, selectedStackID *string, features *[]string) *huh.Group {
 	return huh.NewGroup(
 		huh.NewMultiSelect[string]().
 			Title("Which features should be included?").
@@ -185,7 +207,7 @@ func (w *Wizard) featureGroup(selectedStackID *string, features *[]string) *huh.
 					return nil
 				}
 
-				options := featureOptions(w.Manifest, stack)
+				options := wizardFeatureOptions(w.Manifest, *kind, stack)
 				*features = filterFeatureValues(*features, options)
 
 				return options
@@ -194,7 +216,7 @@ func (w *Wizard) featureGroup(selectedStackID *string, features *[]string) *huh.
 	).WithHideFunc(func() bool {
 		stack, ok := findStackByID(w.Manifest, *selectedStackID)
 
-		return !ok || len(featureOptions(w.Manifest, stack)) == 0
+		return !ok || len(wizardFeatureOptions(w.Manifest, *kind, stack)) == 0
 	})
 }
 
@@ -298,12 +320,46 @@ func availableKinds(m *manifest.Manifest) []string {
 func selectableStacks(m *manifest.Manifest, kinds []string) []manifest.Stack {
 	stacks := make([]manifest.Stack, 0, len(m.Stacks))
 	for _, stack := range m.Stacks {
-		if slices.Contains(kinds, stack.Kind) {
+		if slices.Contains(kinds, stack.Kind) || (slices.Contains(kinds, "fullstack") && (stack.Kind == "backend" || stack.Kind == "frontend")) {
 			stacks = append(stacks, stack)
 		}
 	}
 
 	return stacks
+}
+
+func wizardStacksForKind(m *manifest.Manifest, kind string) []manifest.Stack {
+	if kind == fullstackKind {
+		return stacksForKind(m, "backend")
+	}
+
+	return stacksForKind(m, kind)
+}
+
+func wizardFeatureOptions(m *manifest.Manifest, kind string, stack manifest.Stack) []huh.Option[string] {
+	if kind != fullstackKind {
+		return featureOptions(m, stack)
+	}
+
+	options := append([]huh.Option[string]{}, featureOptions(m, stack)...)
+
+	seen := make(map[string]bool, len(options))
+	for _, option := range options {
+		seen[option.Value] = true
+	}
+
+	if frontend, ok := findStackByID(m, "next"); ok {
+		for _, option := range featureOptions(m, frontend) {
+			if option.Value == "auth:session" || seen[option.Value] {
+				continue
+			}
+
+			options = append(options, option)
+			seen[option.Value] = true
+		}
+	}
+
+	return options
 }
 
 func stacksForKind(m *manifest.Manifest, kind string) []manifest.Stack {
@@ -318,7 +374,7 @@ func stacksForKind(m *manifest.Manifest, kind string) []manifest.Stack {
 }
 
 func initialStackID(m *manifest.Manifest, kind, selected string) string {
-	stacks := stacksForKind(m, kind)
+	stacks := wizardStacksForKind(m, kind)
 	if len(stacks) == 0 {
 		return ""
 	}

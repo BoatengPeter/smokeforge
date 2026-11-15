@@ -42,7 +42,8 @@ smokeforge new [dir] [flags]
 ```
 
 If `dir` is omitted, it defaults to the slug of the project name. The target must
-not exist or must be empty. M2 supports single-target kinds; fullstack and
+not exist or must be empty. `new` supports backend, frontend, and fullstack
+(API + Next.js); `add`/`remove` remain single-target. Other kinds and
 multi-client selection are planned for M4.
 
 The command prints a boxed summary, asks for confirmation in a TTY, and reports

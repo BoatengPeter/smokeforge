@@ -465,3 +465,135 @@ func mustReadFile(t *testing.T, path string) []byte {
 
 	return data
 }
+
+const fullstackManifestYAML = `schemaVersion: 1
+name: fullstack-test
+kinds:
+  backend: {max: 1}
+  frontend: {max: 1}
+  fullstack: {max: 1}
+stacks:
+  - id: go/api
+    kind: backend
+    name: Go API
+    template: templates/api
+    variables: [module_path]
+  - id: next
+    kind: frontend
+    name: Next.js
+    template: templates/web
+    variables: [package_manager]
+  - id: workspace/fullstack
+    kind: fullstack
+    name: Workspace
+    template: templates/root
+    variables: [package_manager]
+presets:
+  - id: fullstack-api
+    name: Fullstack API
+    kinds: [fullstack]
+    default: true
+    features: []
+features:
+  - id: database
+    name: Database
+    kinds: [backend]
+    variants:
+      - id: postgres
+        name: PostgreSQL
+        default: true
+        overlays:
+          go/api: overlays/api/database
+  - id: docker
+    name: Docker
+    kinds: [backend, frontend, fullstack]
+    overlays:
+      go/api: overlays/api/docker
+      next: overlays/web/docker
+      workspace/fullstack: overlays/root/docker
+`
+
+func fullstackFixture(t *testing.T) (registry.Result, string) {
+	t.Helper()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "manifest.yaml"), fullstackManifestYAML)
+	writeFile(t, filepath.Join(dir, "templates", "api", "template.yaml"),
+		"id: go/api\nvariables:\n  - name: module_path\n    default: example.com/api\n")
+	writeFile(t, filepath.Join(dir, "templates", "api", "files", "go.mod.tmpl"),
+		"module {{.module_path}}\n\ngo 1.26\n")
+	writeFile(t, filepath.Join(dir, "templates", "web", "template.yaml"),
+		"id: next\nvariables:\n  - name: package_manager\n    default: pnpm\n")
+	writeFile(t, filepath.Join(dir, "templates", "web", "files", "package.json.tmpl"),
+		"{\"name\":\"{{.project_slug}}\",\"packageManager\":\"{{.package_manager}}\"}\n")
+	writeFile(t, filepath.Join(dir, "templates", "root", "template.yaml"),
+		"id: workspace/fullstack\nvariables:\n  - name: package_manager\n    default: pnpm\n")
+	writeFile(t, filepath.Join(dir, "templates", "root", "files", "README.md.tmpl"),
+		"# {{.project_name}}\n")
+	writeFile(t, filepath.Join(dir, "templates", "root", "files", ".gitignore"), ".env\n")
+
+	for _, overlayPath := range []string{"overlays/api/database", "overlays/api/docker", "overlays/web/docker", "overlays/root/docker"} {
+		writeFile(t, filepath.Join(dir, overlayPath, "overlay.yaml"),
+			"id: docker\nops:\n  - env:\n      key: DOCKER_ENABLED\n      example: \"1\"\n")
+	}
+
+	reg, err := registry.Load(t.Context(), registry.Options{Source: dir})
+	if err != nil {
+		t.Fatalf("load registry: %v", err)
+	}
+
+	return *reg, dir
+}
+
+func TestGenerateFullstackTargets(t *testing.T) {
+	t.Parallel()
+
+	reg, _ := fullstackFixture(t)
+
+	plan, err := resolve.Resolve(reg.Manifest, reg.Dir, resolve.Selection{
+		Name:      "Acme App",
+		Kind:      "fullstack",
+		Backend:   "go/api",
+		Preset:    "fullstack-api",
+		Features:  []string{"database", "docker"},
+		Variables: map[string]string{"module_path": "example.com/acme", "package_manager": "pnpm"},
+	})
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+
+	target := filepath.Join(t.TempDir(), "acme")
+
+	result, err := Generate(t.Context(), Request{
+		Registry: &reg,
+		Plan:     plan,
+		Target:   target,
+		NoGit:    true,
+	})
+	if err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+
+	for _, want := range []string{"README.md", "apps/api/go.mod", "apps/web/package.json"} {
+		if _, err := os.Stat(filepath.Join(target, filepath.FromSlash(want))); err != nil {
+			t.Fatalf("missing %s: %v", want, err)
+		}
+	}
+
+	state, err := project.LoadState(target)
+	if err != nil {
+		t.Fatalf("load state: %v", err)
+	}
+
+	if len(state.Targets) != 2 || state.Targets[0].Path != "apps/api" || state.Targets[1].Path != "apps/web" {
+		t.Fatalf("state targets = %+v", state.Targets)
+	}
+
+	if strings.Join(state.RootFeatures, ",") != "docker" {
+		t.Fatalf("root features = %v", state.RootFeatures)
+	}
+
+	if len(result.Files) < 5 {
+		t.Fatalf("files = %v", result.Files)
+	}
+}

@@ -108,12 +108,34 @@ They are scoped to the generated frontend app, not the smokeforge CLI repo.
 | `data:tanstack-query` | Implemented | QueryClient provider, typed query/mutation/auth hooks |
 | `testing:e2e` | Implemented | Playwright config, smoke test, Makefile targets |
 | `auth:session` | Implemented | Better Auth email/password, OTP verification/reset |
+| `auth:bff` | Implemented | Next.js BFF for Go/Rust API JWT; HttpOnly cookies, refresh rotation |
 | `totp` | Deferred | Better Auth TOTP plugin later |
 | `analytics:posthog` | Implemented | Client-only, consent-first |
 | `docker` | Implemented | Non-root multi-stage, package-manager aware |
 | `ci:github` | Implemented | GitHub Actions; E2E steps run only when Playwright exists |
 | `cache:redis` | Deferred | Go cache overlay exists; Next.js cache is not planned |
 | `queue` | Deferred | Go RabbitMQ overlay exists; Next.js queue is not planned |
+
+## Fullstack — Next.js + API
+
+**Status:** implemented for Go/Gin and Rust/Axum APIs.
+
+| Piece | Location | Responsibility |
+| --- | --- | --- |
+| API | `apps/api` | JWT issuance, refresh rotation, database, business rules |
+| Web | `apps/web` | App Router UI, BFF, TanStack Query |
+| Workspace | root | `CONTEXT-MAP.md`, Makefile, root compose, GitHub Actions |
+| BFF | `apps/web/src/app/api/auth/*` | Same-origin auth routes; HttpOnly cookies |
+| Hooks | `apps/web/src/lib/query/hooks.ts` | `useAuthSession`, `useLogin`, `useRegister`, `useLogout` |
+
+Fullstack preset: `fullstack-api` = API + Next.js + Postgres/JWT + TanStack Query
++ Docker + CI. `smokeforge new` accepts `--backend` and `--frontend`; `--frontend`
+defaults to `next`.
+
+Root compose extends the generated API/web compose files, adds Postgres and the
+migration service for the fullstack preset, and wires `API_URL=http://api:8080`.
+Root CI detects Go or Rust and runs API checks plus the web CI target. Root
+`CONTEXT-MAP.md` points at the API and web `CONTEXT.md` files.
 
 ## Backend — Go/Gin
 

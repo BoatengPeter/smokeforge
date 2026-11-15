@@ -122,39 +122,62 @@ func prepareStaging(target string) (string, error) {
 }
 
 func buildProject(ctx context.Context, req Request, staging string) (*Result, error) {
-	root, err := os.OpenRoot(staging)
-	if err != nil {
-		return nil, fmt.Errorf("open staging root: %w", err)
-	}
-
-	defer func() {
-		_ = root.Close()
-	}()
-
-	renderer := render.New(req.Plan.Name, req.Plan.Target.Variables)
-
 	report(req, "rendering base templates")
 
-	if _, err := renderBase(ctx, root, req.Plan, renderer); err != nil {
-		return nil, err
-	}
+	builds := make([]targetBuild, 0, len(generationTargets(req.Plan)))
 
-	report(req, "applying feature overlays")
+	for _, target := range generationTargets(req.Plan) {
+		targetDir := filepath.Join(staging, filepath.FromSlash(target.Path))
 
-	applications, envEntries, err := applyOverlays(ctx, staging, req.Plan, renderer)
-	if err != nil {
-		return nil, err
-	}
+		//nolint:gosec // generated project paths are validated before rendering.
+		if err := os.MkdirAll(targetDir, 0o755); err != nil {
+			return nil, fmt.Errorf("create target directory %q: %w", target.Path, err)
+		}
 
-	report(req, "writing environment files")
+		targetRoot, err := os.OpenRoot(targetDir)
+		if err != nil {
+			return nil, fmt.Errorf("open target root %q: %w", target.Path, err)
+		}
 
-	if err := writeEnvFiles(root, envEntries); err != nil {
-		return nil, err
+		targetRenderer := render.New(req.Plan.Name, target.Variables)
+
+		if _, err := renderBase(ctx, targetRoot, target, targetRenderer); err != nil {
+			_ = targetRoot.Close()
+
+			return nil, err
+		}
+
+		report(req, "applying feature overlays")
+
+		applications, envEntries, err := applyOverlayPlans(ctx, targetDir, target.Overlays, targetRenderer)
+		if err != nil {
+			_ = targetRoot.Close()
+
+			return nil, err
+		}
+
+		report(req, "writing environment files")
+
+		if err := writeEnvFiles(targetRoot, envEntries); err != nil {
+			_ = targetRoot.Close()
+
+			return nil, err
+		}
+
+		if err := targetRoot.Close(); err != nil {
+			return nil, fmt.Errorf("close target root %q: %w", target.Path, err)
+		}
+
+		builds = append(builds, targetBuild{
+			plan:         target,
+			dir:          targetDir,
+			applications: applications,
+		})
 	}
 
 	report(req, "writing project state")
 
-	state, lock, err := buildState(req, applications, staging)
+	state, lock, err := buildState(req, builds)
 	if err != nil {
 		return nil, err
 	}
@@ -183,6 +206,24 @@ func buildProject(ctx context.Context, req Request, staging string) (*Result, er
 		Lock:    lock,
 		Staging: staging,
 	}, nil
+}
+
+func generationTargets(plan *resolve.Plan) []resolve.TargetPlan {
+	targets := make([]resolve.TargetPlan, 0, len(plan.Targets)+1)
+
+	if len(plan.Targets) > 0 {
+		targets = append(targets, plan.Targets...)
+	} else {
+		targets = append(targets, plan.Target)
+	}
+
+	// Root overlays can aggregate files emitted by target overlays, so apply
+	// them after the per-target builds.
+	if plan.Root != nil {
+		targets = append(targets, *plan.Root)
+	}
+
+	return targets
 }
 
 func commitProject(staging, target string) error {
@@ -219,12 +260,22 @@ func validateRequest(ctx context.Context, req Request) error {
 		return errors.New("generate: target is required")
 	}
 
-	if req.Plan.Target.Path != "." {
-		return fmt.Errorf("generate: unsupported target path %q", req.Plan.Target.Path)
-	}
+	seen := make(map[string]bool)
 
-	if req.Plan.Target.TemplateDir == "" {
-		return errors.New("generate: template directory is required")
+	for _, target := range generationTargets(req.Plan) {
+		if target.Path == "" {
+			return errors.New("generate: target path is required")
+		}
+
+		if seen[target.Path] {
+			return fmt.Errorf("generate: duplicate target path %q", target.Path)
+		}
+
+		seen[target.Path] = true
+
+		if target.TemplateDir == "" {
+			return fmt.Errorf("generate: template directory is required for target %q", target.Path)
+		}
 	}
 
 	return nil

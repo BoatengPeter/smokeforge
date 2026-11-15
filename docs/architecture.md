@@ -54,7 +54,7 @@ flowchart TD
     project --> resolve
     install --> toolchains["Go, Rust, Python,\nNode, Android, iOS"]
 
-    subgraph planned["Planned in M2-M4"]
+    subgraph implemented["Implemented"]
         resolve
         engine
         render
@@ -240,13 +240,13 @@ flowchart TD
 
     api --> apiFeatures["database, cache, queue,\nauth, totp"]
     root --> repoFeatures["docker, ci"]
-    repoFeatures --> compose["deploy/docker-compose.yml"]
+    repoFeatures --> compose["compose.yaml"]
     repoFeatures --> workflows[".github/workflows/ci.yml"]
-    api --> wiring["client API base URL"]
+    api --> wiring["API_URL + BFF"]
     wiring --> web
-    wiring --> ios
-    wiring --> android
-    wiring --> desktop
+    wiring -.-> ios
+    wiring -.-> android
+    wiring -.-> desktop
 ```
 
 Root overlays aggregate services and workflows from target metadata. Overlays
@@ -358,7 +358,7 @@ Full testing details: [testing strategy](development/testing.md).
 | Manifest validation | Implemented |
 | Local and remote registry loading, checksums, cache, safe extraction | Implemented |
 | Resolver, renderer, patch engine, staging, state/lock, wizard | Implemented (M2) |
-| Base templates and feature overlays | Planned (M3) |
+| Base templates and feature overlays | Implemented (M3: API + Next.js) |
 | Add/remove lifecycle, drift, backups, rollback | Implemented (M4 lifecycle) |
-| Install, fullstack composition | Planned (M4 remainder) |
-| Release pipeline | Planned (M5) |
+| Install | Planned (M4 remainder) |
+| Release pipeline | Implemented (M5) |

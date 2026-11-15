@@ -4,6 +4,30 @@ All notable changes to smokeforge are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 semantic versioning with pre-1.0 releases using `v0.x.y`.
 
+## [0.2.0] - 2026-11-15
+
+### Added
+
+- Multi-target fullstack generation for Go/Gin or Rust/Axum APIs plus Next.js.
+- `--kind fullstack --backend <stack>` with an optional `--frontend` (default
+  `next`), producing `apps/api`, `apps/web`, and a root workspace.
+- `workspace/fullstack` root template with `CONTEXT-MAP.md`, Makefile, env docs,
+  Docker Compose aggregation, and GitHub Actions aggregation.
+- Fullstack registry preset `fullstack-api`: Postgres/JWT API, Next.js BFF,
+  TanStack Query, Docker, and CI.
+- Next.js BFF auth routes with HttpOnly cookies, refresh rotation, origin
+  checks, and Go/Rust response normalization.
+- Multi-target engine state, lockfile hashes, and root feature tracking.
+- Fullstack tests for resolution, multi-target rendering, CLI flags, BFF token
+  helpers, and generated Go/Rust projects.
+
+### Changed
+
+- Root operations now run after target overlays so workspace overlays can
+  aggregate generated services and workflows.
+- `apiFetch` handles `204 No Content` responses for logout and other empty
+  mutations.
+
 ## [0.1.5] - 2026-11-14
 
 ### Fixed

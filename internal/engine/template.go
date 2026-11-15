@@ -24,10 +24,10 @@ type baseRenderer struct {
 func renderBase(
 	ctx context.Context,
 	root *os.Root,
-	plan *resolve.Plan,
+	target resolve.TargetPlan,
 	renderer *render.Renderer,
 ) ([]string, error) {
-	filesDir := filepath.Join(plan.Target.TemplateDir, "files")
+	filesDir := filepath.Join(target.TemplateDir, "files")
 
 	info, err := os.Stat(filesDir)
 	if err != nil {

@@ -10,18 +10,119 @@ import (
 	"github.com/BoatengPeter/smokeforge/internal/resolve"
 )
 
+type targetBuild struct {
+	plan         resolve.TargetPlan
+	dir          string
+	applications []overlayApplication
+}
+
+type buildMetadata struct {
+	applied        []project.AppliedOverlay
+	targets        []project.Target
+	rootFeatures   []string
+	templateHashes map[string]string
+	overlayHashes  map[string]string
+	variables      map[string]string
+}
+
 func buildState(
 	req Request,
-	applications []overlayApplication,
-	staging string,
+	builds []targetBuild,
 ) (*project.State, *project.Lock, error) {
-	features := featuresFromPlan(req.Plan)
+	metadata, err := collectBuildMetadata(req, builds)
+	if err != nil {
+		return nil, nil, err
+	}
 
-	applied := make([]project.AppliedOverlay, 0, len(applications))
-	for _, application := range applications {
-		files, envKeys, err := hashApplication(staging, application)
+	state := &project.State{
+		SchemaVersion: 1,
+		Name:          req.Plan.Name,
+		Kind:          req.Plan.Kind,
+		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
+		Registry: project.RegistryRef{
+			Source: req.Registry.Source,
+			Tag:    req.Registry.Tag,
+		},
+		Variables:    metadata.variables,
+		Targets:      metadata.targets,
+		RootFeatures: metadata.rootFeatures,
+		Applied:      metadata.applied,
+	}
+
+	lock := &project.Lock{
+		LockVersion: 1,
+		Registry: project.RegistryLock{
+			Source: req.Registry.Source,
+			Tag:    req.Registry.Tag,
+		},
+		Templates: metadata.templateHashes,
+		Overlays:  metadata.overlayHashes,
+	}
+
+	return state, lock, nil
+}
+
+func collectBuildMetadata(req Request, builds []targetBuild) (*buildMetadata, error) {
+	metadata := &buildMetadata{
+		applied:        make([]project.AppliedOverlay, 0, len(builds)),
+		targets:        make([]project.Target, 0, len(builds)),
+		rootFeatures:   make([]string, 0),
+		templateHashes: make(map[string]string, len(builds)),
+		overlayHashes:  make(map[string]string, len(builds)),
+		variables:      make(map[string]string),
+	}
+
+	for _, build := range builds {
+		features := featuresFromTarget(build.plan)
+		metadata.recordTarget(req, build, features)
+
+		applications, err := recordApplications(req, build)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
+		}
+
+		metadata.applied = append(metadata.applied, applications...)
+
+		templateHash, err := project.HashDir(build.plan.TemplateDir)
+		if err != nil {
+			return nil, fmt.Errorf("hash template: %w", err)
+		}
+
+		metadata.templateHashes[build.plan.Stack.Template] = templateHash
+
+		if err := recordOverlayHashes(build, metadata.overlayHashes); err != nil {
+			return nil, err
+		}
+	}
+
+	return metadata, nil
+}
+
+func (m *buildMetadata) recordTarget(req Request, build targetBuild, features []string) {
+	if build.plan.Path == "." && req.Plan.Root != nil {
+		m.rootFeatures = features
+
+		return
+	}
+
+	if len(m.targets) == 0 {
+		m.variables = maps.Clone(build.plan.Variables)
+	}
+
+	m.targets = append(m.targets, project.Target{
+		Path:     build.plan.Path,
+		Stack:    build.plan.Stack.ID,
+		Features: features,
+	})
+}
+
+func recordApplications(req Request, build targetBuild) ([]project.AppliedOverlay, error) {
+	applied := make([]project.AppliedOverlay, 0, len(build.applications))
+
+	for _, application := range build.applications {
+		files, envKeys, err := hashApplication(build.dir, application)
+		if err != nil {
+			return nil, err
 		}
 
 		overlayID := application.FeatureID
@@ -36,7 +137,7 @@ func buildState(
 
 		applied = append(applied, project.AppliedOverlay{
 			Overlay:     overlayID,
-			Target:      req.Plan.Target.Path,
+			Target:      build.plan.Path,
 			RegistryTag: req.Registry.Tag,
 			Files:       files,
 			Markers:     markers,
@@ -44,47 +145,20 @@ func buildState(
 		})
 	}
 
-	templateHash, err := project.HashDir(req.Plan.Target.TemplateDir)
-	if err != nil {
-		return nil, nil, fmt.Errorf("hash template: %w", err)
-	}
+	return applied, nil
+}
 
-	overlayHashes := make(map[string]string, len(applications))
-	for _, application := range applications {
-		hash, hashErr := project.HashDir(application.Dir)
-		if hashErr != nil {
-			return nil, nil, fmt.Errorf("hash overlay %q: %w", application.Path, hashErr)
+func recordOverlayHashes(build targetBuild, hashes map[string]string) error {
+	for _, application := range build.applications {
+		hash, err := project.HashDir(application.Dir)
+		if err != nil {
+			return fmt.Errorf("hash overlay %q: %w", application.Path, err)
 		}
 
-		overlayHashes[application.Path] = hash
+		hashes[application.Path] = hash
 	}
 
-	state := &project.State{
-		SchemaVersion: 1,
-		Name:          req.Plan.Name,
-		Kind:          req.Plan.Kind,
-		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
-		Registry: project.RegistryRef{
-			Source: req.Registry.Source,
-			Tag:    req.Registry.Tag,
-		},
-		Variables:    maps.Clone(req.Plan.Target.Variables),
-		Targets:      []project.Target{{Path: req.Plan.Target.Path, Stack: req.Plan.Target.Stack.ID, Features: features}},
-		RootFeatures: make([]string, 0),
-		Applied:      applied,
-	}
-
-	lock := &project.Lock{
-		LockVersion: 1,
-		Registry: project.RegistryLock{
-			Source: req.Registry.Source,
-			Tag:    req.Registry.Tag,
-		},
-		Templates: map[string]string{req.Plan.Target.Stack.Template: templateHash},
-		Overlays:  overlayHashes,
-	}
-
-	return state, lock, nil
+	return nil
 }
 
 func hashApplication(
@@ -116,10 +190,10 @@ func hashApplication(
 	return files, envKeys, nil
 }
 
-func featuresFromPlan(plan *resolve.Plan) []string {
-	features := make([]string, 0, len(plan.Target.Overlays))
+func featuresFromTarget(target resolve.TargetPlan) []string {
+	features := make([]string, 0, len(target.Overlays))
 
-	for _, overlay := range plan.Target.Overlays {
+	for _, overlay := range target.Overlays {
 		feature := overlay.FeatureID
 		if overlay.VariantID != "" {
 			feature += ":" + overlay.VariantID
@@ -129,4 +203,8 @@ func featuresFromPlan(plan *resolve.Plan) []string {
 	}
 
 	return features
+}
+
+func featuresFromPlan(plan *resolve.Plan) []string {
+	return featuresFromTarget(plan.Target)
 }

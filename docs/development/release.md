@@ -1,13 +1,13 @@
 # Release guide
 
-**Status:** CLI and registry releases are active. Current CLI is `v0.1.8`;
-current registry is `v0.2.10`. The Homebrew tap and `v1.0.0` remain pending.
+**Status:** CLI and registry releases are active. Current CLI is `v0.2.0`;
+current registry is `v0.4.0`. The Homebrew tap and `v1.0.0` remain pending.
 
 ## Versioning policy
 
 - Pre-1.0 releases use `v0.x.y`.
 - `v1.0.0` is reserved for the completed v1 scope: M3 registry content, `install`,
-  fullstack composition, and release verification.
+  and final verification.
 - Build metadata is injected by goreleaser ldflags:
   - `internal/version.Version`
   - `internal/version.Commit`
@@ -57,8 +57,8 @@ The version output must include the snapshot version, commit, and date.
 4. Create and push an annotated tag:
 
    ```bash
-   git tag -a v0.1.0 -m "smokeforge v0.1.0"
-   git push origin v0.1.0
+   git tag -a v0.2.0 -m "smokeforge v0.2.0"
+   git push origin v0.2.0
    ```
 
 5. The `release` workflow runs tests, builds six platform archives, generates
@@ -67,12 +67,12 @@ The version output must include the snapshot version, commit, and date.
 7. Publish it:
 
    ```bash
-   gh release edit v0.1.8 --draft=false --latest
+   gh release edit v0.2.0 --draft=false --latest
    ```
 8. Verify installation and self-update:
 
    ```bash
-   go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.1.8
+   go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.2.0
    smokeforge version
    smokeforge update --check
    ```
@@ -97,13 +97,13 @@ Homebrew publishing is commented out in `.goreleaser.yaml` until a tap exists.
 ## Registry release
 
 The template registry is released separately from the CLI. Current latest is
-`v0.2.10`.
+`v0.4.0`.
 
 ### Recommended: tag-driven workflow
 
 ```bash
-git tag -a v0.2.11 -m "smokeforge-registry v0.2.11"
-git push origin v0.2.11
+git tag -a v0.4.1 -m "smokeforge-registry v0.4.1"
+git push origin v0.4.1
 ```
 
 The registry workflow publishes `registry.tar.gz` and `registry.sha256`
@@ -118,11 +118,11 @@ rsync -a --exclude .git --exclude dist ./ dist/registry/
 tar -czf dist/registry.tar.gz -C dist registry
 (cd dist && sha256sum registry.tar.gz > registry.sha256)
 
-gh release create v0.2.11 \
+gh release create v0.4.1 \
   --repo BoatengPeter/smokeforge-registry \
   dist/registry.tar.gz dist/registry.sha256 \
-  --title "smokeforge-registry v0.2.11" \
-  --notes "Registry release v0.2.11" \
+  --title "smokeforge-registry v0.4.1" \
+  --notes "Registry release v0.4.1" \
   --latest
 ```
 

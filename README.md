@@ -9,7 +9,7 @@ fullstack projects for clients. Pick a stack, compose the features you need
 (database, auth, client state, analytics, Docker, CI), and get a wired,
 buildable project — reproducibly, from a pinned template registry.
 
-> **Status:** v0.1.8 is published. CLI generation, lifecycle, and release engineering are complete.
+> **Status:** v0.2.0 is published. CLI generation, lifecycle, fullstack composition, and release engineering are complete.
 > The Next.js template, Go/Gin backend (four architectures), and their presets
 > and overlays are implemented. Mobile and desktop templates remain provisional.
 > `smokeforge install` and Homebrew are not available yet. See the [stack catalog](STACKS.md) and
@@ -154,7 +154,7 @@ same template data. For local registry development, pass `--registry <dir>`.
 If you have Go 1.26.11+:
 
 ```bash
-go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.1.8
+go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.2.0
 smokeforge version
 ```
 
@@ -176,15 +176,20 @@ Presets are starting points. Required companions are added automatically.
 | Preset | Use it for | Includes |
 | --- | --- | --- |
 | `frontend` | A polished frontend or landing page | Next.js, shadcn/ui, SEO, API helpers, Jest |
-| `fullstack` | A SaaS or app with accounts | Frontend + Postgres + Better Auth + Zustand + TanStack Query |
+| `fullstack` | A Next.js app with its own auth/database | Frontend + Postgres + Better Auth + Zustand + TanStack Query |
+| `fullstack-api` | Next.js + a Go or Rust API | Next.js BFF + API + Postgres/JWT + TanStack Query + Docker + CI |
 | `api` | A backend API with persistence and accounts | Backend + Postgres + JWT auth |
 | `api-custom` | Choosing your own backend features | Select database, cache, queue, scheduler, dedupe, compression, auth, TOTP, media, search, search sync, pagination, Docker, and CI |
 
-Defaults are kind-scoped: `fullstack` for frontend, `api` for backend.
+Defaults are kind-scoped: `fullstack` for frontend, `fullstack-api` for fullstack, `api` for backend.
 
 ```bash
 smokeforge new my-frontend --preset frontend
 smokeforge new my-saas --preset fullstack
+
+# Fullstack API + Next.js (Go or Rust)
+smokeforge new my-saas --kind fullstack --backend go/gin-layered
+smokeforge new my-saas --kind fullstack --backend rust/axum
 
 # Go API: choose an architecture and start from the backend preset
 smokeforge new my-api --kind backend --stack go/gin-layered --preset api
@@ -207,7 +212,33 @@ Feature dependencies are automatic:
 
 ## Run a fullstack app locally
 
-The fullstack preset needs Postgres.
+There are two fullstack shapes:
+
+- `fullstack`: Next.js owns auth and the database through Route Handlers.
+- `fullstack-api`: Next.js is the BFF and a Go or Rust API owns JWT auth and
+  persistence.
+
+### Fullstack API + Next.js
+
+```bash
+smokeforge new my-product --kind fullstack --backend go/gin-layered
+cd my-product
+make install
+make api-dev        # API on :8080
+make web-dev        # Next.js on :3000
+```
+
+Or run the whole stack with Docker:
+
+```bash
+make docker-up
+```
+
+The browser calls same-origin `/api/auth/*` BFF routes. Raw JWT access and
+refresh tokens stay in HttpOnly cookies and never reach browser JavaScript.
+Read `CONTEXT-MAP.md` first, then the API and web `CONTEXT.md` files.
+
+The Next.js-owned fullstack preset needs Postgres.
 
 ### With Docker
 
@@ -335,19 +366,20 @@ Restart your shell after installing completion.
 | Backend | `python/fastapi` | Provisional |
 | Mobile | `ios/swiftui`, `android/compose` | Provisional |
 | Desktop | `desktop/gpui`, `desktop/egui` | Provisional |
-| Workspace | `workspace/fullstack` | Provisional |
+| Workspace | `workspace/fullstack` | Implemented for API + Next.js |
 
 ## Supported features
 
 | Feature | Variants | Next.js status |
 | --- | --- | --- |
 | `database` | `postgres` | Implemented |
-| `auth` | `session` | Implemented; requires database |
+| `auth` | `session`, `bff` | Frontend session or API JWT BFF |
+| `data` | `tanstack-query` | Implemented |
 | `state` | `zustand` | Implemented |
 | `testing` | `e2e` | Implemented |
 | `analytics` | `posthog` | Implemented; opt-in |
 | `docker` | — | Implemented |
-| `ci` | `github` | Implemented; requires E2E |
+| `ci` | `github` | Implemented; frontend requires E2E |
 | `cache` | `redis` | Backend only, deferred |
 | `queue` | `rabbitmq` | Backend only, deferred |
 | `totp` | — | Implemented for Go (`auth:jwt` required) |
@@ -621,9 +653,9 @@ docs/                  design, architecture, registry, and development docs
    rollback, project-aware `doctor`. _(complete)_
 4. **Registry content** — official stack templates and feature overlays.
    Next.js base, fullstack presets, overlays, and project-scoped skills. _(Next.js implemented; other stacks provisional)_
-5. **Full matrix** — fullstack composition, `install`, client wiring.
+5. **Full matrix** — fullstack composition and client wiring complete; `install` remains pending.
 6. **Release** — goreleaser, checksums, release workflow, and install docs.
-   _(v0.1.5 published)_
+   _(v0.2.0 published)_
 
 Details and acceptance criteria: [roadmap](docs/development/roadmap.md).
 

@@ -4,10 +4,10 @@ Manual release instructions for maintainers. Follow these steps when you want to
 publish a version. For background and rationale, see
 [docs/development/release.md](docs/development/release.md).
 
-**Current versions:** CLI `v0.1.8`, registry `v0.2.10`.
+**Current versions:** CLI `v0.2.0`, registry `v0.4.0`.
 
 **Current policy:** pre-1.0 releases use `v0.x.y`. Reserve `v1.0.0` until
-`install`, fullstack composition, Homebrew, and final verification are complete.
+`install`, Homebrew, and final verification are complete.
 The CLI release workflow creates a **draft** release; review it before publishing.
 The registry workflow publishes its release immediately when a registry tag is
 pushed.
@@ -249,7 +249,7 @@ Homebrew is configured but commented out in `.goreleaser.yaml`.
 ## 9. Registry release
 
 The registry is versioned separately from the CLI. Current latest is
-`v0.2.10`.
+`v0.4.0`.
 
 ### Recommended: tag-driven workflow
 
@@ -258,8 +258,8 @@ In the registry repository:
 ```bash
 git switch main
 git pull --ff-only
-git tag -a v0.2.11 -m "smokeforge-registry v0.2.11"
-git push origin v0.2.11
+git tag -a v0.4.1 -m "smokeforge-registry v0.4.1"
+git push origin v0.4.1
 ```
 
 The registry release workflow packages `registry.tar.gz` with a top-level
@@ -268,7 +268,7 @@ marks it latest. Watch it with:
 
 ```bash
 gh run list --repo BoatengPeter/smokeforge-registry --workflow=release.yml
-gh release view v0.2.11 --repo BoatengPeter/smokeforge-registry --json isDraft,assets
+gh release view v0.4.1 --repo BoatengPeter/smokeforge-registry --json isDraft,assets
 ```
 
 ### Manual fallback
@@ -280,12 +280,12 @@ rsync -a --exclude .git --exclude dist ./ dist/registry/
 tar -czf dist/registry.tar.gz -C dist registry
 (cd dist && sha256sum registry.tar.gz > registry.sha256)
 
-gh release create v0.2.11 \
+gh release create v0.4.1 \
   --repo BoatengPeter/smokeforge-registry \
   dist/registry.tar.gz \
   dist/registry.sha256 \
-  --title "smokeforge-registry v0.2.11" \
-  --notes "Registry release v0.2.11" \
+  --title "smokeforge-registry v0.4.1" \
+  --notes "Registry release v0.4.1" \
   --latest
 ```
 

@@ -58,18 +58,17 @@ backend overlays are still pending.
 **Acceptance:** every declared stack builds standalone; every feature overlay
 applies to every supported base and the result builds.
 
-### M4 — Lifecycle and fullstack _(lifecycle complete)_
+### M4 — Lifecycle and fullstack _(complete for API + web)_
 
 - [x] `add` / `remove` with drift detection, backups, automatic rollback
 - [x] `doctor` project-state drift checks
 - [ ] `install` per-stack idempotent setup
 - [ ] Toolchain checks in `doctor`
-- [ ] `workspace/fullstack` root base
-- [ ] Multi-target monorepo generation (`apps/api`, `apps/web`, `apps/ios`,
-      `apps/android`, `apps/desktop`)
-- [ ] Client API-URL wiring
-- [ ] Root compose/CI aggregation
-- [ ] End-to-end matrix for representative fullstack combos
+- [x] `workspace/fullstack` root base
+- [x] Multi-target monorepo generation (`apps/api`, `apps/web`; native clients pend)
+- [x] Client API-URL wiring (`API_URL` + BFF)
+- [x] Root compose/CI aggregation
+- [ ] End-to-end matrix for every fullstack combo
 
 **Acceptance (lifecycle):** generate, add, and remove reversible features;
 drifted files block mutation; failures restore backups and leave state unchanged.

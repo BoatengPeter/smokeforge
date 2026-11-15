@@ -1,7 +1,7 @@
 # Fullstack composition
 
-**Status:** planned. Defines how multi-target projects are modeled and
-generated.
+**Status:** implemented for API + Next.js. Mobile and desktop targets remain
+planned.
 
 ## Kinds and limits
 
@@ -28,16 +28,15 @@ acme/
     ios/                  # SwiftUI target
     android/              # Jetpack Compose target
     desktop/              # GPUI or EGUI target
-  deploy/
-    docker-compose.yml    # dev services: database, redis, rabbitmq, etc.
-    .env.example          # shared local configuration
   .github/
     workflows/
       ci.yml
+  CONTEXT-MAP.md          # API/web/workspace context routing
+  compose.yaml            # root compose for fullstack-api + docker
   .smokeforge.json
   .smokeforge.lock.json
   README.md
-  Makefile                # or Taskfile, chosen by the root workspace overlay
+  Makefile                # root entry point; delegates to apps/api and apps/web
 ```
 
 Target paths are fixed by kind (`apps/api`, `apps/web`, `apps/ios`,
@@ -52,12 +51,14 @@ Target paths are fixed by kind (`apps/api`, `apps/web`, `apps/ios`,
 3. **Overlay targeting:**
    - backend features (`database`, `cache`, `queue`, `auth`, `totp`) apply only
      to the API target;
-   - repo-wide features (`docker`, `ci`) apply at the root and may read target
-     metadata;
+   - frontend features (`data:tanstack-query`, `state`, `analytics`) apply only
+     to the web target;
+   - `auth:jwt` on the API adds `auth:bff` to Next.js automatically;
+   - `docker` applies to both apps and the root; `ci` applies at the root;
    - client-specific overlays (future) apply to their target.
-4. **Operation ordering** — base templates first (in target order), then
-   overlays sorted by dependency and registry order. Root operations run last so
-   they can aggregate generated services and workflows.
+4. **Operation ordering** — target bases first, then target overlays, then the
+   root base and root overlays. Root operations run last so they can aggregate
+   generated services and workflows.
 5. **No cross-target file writes** — an overlay may not write outside its
    declared target; root overlays use root-relative paths only.
 
@@ -66,7 +67,8 @@ Target paths are fixed by kind (`apps/api`, `apps/web`, `apps/ios`,
 Clients must not require manual URL hunting. At generation time:
 
 - The API port is allocated (collision-checked) and recorded in state.
-- Web: `.env.example`/`.env.local` receives `API_URL=http://localhost:<port>`.
+- Web: `.env.example`/`.env` receives server-only `API_URL=http://localhost:<port>`;
+  the browser uses same-origin BFF routes.
 - iOS: a generated `Config.swift` (or xcconfig) contains the base URL for debug.
 - Android: `BuildConfig` field or `local.properties` entry for the base URL.
 - Desktop: a config module/env var for the base URL.
@@ -77,17 +79,14 @@ client base, not by hardcoded CLI logic.
 
 ## Docker and CI aggregation
 
-`docker` (root) renders:
+`docker` applies the per-target Dockerfiles, then renders a root `compose.yaml`
+that extends the API/web compose files, adds Postgres/migrations for the
+fullstack preset, and wires `API_URL=http://api:8080`. The root Makefile runs
+`docker compose up --build`. `compose config` is part of verification.
 
-- `deploy/docker-compose.yml` with services for the selected backing features
-  (Postgres, Redis, RabbitMQ) and the API where applicable;
-- `.env.example` entries consumed by compose.
-
-`ci` (root) renders a GitHub Actions workflow that:
-
-- detects generated targets from `.smokeforge.json`;
-- runs each ecosystem's standard build/test commands;
-- uses path filters so a web-only change does not rebuild native clients.
+`ci` renders `.github/workflows/ci.yml` at the root. It detects Go or Rust,
+installs the corresponding toolchain, runs standard API checks, then runs the
+web install/typecheck/lint/test/build path.
 
 Overlays patch compose/workflow files through structured YAML operations, not
 string concatenation, so multiple features compose deterministically.
@@ -109,6 +108,8 @@ projects only. Adding client targets and multi-target mutation remain planned.
 ## Validation
 
 - Fullstack requires an API stack; clients alone use their own kind.
+- Fullstack Docker requires the API database overlay because the root compose
+  wires migrations and Postgres.
 - Multiple clients of the same kind beyond the limit are rejected.
 - Desktop GPUI and EGUI are mutually exclusive per project.
 - Client/API compatibility is declared in the manifest (`stacks`/`kinds`), not

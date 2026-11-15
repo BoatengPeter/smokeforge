@@ -18,6 +18,8 @@ type Selection struct {
 	Name      string
 	Kind      string
 	Stack     string
+	Backend   string
+	Frontend  string
 	Preset    string
 	Features  []string
 	Variables map[string]string
@@ -25,9 +27,11 @@ type Selection struct {
 
 // Plan is a validated, ordered description of one generated target.
 type Plan struct {
-	Name   string
-	Kind   string
-	Target TargetPlan
+	Name    string
+	Kind    string
+	Target  TargetPlan
+	Targets []TargetPlan
+	Root    *TargetPlan
 }
 
 // TargetPlan describes the base template and overlays for one target.
@@ -72,17 +76,35 @@ func Resolve(m *manifest.Manifest, registryDir string, sel Selection) (*Plan, er
 		return nil, fmt.Errorf("kind %q does not allow targets", sel.Kind)
 	}
 
+	if sel.Kind == "fullstack" {
+		return resolveFullstack(m, registryDir, sel)
+	}
+
 	stack, err := findStack(m, sel)
 	if err != nil {
 		return nil, err
 	}
 
-	tmpl, err := loadTemplate(registryDir, stack)
+	target, err := resolveTarget(m, registryDir, stack, sel, ".", sel.Variables)
 	if err != nil {
 		return nil, err
 	}
 
-	variables, err := Variables(stack, tmpl, sel.Variables)
+	return &Plan{
+		Name:    sel.Name,
+		Kind:    sel.Kind,
+		Target:  target,
+		Targets: []TargetPlan{target},
+	}, nil
+}
+
+func resolveFullstack(m *manifest.Manifest, registryDir string, sel Selection) (*Plan, error) {
+	backendStack, frontendStack, rootStack, err := fullstackStacks(m, sel)
+	if err != nil {
+		return nil, err
+	}
+
+	provided, err := fullstackVariables(backendStack, frontendStack, rootStack, sel.Variables)
 	if err != nil {
 		return nil, err
 	}
@@ -92,42 +114,353 @@ func Resolve(m *manifest.Manifest, registryDir string, sel Selection) (*Plan, er
 		return nil, err
 	}
 
-	selections, err := selectFeatures(m, stack, requested)
+	apiFeatures, webFeatures, rootFeatures, err := routeFullstackFeatures(
+		m,
+		requested,
+		backendStack,
+		frontendStack,
+		rootStack,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	selections, err = expandRequirements(m, stack, selections)
+	webFeatures = fullstackWebFeatures(apiFeatures, webFeatures)
+
+	if err := validateFullstackFeatures(apiFeatures, rootFeatures); err != nil {
+		return nil, err
+	}
+
+	return buildFullstackPlan(m, registryDir, sel, backendStack, frontendStack, rootStack, provided, apiFeatures, webFeatures, rootFeatures)
+}
+
+func fullstackStacks(
+	m *manifest.Manifest,
+	sel Selection,
+) (backend, frontend, root manifest.Stack, err error) {
+	backendID := strings.TrimSpace(sel.Backend)
+	if backendID == "" {
+		backendID = strings.TrimSpace(sel.Stack)
+	}
+
+	if backendID == "" {
+		return manifest.Stack{}, manifest.Stack{}, manifest.Stack{}, errors.New("backend stack is required (use --backend)")
+	}
+
+	backend, err = findStackByID(m, backendID, "backend")
+	if err != nil {
+		return manifest.Stack{}, manifest.Stack{}, manifest.Stack{}, err
+	}
+
+	frontendID := strings.TrimSpace(sel.Frontend)
+	if frontendID == "" {
+		frontendID = "next"
+	}
+
+	frontend, err = findStackByID(m, frontendID, "frontend")
+	if err != nil {
+		return manifest.Stack{}, manifest.Stack{}, manifest.Stack{}, err
+	}
+
+	root, err = findStackByID(m, "workspace/fullstack", "fullstack")
+	if err != nil {
+		return manifest.Stack{}, manifest.Stack{}, manifest.Stack{}, fmt.Errorf("fullstack workspace stack: %w", err)
+	}
+
+	return backend, frontend, root, nil
+}
+
+func fullstackWebFeatures(apiFeatures, webFeatures []string) []string {
+	if featureSelected(apiFeatures, "auth", "jwt") && !featureSelected(webFeatures, "auth", "bff") {
+		return append([]string{"auth:bff"}, webFeatures...)
+	}
+
+	return webFeatures
+}
+
+func validateFullstackFeatures(apiFeatures, rootFeatures []string) error {
+	if slices.Contains(rootFeatures, "docker") && !featureSelected(apiFeatures, "database", "") {
+		return errors.New("fullstack docker requires database:postgres for the API")
+	}
+
+	return nil
+}
+
+func buildFullstackPlan(
+	m *manifest.Manifest,
+	registryDir string,
+	sel Selection,
+	backendStack, frontendStack, rootStack manifest.Stack,
+	provided map[string]string,
+	apiFeatures, webFeatures, rootFeatures []string,
+) (*Plan, error) {
+	api, err := resolveTargetWithFeatures(m, registryDir, backendStack, "apps/api", provided, apiFeatures, true)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := validateRelationships(selections); err != nil {
-		return nil, err
-	}
-
-	ordered, err := orderFeatures(selections)
+	web, err := resolveTargetWithFeatures(m, registryDir, frontendStack, "apps/web", provided, webFeatures, true)
 	if err != nil {
 		return nil, err
 	}
 
-	overlays, err := buildOverlays(registryDir, stack, ordered)
+	root, err := resolveTargetWithFeatures(m, registryDir, rootStack, ".", provided, rootFeatures, true)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Plan{
-		Name: sel.Name,
-		Kind: sel.Kind,
-		Target: TargetPlan{
-			Path:        ".",
-			Stack:       stack,
-			Template:    tmpl,
-			TemplateDir: filepath.Join(registryDir, filepath.FromSlash(stack.Template)),
-			Overlays:    overlays,
-			Variables:   variables,
-		},
+		Name:    sel.Name,
+		Kind:    sel.Kind,
+		Target:  api,
+		Targets: []TargetPlan{api, web},
+		Root:    &root,
 	}, nil
+}
+
+func findStackByID(m *manifest.Manifest, id, kind string) (manifest.Stack, error) {
+	for _, stack := range m.Stacks {
+		if stack.ID != id {
+			continue
+		}
+
+		if stack.Kind != kind {
+			return manifest.Stack{}, fmt.Errorf(
+				"stack %q has kind %q, want %q",
+				stack.ID,
+				stack.Kind,
+				kind,
+			)
+		}
+
+		return stack, nil
+	}
+
+	return manifest.Stack{}, fmt.Errorf("unknown %s stack %q", kind, id)
+}
+
+func fullstackVariables(
+	backend, frontend, root manifest.Stack,
+	provided map[string]string,
+) (map[string]string, error) {
+	declared := make(map[string]bool)
+
+	for _, stack := range []manifest.Stack{backend, frontend, root} {
+		for _, name := range stack.Variables {
+			declared[name] = true
+		}
+	}
+
+	for name := range provided {
+		if !declared[name] {
+			return nil, fmt.Errorf("unknown variable %q", name)
+		}
+	}
+
+	return provided, nil
+}
+
+func resolveTarget(
+	m *manifest.Manifest,
+	registryDir string,
+	stack manifest.Stack,
+	sel Selection,
+	path string,
+	provided map[string]string,
+) (TargetPlan, error) {
+	requested, err := requestedFeatures(m, sel)
+	if err != nil {
+		return TargetPlan{}, err
+	}
+
+	return resolveTargetWithFeatures(m, registryDir, stack, path, provided, requested, false)
+}
+
+func resolveTargetWithFeatures(
+	m *manifest.Manifest,
+	registryDir string,
+	stack manifest.Stack,
+	path string,
+	provided map[string]string,
+	requested []string,
+	filterProvided bool,
+) (TargetPlan, error) {
+	tmpl, err := loadTemplate(registryDir, stack)
+	if err != nil {
+		return TargetPlan{}, err
+	}
+
+	filtered := provided
+	if filterProvided {
+		filtered = filterVariables(stack, provided)
+	}
+
+	variables, err := Variables(stack, tmpl, filtered)
+	if err != nil {
+		return TargetPlan{}, err
+	}
+
+	selections, err := selectFeatures(m, stack, requested)
+	if err != nil {
+		return TargetPlan{}, err
+	}
+
+	selections, err = expandRequirements(m, stack, selections)
+	if err != nil {
+		return TargetPlan{}, err
+	}
+
+	if err := validateRelationships(selections); err != nil {
+		return TargetPlan{}, err
+	}
+
+	ordered, err := orderFeatures(selections)
+	if err != nil {
+		return TargetPlan{}, err
+	}
+
+	overlays, err := buildOverlays(registryDir, stack, ordered)
+	if err != nil {
+		return TargetPlan{}, err
+	}
+
+	return TargetPlan{
+		Path:        path,
+		Stack:       stack,
+		Template:    tmpl,
+		TemplateDir: filepath.Join(registryDir, filepath.FromSlash(stack.Template)),
+		Overlays:    overlays,
+		Variables:   variables,
+	}, nil
+}
+
+func filterVariables(stack manifest.Stack, provided map[string]string) map[string]string {
+	filtered := make(map[string]string, len(provided))
+
+	for name, value := range provided {
+		if slices.Contains(stack.Variables, name) {
+			filtered[name] = value
+		}
+	}
+
+	return filtered
+}
+
+func routeFullstackFeatures(
+	m *manifest.Manifest,
+	requested []string,
+	backend, frontend, root manifest.Stack,
+) (api, web, rootFeatures []string, err error) {
+	for _, raw := range requested {
+		featureID, variantID, _ := strings.Cut(raw, ":")
+
+		feature, ok := findFeature(m, featureID)
+		if !ok {
+			return nil, nil, nil, fmt.Errorf("unknown feature %q", featureID)
+		}
+
+		apiOK := stackSupportsFeature(feature, variantID, backend)
+		webOK := stackSupportsFeature(feature, variantID, frontend)
+		rootOK := stackSupportsFeature(feature, variantID, root)
+
+		// Persistence belongs to the API in a fullstack project. The web app
+		// reaches it through the BFF, not with its own database overlay.
+		if feature.ID == "database" {
+			if !apiOK {
+				return nil, nil, nil, fmt.Errorf("feature %q requires a backend stack", raw)
+			}
+
+			api = append(api, raw)
+
+			continue
+		}
+
+		// Persistence belongs to the API in a fullstack project. The web app
+		// reaches it through the BFF, not with its own database overlay.
+		if feature.ID == "database" {
+			if !apiOK {
+				return nil, nil, nil, fmt.Errorf("feature %q requires a backend stack", raw)
+			}
+
+			api = append(api, raw)
+
+			continue
+		}
+
+		// Deployment features are owned by the workspace root; Docker also
+		// installs the per-target Dockerfiles used by the root compose file.
+		if rootOK && feature.ID == "ci" {
+			rootFeatures = append(rootFeatures, raw)
+			continue
+		}
+
+		routed := false
+
+		if apiOK {
+			api = append(api, raw)
+			routed = true
+		}
+
+		if webOK {
+			web = append(web, raw)
+			routed = true
+		}
+
+		if rootOK {
+			rootFeatures = append(rootFeatures, raw)
+			routed = true
+		}
+
+		if !routed {
+			return nil, nil, nil, fmt.Errorf(
+				"feature %q does not support the fullstack API, web, or workspace stack",
+				raw,
+			)
+		}
+	}
+
+	return api, web, rootFeatures, nil
+}
+
+func stackSupportsFeature(feature manifest.Feature, variantID string, stack manifest.Stack) bool {
+	if len(feature.Kinds) > 0 && !slices.Contains(feature.Kinds, stack.Kind) {
+		return false
+	}
+
+	if len(feature.Stacks) > 0 && !slices.Contains(feature.Stacks, stack.ID) {
+		return false
+	}
+
+	if len(feature.Variants) == 0 {
+		return strings.TrimSpace(feature.Overlays[stack.ID]) != ""
+	}
+
+	for _, variant := range feature.Variants {
+		if variantID != "" && variant.ID != variantID {
+			continue
+		}
+
+		if variantID == "" && !variant.Default {
+			continue
+		}
+
+		if variantSupportsStack(variant, stack) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func featureSelected(refs []string, featureID, variantID string) bool {
+	for _, ref := range refs {
+		id, variant, _ := strings.Cut(ref, ":")
+		if id == featureID && (variantID == "" || variant == variantID) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func findStack(m *manifest.Manifest, sel Selection) (manifest.Stack, error) {

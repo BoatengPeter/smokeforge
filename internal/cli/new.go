@@ -25,6 +25,8 @@ var errProjectAborted = errors.New("project creation aborted")
 type newOptions struct {
 	kind        string
 	stack       string
+	backend     string
+	frontend    string
 	name        string
 	preset      string
 	features    []string
@@ -45,7 +47,7 @@ func newNewCmd(opts *options) *cobra.Command {
 
 Presets:
   frontend       Next.js app with shadcn/ui, SEO, API helpers, and Jest
-  fullstack      Frontend plus Postgres, Better Auth, and Zustand
+  fullstack      Next.js + one API, BFF auth, TanStack Query, Docker, and CI
   api            Backend API with Postgres and JWT authentication
   api-custom     Backend API where you choose database, auth, TOTP, Docker, and CI
 
@@ -53,7 +55,8 @@ Required companions are added automatically: auth adds database, and CI adds
 E2E. Use --feature to select individual features instead of a preset.`,
 		Example: `  smokeforge new my-app
   smokeforge new my-app --preset frontend
-  smokeforge new my-saas --preset fullstack
+  smokeforge new my-saas --kind fullstack --backend go/gin-layered
+  smokeforge new my-saas --kind fullstack --backend rust/axum --frontend next
   smokeforge new my-api --kind backend --preset api
   smokeforge new my-api --kind backend --preset api-custom --feature database:postgres --feature auth:jwt
   smokeforge new my-app --preset frontend --feature docker --feature ci:github
@@ -70,8 +73,10 @@ E2E. Use --feature to select individual features instead of a preset.`,
 	}
 
 	flags := cmd.Flags()
-	flags.StringVar(&newOpts.kind, "kind", "", "project kind (backend, frontend, mobile, desktop)")
+	flags.StringVar(&newOpts.kind, "kind", "", "project kind (backend, frontend, fullstack, mobile, desktop)")
 	flags.StringVar(&newOpts.stack, "stack", "", "stack ID")
+	flags.StringVar(&newOpts.backend, "backend", "", "backend stack ID for fullstack projects")
+	flags.StringVar(&newOpts.frontend, "frontend", "", "frontend stack ID for fullstack projects (default next)")
 	flags.StringVar(&newOpts.name, "name", "", "project name")
 	flags.StringVar(&newOpts.preset, "preset", "", "feature preset")
 	flags.StringArrayVar(&newOpts.features, "feature", nil, "feature selection (repeatable, id[:variant])")
@@ -215,6 +220,8 @@ func collectSelection(
 	selection := resolve.Selection{
 		Kind:      newOpts.kind,
 		Stack:     newOpts.stack,
+		Backend:   newOpts.backend,
+		Frontend:  newOpts.frontend,
 		Name:      newOpts.name,
 		Preset:    newOpts.preset,
 		Features:  append([]string{}, newOpts.features...),
@@ -236,7 +243,15 @@ func collectSelection(
 		return resolve.Selection{}, errors.New("kind is required (use --kind)")
 	}
 
-	if strings.TrimSpace(selection.Stack) == "" {
+	if selection.Kind == "fullstack" {
+		if strings.TrimSpace(selection.Backend) == "" && strings.TrimSpace(selection.Stack) != "" {
+			selection.Backend = selection.Stack
+		}
+
+		if strings.TrimSpace(selection.Backend) == "" {
+			return resolve.Selection{}, errors.New("backend stack is required for fullstack (use --backend)")
+		}
+	} else if strings.TrimSpace(selection.Stack) == "" {
 		return resolve.Selection{}, errors.New("stack is required (use --stack)")
 	}
 
@@ -261,6 +276,8 @@ func runWizard(
 		Result: tui.WizardResult{
 			Kind:      selection.Kind,
 			Stack:     selection.Stack,
+			Backend:   selection.Backend,
+			Frontend:  selection.Frontend,
 			Name:      selection.Name,
 			Preset:    selection.Preset,
 			Features:  selection.Features,
@@ -279,6 +296,8 @@ func runWizard(
 	return resolve.Selection{
 		Kind:      wizard.Result.Kind,
 		Stack:     wizard.Result.Stack,
+		Backend:   wizard.Result.Backend,
+		Frontend:  wizard.Result.Frontend,
 		Name:      wizard.Result.Name,
 		Features:  wizard.Result.Features,
 		Variables: wizard.Result.Variables,
@@ -319,6 +338,10 @@ func parseVariables(values []string) (map[string]string, error) {
 }
 
 func summaryLines(plan *resolve.Plan, dir, registryTag string) []string {
+	if plan.Kind == "fullstack" {
+		return fullstackSummaryLines(plan, dir, registryTag)
+	}
+
 	features := make([]string, 0, len(plan.Target.Overlays))
 	for _, overlay := range plan.Target.Overlays {
 		feature := overlay.FeatureID
@@ -339,6 +362,22 @@ func summaryLines(plan *resolve.Plan, dir, registryTag string) []string {
 		tui.Field("Kind", plan.Kind),
 		tui.Field("Stack", plan.Target.Stack.Name+" ("+plan.Target.Stack.ID+")"),
 		tui.Field("Features", featureSummary),
+		tui.Field("Target", dir),
+		tui.Field("Registry", registryTag),
+	}
+}
+
+func fullstackSummaryLines(plan *resolve.Plan, dir, registryTag string) []string {
+	targets := make([]string, 0, len(plan.Targets))
+	for _, target := range plan.Targets {
+		targets = append(targets, target.Path+" ("+target.Stack.ID+")")
+	}
+
+	return []string{
+		tui.Field("Name", plan.Name),
+		tui.Field("Kind", plan.Kind),
+		tui.Field("API", plan.Target.Stack.Name+" ("+plan.Target.Stack.ID+")"),
+		tui.Field("Targets", strings.Join(targets, ", ")),
 		tui.Field("Target", dir),
 		tui.Field("Registry", registryTag),
 	}
@@ -405,6 +444,15 @@ func nextStepLines(plan *resolve.Plan, path string, dockerInstalled bool) []stri
 	lines := []string{
 		tui.Muted("Next steps:"),
 		"  cd " + path,
+	}
+
+	if plan.Kind == "fullstack" {
+		return append(lines,
+			"  make install",
+			"  make api-dev        # API",
+			"  make web-dev        # Next.js",
+			"  make test",
+		)
 	}
 
 	if plan.Target.Stack.ID != "next" {

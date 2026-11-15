@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -10,8 +9,6 @@ import (
 	"strings"
 
 	"github.com/BoatengPeter/smokeforge/internal/patch"
-	"github.com/BoatengPeter/smokeforge/internal/render"
-	"github.com/BoatengPeter/smokeforge/internal/resolve"
 )
 
 type overlayApplication struct {
@@ -23,15 +20,6 @@ type overlayApplication struct {
 	Markers     []string
 	Env         []patch.Env
 	RegistryTag string
-}
-
-func applyOverlays(
-	ctx context.Context,
-	staging string,
-	plan *resolve.Plan,
-	renderer *render.Renderer,
-) ([]overlayApplication, []patch.Env, error) {
-	return applyOverlayPlans(ctx, staging, plan.Target.Overlays, renderer)
 }
 
 func writeEnvFiles(root *os.Root, entries []patch.Env) error {

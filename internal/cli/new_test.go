@@ -407,3 +407,90 @@ func TestWithDefaultPresetUsesKind(t *testing.T) {
 		t.Fatalf("preset = %q, want api", selection.Preset)
 	}
 }
+
+const cliFullstackManifestYAML = `schemaVersion: 1
+name: fullstack-cli
+kinds:
+  backend: {max: 1}
+  frontend: {max: 1}
+  fullstack: {max: 1}
+stacks:
+  - id: go/api
+    kind: backend
+    name: Go API
+    template: templates/api
+    variables: [module_path]
+  - id: next
+    kind: frontend
+    name: Next.js
+    template: templates/web
+    variables: [package_manager]
+  - id: workspace/fullstack
+    kind: fullstack
+    name: Workspace
+    template: templates/root
+    variables: [package_manager]
+presets:
+  - id: fullstack-api
+    name: Fullstack API
+    kinds: [fullstack]
+    default: true
+    features: []
+features: []
+`
+
+func writeFullstackCLIRegistry(t *testing.T) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "manifest.yaml"), cliFullstackManifestYAML)
+	writeTestFile(t, filepath.Join(dir, "templates", "api", "template.yaml"),
+		"id: go/api\nvariables:\n  - name: module_path\n    default: example.com/api\n")
+	writeTestFile(t, filepath.Join(dir, "templates", "api", "files", "go.mod.tmpl"),
+		"module {{.module_path}}\n\ngo 1.26\n")
+	writeTestFile(t, filepath.Join(dir, "templates", "web", "template.yaml"),
+		"id: next\nvariables:\n  - name: package_manager\n    default: pnpm\n")
+	writeTestFile(t, filepath.Join(dir, "templates", "web", "files", "package.json.tmpl"),
+		"{\"name\":\"{{.project_slug}}\"}\n")
+	writeTestFile(t, filepath.Join(dir, "templates", "root", "template.yaml"),
+		"id: workspace/fullstack\nvariables:\n  - name: package_manager\n    default: pnpm\n")
+	writeTestFile(t, filepath.Join(dir, "templates", "root", "files", "CONTEXT-MAP.md"),
+		"# Context map\n")
+
+	return dir
+}
+
+func TestNewFullstack(t *testing.T) {
+	t.Parallel()
+
+	registryDir := writeFullstackCLIRegistry(t)
+	target := filepath.Join(t.TempDir(), "acme-fullstack")
+
+	out, _, err := executeCommand(
+		t,
+		"new", target,
+		"--registry", registryDir,
+		"--kind", "fullstack",
+		"--backend", "go/api",
+		"--name", "Acme Fullstack",
+		"--preset", "fullstack-api",
+		"--var", "module_path=example.com/acme",
+		"--no-input",
+		"--no-git",
+	)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	for _, want := range []string{"Acme Fullstack", "apps/api (go/api)", "apps/web (next)"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("output %q missing %q", out, want)
+		}
+	}
+
+	for _, want := range []string{"CONTEXT-MAP.md", "apps/api/go.mod", "apps/web/package.json"} {
+		if _, err := os.Stat(filepath.Join(target, filepath.FromSlash(want))); err != nil {
+			t.Fatalf("missing %s: %v", want, err)
+		}
+	}
+}

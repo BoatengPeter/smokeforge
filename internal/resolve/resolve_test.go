@@ -9,6 +9,11 @@ import (
 	"github.com/BoatengPeter/smokeforge/internal/manifest"
 )
 
+const (
+	nextStackID       = "next"
+	databaseFeatureID = "database"
+)
+
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
 
@@ -38,7 +43,7 @@ func testManifest() *manifest.Manifest {
 				Variables: []string{"module_path", "greeting"},
 			},
 			{
-				ID:        "next",
+				ID:        nextStackID,
 				Kind:      "frontend",
 				Name:      "Next",
 				Template:  "templates/frontend/next",
@@ -47,7 +52,7 @@ func testManifest() *manifest.Manifest {
 		},
 		Features: []manifest.Feature{
 			{
-				ID:    "database",
+				ID:    databaseFeatureID,
 				Name:  "Database",
 				Kinds: []string{"backend"},
 				Variants: []manifest.Variant{
@@ -107,8 +112,8 @@ variables:
 `
 	writeFile(t, filepath.Join(dir, "templates", "backend", "go", "template.yaml"),
 		strings.ReplaceAll(template, "%s", "go/chi"))
-	writeFile(t, filepath.Join(dir, "templates", "frontend", "next", "template.yaml"),
-		strings.ReplaceAll(template, "%s", "next"))
+	writeFile(t, filepath.Join(dir, "templates", "frontend", nextStackID, "template.yaml"),
+		strings.ReplaceAll(template, "%s", nextStackID))
 
 	for _, overlayPath := range []string{
 		"overlays/go/database/postgres",
@@ -128,7 +133,7 @@ func baseSelection() Selection {
 		Name:      "Acme App",
 		Kind:      "backend",
 		Stack:     "go/chi",
-		Features:  []string{"database"},
+		Features:  []string{databaseFeatureID},
 		Variables: map[string]string{},
 	}
 }
@@ -139,7 +144,7 @@ func TestResolve(t *testing.T) {
 	registryDir := testRegistry(t)
 
 	selection := baseSelection()
-	selection.Features = []string{"totp", "auth", "database"}
+	selection.Features = []string{"totp", "auth", databaseFeatureID}
 
 	plan, err := Resolve(testManifest(), registryDir, selection)
 	if err != nil {
@@ -188,18 +193,18 @@ func TestResolveRejects(t *testing.T) {
 		},
 		{
 			name:   "stack kind mismatch",
-			mutate: func(_ *manifest.Manifest, sel *Selection) { sel.Stack = "next" },
+			mutate: func(_ *manifest.Manifest, sel *Selection) { sel.Stack = nextStackID },
 			want:   "kind",
 		},
 		{
 			name: "unsupported feature",
 			mutate: func(m *manifest.Manifest, sel *Selection) {
 				sel.Kind = "frontend"
-				sel.Stack = "next"
-				sel.Features = []string{"database"}
-				m.Features[0].Overlays = map[string]string{"next": "overlays/next/database"}
+				sel.Stack = nextStackID
+				sel.Features = []string{databaseFeatureID}
+				m.Features[0].Overlays = map[string]string{nextStackID: "overlays/next/database"}
 				m.Features[0].Variants[0].Overlays = nil
-				m.Features[0].Overlays = map[string]string{"next": "overlays/next/database"}
+				m.Features[0].Overlays = map[string]string{nextStackID: "overlays/next/database"}
 				m.Features[0].Variants = nil
 			},
 			want: "feature",
@@ -214,15 +219,15 @@ func TestResolveRejects(t *testing.T) {
 		{
 			name: "conflict",
 			mutate: func(m *manifest.Manifest, sel *Selection) {
-				m.Features[3].Conflicts = []string{"database"}
-				sel.Features = []string{"database", "logging"}
+				m.Features[3].Conflicts = []string{databaseFeatureID}
+				sel.Features = []string{databaseFeatureID, "logging"}
 			},
 			want: "conflicts",
 		},
 		{
 			name: "duplicate feature",
 			mutate: func(_ *manifest.Manifest, sel *Selection) {
-				sel.Features = []string{"database", "database"}
+				sel.Features = []string{databaseFeatureID, databaseFeatureID}
 			},
 			want: "duplicate",
 		},
@@ -355,11 +360,11 @@ func nextVariantManifest() *manifest.Manifest {
 		},
 		Stacks: []manifest.Stack{
 			{ID: "go/chi", Kind: "backend", Name: "Go", Template: "templates/go", Variables: []string{"module_path"}},
-			{ID: "next", Kind: "frontend", Name: "Next", Template: "templates/next", Variables: []string{"package_manager", "site_description"}},
+			{ID: nextStackID, Kind: "frontend", Name: "Next", Template: "templates/next", Variables: []string{"package_manager", "site_description"}},
 		},
 		Features: []manifest.Feature{
 			{
-				ID:    "database",
+				ID:    databaseFeatureID,
 				Name:  "Database",
 				Kinds: []string{"backend", "frontend"},
 				Variants: []manifest.Variant{
@@ -372,7 +377,7 @@ func nextVariantManifest() *manifest.Manifest {
 				Kinds: []string{"backend", "frontend"},
 				Variants: []manifest.Variant{
 					{ID: "jwt", Default: true, Stacks: []string{"go/chi"}},
-					{ID: "session", Stacks: []string{"next"}, Requires: []string{"database:postgres"}},
+					{ID: "session", Stacks: []string{nextStackID}, Requires: []string{"database:postgres"}},
 				},
 			},
 			{
@@ -396,7 +401,7 @@ variables:
     prompt: Module path
     default: example.com/app
 `)
-	writeFile(t, filepath.Join(dir, "templates", "next", "template.yaml"), `id: next
+	writeFile(t, filepath.Join(dir, "templates", nextStackID, "template.yaml"), `id: next
 variables:
   - name: package_manager
     prompt: Package manager
@@ -421,18 +426,18 @@ variables:
 
 	m := nextVariantManifest()
 	m.Features[0].Variants[0].Overlays = map[string]string{
-		"go/chi": "overlays/go/database/postgres",
-		"next":   "overlays/next/database/postgres",
+		"go/chi":    "overlays/go/database/postgres",
+		nextStackID: "overlays/next/database/postgres",
 	}
 	m.Features[1].Variants[0].Overlays = map[string]string{
 		"go/chi": "overlays/go/auth/jwt",
 	}
 	m.Features[1].Variants[1].Overlays = map[string]string{
-		"next": "overlays/next/auth/session",
+		nextStackID: "overlays/next/auth/session",
 	}
 	m.Features[2].Overlays = map[string]string{
-		"go/chi": "overlays/go/totp",
-		"next":   "overlays/next/totp",
+		"go/chi":    "overlays/go/totp",
+		nextStackID: "overlays/next/totp",
 	}
 
 	return dir, m
@@ -446,8 +451,8 @@ func TestResolveVariantSelection(t *testing.T) {
 	plan, err := Resolve(m, registryDir, Selection{
 		Name:      "Next App",
 		Kind:      "frontend",
-		Stack:     "next",
-		Features:  []string{"auth", "database"},
+		Stack:     nextStackID,
+		Features:  []string{"auth", databaseFeatureID},
 		Variables: map[string]string{"package_manager": "pnpm"},
 	})
 	if err != nil {
@@ -458,7 +463,7 @@ func TestResolveVariantSelection(t *testing.T) {
 		t.Fatalf("overlays = %+v", plan.Target.Overlays)
 	}
 
-	if plan.Target.Overlays[0].FeatureID != "database" {
+	if plan.Target.Overlays[0].FeatureID != databaseFeatureID {
 		t.Fatalf("order = %+v, want database first", plan.Target.Overlays)
 	}
 
@@ -475,7 +480,7 @@ func TestResolveAutoAddsRequirements(t *testing.T) {
 	plan, err := Resolve(m, registryDir, Selection{
 		Name:      "Next App",
 		Kind:      "frontend",
-		Stack:     "next",
+		Stack:     nextStackID,
 		Features:  []string{"auth"},
 		Variables: map[string]string{"package_manager": "pnpm"},
 	})
@@ -487,7 +492,7 @@ func TestResolveAutoAddsRequirements(t *testing.T) {
 		t.Fatalf("overlays = %+v, want database and auth", plan.Target.Overlays)
 	}
 
-	if plan.Target.Overlays[0].FeatureID != "database" {
+	if plan.Target.Overlays[0].FeatureID != databaseFeatureID {
 		t.Fatalf("first overlay = %+v, want database", plan.Target.Overlays[0])
 	}
 
@@ -507,7 +512,7 @@ func TestResolvePresetFeatures(t *testing.T) {
 	plan, err := Resolve(m, registryDir, Selection{
 		Name:      "Next App",
 		Kind:      "frontend",
-		Stack:     "next",
+		Stack:     nextStackID,
 		Preset:    "fullstack",
 		Variables: map[string]string{"package_manager": "pnpm"},
 	})
@@ -548,7 +553,7 @@ func TestResolveUnknownPreset(t *testing.T) {
 	_, err := Resolve(m, registryDir, Selection{
 		Name:      "Next App",
 		Kind:      "frontend",
-		Stack:     "next",
+		Stack:     nextStackID,
 		Preset:    "missing",
 		Variables: map[string]string{"package_manager": "pnpm"},
 	})
@@ -565,8 +570,8 @@ func TestResolveVariantUnsupportedStack(t *testing.T) {
 	_, err := Resolve(m, registryDir, Selection{
 		Name:      "Next App",
 		Kind:      "frontend",
-		Stack:     "next",
-		Features:  []string{"database", "auth:jwt"},
+		Stack:     nextStackID,
+		Features:  []string{databaseFeatureID, "auth:jwt"},
 		Variables: map[string]string{"package_manager": "pnpm"},
 	})
 	if err == nil || !strings.Contains(err.Error(), "does not support stack") {
@@ -582,7 +587,7 @@ func TestResolveVariableChoices(t *testing.T) {
 	_, err := Resolve(m, registryDir, Selection{
 		Name:      "Next App",
 		Kind:      "frontend",
-		Stack:     "next",
+		Stack:     nextStackID,
 		Variables: map[string]string{"package_manager": "yarn"},
 	})
 	if err == nil || !strings.Contains(err.Error(), "must be one of") {
@@ -609,4 +614,184 @@ func TestResolveBackendDefaultVariant(t *testing.T) {
 	if len(plan.Target.Overlays) != 1 || plan.Target.Overlays[0].VariantID != "jwt" {
 		t.Fatalf("overlays = %+v, want jwt", plan.Target.Overlays)
 	}
+}
+
+func fullstackManifest() *manifest.Manifest {
+	return &manifest.Manifest{
+		SchemaVersion: 1,
+		Name:          "fullstack",
+		Kinds: map[string]manifest.Kind{
+			"backend":   {Max: 1},
+			"frontend":  {Max: 1},
+			"fullstack": {Max: 1},
+		},
+		Stacks: []manifest.Stack{
+			{
+				ID:        "go/api",
+				Kind:      "backend",
+				Name:      "Go API",
+				Template:  "templates/api",
+				Variables: []string{"module_path"},
+			},
+			{
+				ID:        nextStackID,
+				Kind:      "frontend",
+				Name:      "Next.js",
+				Template:  "templates/web",
+				Variables: []string{"package_manager", "module_path"},
+			},
+			{
+				ID:        "workspace/fullstack",
+				Kind:      "fullstack",
+				Name:      "Fullstack workspace",
+				Template:  "templates/root",
+				Variables: []string{"package_manager"},
+			},
+		},
+		Presets: []manifest.Preset{
+			{
+				ID:       "fullstack-api",
+				Name:     "Fullstack API",
+				Kinds:    []string{"fullstack"},
+				Default:  true,
+				Features: []string{"database:postgres", "auth:jwt", "data:tanstack-query", "docker", "ci:github"},
+			},
+		},
+		Features: []manifest.Feature{
+			{
+				ID:       databaseFeatureID,
+				Kinds:    []string{"backend"},
+				Variants: []manifest.Variant{{ID: "postgres", Default: true, Overlays: map[string]string{"go/api": "overlays/api/db"}}},
+			},
+			{
+				ID:    "auth",
+				Kinds: []string{"backend", "frontend"},
+				Variants: []manifest.Variant{
+					{ID: "jwt", Requires: []string{"database:postgres"}, Overlays: map[string]string{"go/api": "overlays/api/auth"}},
+					{ID: "bff", Requires: []string{"data:tanstack-query"}, Overlays: map[string]string{nextStackID: "overlays/web/bff"}},
+				},
+			},
+			{
+				ID:       "data",
+				Kinds:    []string{"frontend"},
+				Variants: []manifest.Variant{{ID: "tanstack-query", Default: true, Overlays: map[string]string{nextStackID: "overlays/web/query"}}},
+			},
+			{
+				ID:       "docker",
+				Kinds:    []string{"backend", "frontend", "fullstack"},
+				Overlays: map[string]string{"go/api": "overlays/api/docker", nextStackID: "overlays/web/docker", "workspace/fullstack": "overlays/root/docker"},
+			},
+			{
+				ID:    "ci",
+				Kinds: []string{"backend", "frontend", "fullstack"},
+				Variants: []manifest.Variant{{ID: "github", Default: true, Overlays: map[string]string{
+					"go/api": "overlays/api/ci", nextStackID: "overlays/web/ci", "workspace/fullstack": "overlays/root/ci",
+				}}},
+			},
+		},
+	}
+}
+
+func writeFullstackRegistry(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+
+	writeFile(t, filepath.Join(dir, "templates", "api", "template.yaml"),
+		"id: go/api\nvariables:\n  - name: module_path\n    default: example.com/api\n")
+	writeFile(t, filepath.Join(dir, "templates", "web", "template.yaml"),
+		"id: next\nvariables:\n  - name: package_manager\n    default: pnpm\n  - name: module_path\n    default: web\n")
+	writeFile(t, filepath.Join(dir, "templates", "root", "template.yaml"),
+		"id: workspace/fullstack\nvariables:\n  - name: package_manager\n    default: pnpm\n")
+
+	for _, path := range []string{
+		"overlays/api/db", "overlays/api/auth", "overlays/web/bff",
+		"overlays/web/query", "overlays/api/docker", "overlays/web/docker",
+		"overlays/root/docker", "overlays/api/ci", "overlays/web/ci", "overlays/root/ci",
+	} {
+		writeFile(t, filepath.Join(dir, path, "overlay.yaml"),
+			"id: "+strings.ReplaceAll(path, "overlays/", "")+"\nops:\n  - env:\n      key: TEST_FLAG\n      example: \"1\"\n")
+	}
+
+	return dir
+}
+
+func TestResolveFullstack(t *testing.T) {
+	t.Parallel()
+
+	plan, err := Resolve(fullstackManifest(), writeFullstackRegistry(t), Selection{
+		Name:      "Acme App",
+		Kind:      "fullstack",
+		Backend:   "go/api",
+		Preset:    "fullstack-api",
+		Variables: map[string]string{"module_path": "example.com/acme", "package_manager": "pnpm"},
+	})
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+
+	assertFullstackTargets(t, plan)
+	assertFullstackOverlays(t, plan)
+	assertFullstackVariables(t, plan)
+}
+
+func assertFullstackTargets(t *testing.T, plan *Plan) {
+	t.Helper()
+
+	if len(plan.Targets) != 2 {
+		t.Fatalf("targets = %+v", plan.Targets)
+	}
+
+	if plan.Targets[0].Path != "apps/api" || plan.Targets[0].Stack.ID != "go/api" {
+		t.Fatalf("api target = %+v", plan.Targets[0])
+	}
+
+	if plan.Targets[1].Path != "apps/web" || plan.Targets[1].Stack.ID != nextStackID {
+		t.Fatalf("web target = %+v", plan.Targets[1])
+	}
+
+	if plan.Root == nil || plan.Root.Path != "." || plan.Root.Stack.ID != "workspace/fullstack" {
+		t.Fatalf("root = %+v", plan.Root)
+	}
+}
+
+func assertFullstackOverlays(t *testing.T, plan *Plan) {
+	t.Helper()
+
+	if got := overlayIDs(plan.Targets[0].Overlays); strings.Join(got, ",") != "database:postgres,auth:jwt,docker" {
+		t.Fatalf("api overlays = %v", got)
+	}
+
+	if got := overlayIDs(plan.Targets[1].Overlays); strings.Join(got, ",") != "data:tanstack-query,auth:bff,docker" {
+		t.Fatalf("web overlays = %v", got)
+	}
+
+	if got := overlayIDs(plan.Root.Overlays); strings.Join(got, ",") != "docker,ci:github" {
+		t.Fatalf("root overlays = %v", got)
+	}
+}
+
+func assertFullstackVariables(t *testing.T, plan *Plan) {
+	t.Helper()
+
+	if plan.Targets[0].Variables["module_path"] != "example.com/acme" {
+		t.Fatalf("api variables = %v", plan.Targets[0].Variables)
+	}
+
+	if plan.Targets[1].Variables["package_manager"] != "pnpm" {
+		t.Fatalf("web variables = %v", plan.Targets[1].Variables)
+	}
+}
+
+func overlayIDs(overlays []OverlayPlan) []string {
+	ids := make([]string, 0, len(overlays))
+	for _, overlay := range overlays {
+		id := overlay.FeatureID
+		if overlay.VariantID != "" {
+			id += ":" + overlay.VariantID
+		}
+
+		ids = append(ids, id)
+	}
+
+	return ids
 }

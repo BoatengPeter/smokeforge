@@ -19,6 +19,7 @@ func TestRootHelp(t *testing.T) {
 		"add",
 		"remove",
 		"completion",
+		"update",
 		"https://github.com/BoatengPeter/smokeforge",
 	} {
 		if !strings.Contains(out, want) {
@@ -108,5 +109,20 @@ func TestCompletionCommands(t *testing.T) {
 				t.Fatalf("completion output missing %q:\n%s", tt.want, out)
 			}
 		})
+	}
+}
+
+func TestUpdateHelp(t *testing.T) {
+	t.Parallel()
+
+	out, _, err := executeCommand(t, "update", "--help")
+	if err != nil {
+		t.Fatalf("help: %v", err)
+	}
+
+	for _, want := range []string{"--check", "--version", "latest", "v0.1.6"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("update help missing %q:\n%s", want, out)
+		}
 	}
 }

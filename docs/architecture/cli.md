@@ -1,6 +1,6 @@
 # CLI and lifecycle
 
-**Status:** `new`, `add`, `remove`, `version`, `list`, `registry info/update`,
+**Status:** `new`, `add`, `remove`, `version`, `update`, `list`, `registry info/update`,
 `doctor`, and shell completion are implemented. `install`, `registry pin`,
 mutation dry-runs, and `--json` output are planned.
 
@@ -18,6 +18,7 @@ smokeforge
 │   ├── update                refresh the cached registry (implemented)
 │   └── pin <tag>             pin a registry tag (planned)
 ├── doctor                    check environment, registry, project drift (implemented)
+├── update                    update the CLI binary (implemented)
 ├── completion <shell>        generate bash/zsh/fish/PowerShell completion
 └── version                   print version information (implemented)
 ```
@@ -236,3 +237,15 @@ The scripts are written to stdout.
 - [Project state](project-state.md)
 - [Registry manifest](../registry/manifest.md)
 ```
+
+## `smokeforge update`
+
+```text
+smokeforge update [--check] [--version latest|vX.Y.Z] [--force] [--json]
+```
+
+The command resolves a GitHub release, confirms the OS/architecture asset,
+downloads `checksums.txt`, verifies SHA-256, and atomically replaces the running
+binary. `--check` resolves without writing. Explicit versions allow moving to an
+older release as well as a newer one. `registry update` remains the separate
+template-registry refresh command.

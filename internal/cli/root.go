@@ -36,6 +36,7 @@ Quick start:
   smokeforge new my-app --preset frontend
   smokeforge new my-saas --preset fullstack
   smokeforge list features
+  smokeforge update --check
   smokeforge add auth --project-dir my-app
 
 Documentation: https://github.com/BoatengPeter/smokeforge`,
@@ -59,6 +60,7 @@ Documentation: https://github.com/BoatengPeter/smokeforge`,
 		newAddCmd(opts),
 		newRemoveCmd(opts),
 		newVersionCmd(out),
+		newUpdateCmd(out),
 		newListCmd(opts),
 		newRegistryCmd(opts),
 		newDoctorCmd(opts),

@@ -501,6 +501,7 @@ Read more in the [architecture docs](docs/architecture/overview.md).
 | `smokeforge install` | Install dependencies for recorded targets | Planned |
 | `smokeforge list [stacks\|features]` | Inspect registry contents | Implemented |
 | `smokeforge registry info` | Show registry source/tag/schema/counts | Implemented |
+| `smokeforge update` | Update the smokeforge binary from GitHub releases | Implemented |
 | `smokeforge registry update` | Refresh the local registry cache | Implemented |
 | `smokeforge doctor` | Check environment, registry, and project drift | Implemented |
 | `smokeforge completion <shell>` | Generate shell completion | Implemented |

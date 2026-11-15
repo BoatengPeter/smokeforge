@@ -57,6 +57,12 @@ semantic versioning with pre-1.0 releases using `v0.x.y`.
 
 ### Added
 
+- `smokeforge update` command with `--check`, `--version`, `--force`, and
+  `--json`; downloads the matching release archive, verifies `checksums.txt`,
+  and atomically replaces the binary.
+
+### Added
+
 - Registry loading and validation:
   - strict YAML manifest schema with unknown-field rejection
   - local and remote registry sources

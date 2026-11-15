@@ -29,9 +29,9 @@ This slice does not add:
 - A document CRUD API.
 - Authentication on the public query endpoint.
 - Elasticsearch.
-- Queue-backed indexing.
+- Queue-backed indexing in the core slice; it ships as the separate `search-sync:rabbitmq` follow-up.
 
-The queue-backed `search-sync:rabbitmq` overlay is designed as the next slice.
+The queue-backed `search-sync:rabbitmq` overlay ships as the implemented follow-up.
 
 ## Decisions
 
@@ -252,14 +252,14 @@ and performance floor:
 
 This is guidance for future UI work; no search UI is added in this slice.
 
-## Deferred follow-up
+## Queue-backed indexing follow-up
 
-`search-sync:rabbitmq` will require `search:meilisearch` and `queue:rabbitmq`.
-It will implement `search.Indexer` by publishing `search.upsert` and
-`search.delete` jobs, and register a worker handler that calls the Meilisearch
-adapter. The design must address where the API obtains the queue publisher,
-since the current queue overlay intentionally does not create one in the API
-process.
+`search-sync:rabbitmq` requires `search:meilisearch` and `queue:rabbitmq`. It
+implements `search.Indexer` by publishing `search.documents.upsert` and
+`search.documents.delete` jobs, and registers worker handlers that call the
+Meilisearch adapter. The API now creates a RabbitMQ connection manager and
+publisher for this overlay, declares the existing topology, and closes both on
+shutdown. Query behavior is unchanged; indexing becomes eventually consistent.
 
 ## Non-goals
 

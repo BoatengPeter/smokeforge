@@ -117,8 +117,8 @@ They are scoped to the generated frontend app, not the smokeforge CLI repo.
 
 **Status:** implemented; all four architecture bases and the PostgreSQL, JWT,
 TOTP, Redis cache, RabbitMQ queue/scheduler, leader election, dedupe,
-compression, image media, Meilisearch search, Docker, and CI overlays are
-wired.
+compression, image media, Meilisearch search, queue-backed search sync, signed
+pagination, Docker, and CI overlays are wired.
 
 | Component | Version | Notes |
 | --- | --- | --- |
@@ -167,7 +167,7 @@ configuration anchors, feature-owned packages, and one overlay family.
 
 - Presets: `api` (default; Postgres + JWT) and `api-custom` (select database,
   cache, queue, scheduler, dedupe, compression, auth, TOTP, media, search,
-  Docker, and CI).
+  search sync, pagination, Docker, and CI).
 - Base API: `/healthz`, `/readyz`, `/api/v1/ping`, Swagger UI, merged OpenAPI,
   RFC 9457 errors, request IDs, recovery, body limits, CORS, rate limiting, and
   graceful shutdown.
@@ -211,6 +211,8 @@ Every generated Go app receives:
 | `media-provider:minio` | Implemented | MinIO, imgproxy, nginx cache |
 | `media-provider:r2` | Implemented | Standalone Cloudflare R2, original images only |
 | `search:meilisearch` | Implemented | Public query API, internal indexing, Meilisearch container |
+| `search-sync:rabbitmq` | Implemented | Queue-backed async indexing with worker retries and DLQ |
+| `pagination` | Implemented | Signed HMAC cursors, offset helpers, caps, metadata |
 | Observability | Deferred | OTel, Prometheus, Sentry, pprof overlay next |
 
 ## Backend options — provisional

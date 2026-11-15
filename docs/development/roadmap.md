@@ -41,7 +41,7 @@ The Next.js template and the Go/Gin backend are implemented. The Go slice has
 four architecture bases, PostgreSQL/sqlc/goose, JWT auth, TOTP, Redis cache,
 RabbitMQ queue/scheduler, leader election, dedupe, compression, image media,
 Meilisearch search, RabbitMQ search index sync, signed pagination, Docker, CI,
-Swagger UI, all 17 Go skills, and the Rust/Axum base with SQLx/JWT, Redis cache, signed pagination, and TOTP. Python,
+Swagger UI, all 17 Go skills, and the Rust/Axum base with SQLx/JWT, Redis cache, signed pagination, TOTP, Meilisearch search, and private S3/MinIO/R2 media. Python,
 mobile, desktop, and remaining
 backend overlays are still pending.
 

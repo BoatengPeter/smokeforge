@@ -1,7 +1,7 @@
 # smokeforge stack catalog
 
 The stacks, versions, and defaults smokeforge targets. Next.js and the Go/Gin
-backend are implemented; Rust, Python, mobile, and desktop remain provisional.
+backend and the Rust/Axum backend are implemented; Python, mobile, and desktop remain provisional.
 Items marked **deferred** are not yet shipped and require the decisions noted.
 
 ## Status legend
@@ -219,7 +219,7 @@ Every generated Go app receives:
 
 | Stack ID (provisional) | Language | Framework | Status |
 | --- | --- | --- | --- |
-| `rust/axum` | Rust | axum candidate | Provisional |
+| `rust/axum` | Rust | Axum, SQLx/Postgres, JWT, Docker, CI | Implemented |
 | `python/fastapi` | Python | FastAPI candidate | Provisional |
 
 ## Mobile — provisional

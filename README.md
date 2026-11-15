@@ -331,7 +331,8 @@ Restart your shell after installing completion.
 | --- | --- | --- |
 | Frontend | `next` | Implemented |
 | Backend | `go/gin-flat`, `go/gin-layered`, `go/gin-hexagonal`, `go/gin-ddd` | Implemented |
-| Backend | `rust/axum`, `python/fastapi` | Provisional |
+| Backend | `rust/axum` (Axum + SQLx + JWT) | Implemented |
+| Backend | `python/fastapi` | Provisional |
 | Mobile | `ios/swiftui`, `android/compose` | Provisional |
 | Desktop | `desktop/gpui`, `desktop/egui` | Provisional |
 | Workspace | `workspace/fullstack` | Provisional |

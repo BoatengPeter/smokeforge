@@ -1,6 +1,6 @@
 # Roadmap
 
-**Status:** M1, M2, the M4 lifecycle, and M5 release engineering are complete. M3 has Next.js and the Go/Gin backend with project-scoped skills; Rust, Python, mobile, and desktop remain pending.
+**Status:** M1, M2, the M4 lifecycle, and M5 release engineering are complete. M3 has Next.js, the Go/Gin backend, and the Rust/Axum backend with project-scoped skills; Python, mobile, and desktop remain pending.
 
 ## Milestones
 
@@ -41,13 +41,15 @@ The Next.js template and the Go/Gin backend are implemented. The Go slice has
 four architecture bases, PostgreSQL/sqlc/goose, JWT auth, TOTP, Redis cache,
 RabbitMQ queue/scheduler, leader election, dedupe, compression, image media,
 Meilisearch search, RabbitMQ search index sync, signed pagination, Docker, CI,
-Swagger UI, and all 17 Go skills. Rust, Python, mobile, desktop, and remaining
+Swagger UI, all 17 Go skills, and the Rust/Axum base with SQLx/JWT. Python,
+mobile, desktop, and remaining
 backend overlays are still pending.
 
 - [ ] Registry repo governance, layout, release process
 - [x] Go/Gin bases: `go/gin-flat`, `go/gin-layered`, `go/gin-hexagonal`, `go/gin-ddd`
 - [x] Go overlays: `database:postgres`, `auth:jwt`, `totp`, `docker`, `ci:github`
-- [ ] Base templates: `rust/axum`, `python/fastapi`,
+- [x] Rust base: `rust/axum` with SQLx/Postgres, JWT, Docker, CI, and Rust skills
+- [ ] Base templates: `python/fastapi`,
       `ios/swiftui`, `android/compose`, `desktop/gpui`, `desktop/egui`
 - [x] Overlays: `cache:redis`, `queue:rabbitmq`, `scheduler:leader`, `dedupe:redis`, `compression:gzip`, `media`, `media-provider:minio`, `media-provider:r2`, `search:meilisearch`, `search-sync:rabbitmq`, `pagination`
 - [ ] Contract tests for every overlay×base pair

@@ -9,7 +9,7 @@ fullstack projects for clients. Pick a stack, compose the features you need
 (database, auth, client state, analytics, Docker, CI), and get a wired,
 buildable project — reproducibly, from a pinned template registry.
 
-> **Status:** v0.1.6 is published. CLI generation, lifecycle, and release engineering are complete.
+> **Status:** v0.1.7 is published. CLI generation, lifecycle, and release engineering are complete.
 > The Next.js template, Go/Gin backend (four architectures), and their presets
 > and overlays are implemented. Mobile and desktop templates remain provisional.
 > `smokeforge install` and Homebrew are not available yet. See the [stack catalog](STACKS.md) and
@@ -177,8 +177,8 @@ Presets are starting points. Required companions are added automatically.
 | --- | --- | --- |
 | `frontend` | A polished frontend or landing page | Next.js, shadcn/ui, SEO, API helpers, Jest |
 | `fullstack` | A SaaS or app with accounts | Frontend + Postgres + Better Auth + Zustand |
-| `api` | A Go API with persistence and accounts | Go + Postgres + JWT auth |
-| `api-custom` | Choosing your own Go API features | Select database, cache, queue, scheduler, dedupe, compression, auth, TOTP, media, search, search sync, pagination, Docker, and CI |
+| `api` | A backend API with persistence and accounts | Backend + Postgres + JWT auth |
+| `api-custom` | Choosing your own backend features | Select database, cache, queue, scheduler, dedupe, compression, auth, TOTP, media, search, search sync, pagination, Docker, and CI |
 
 Defaults are kind-scoped: `fullstack` for frontend, `api` for backend.
 

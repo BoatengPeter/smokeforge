@@ -61,6 +61,13 @@ semantic versioning with pre-1.0 releases using `v0.x.y`.
   `--json`; downloads the matching release archive, verifies `checksums.txt`,
   and atomically replaces the binary.
 
+## [0.1.7] - 2026-11-15
+
+### Changed
+
+- Backend presets are now labeled stack-neutrally, so Rust and Go stacks both see
+  `Backend API` and `Custom backend API` instead of Go-specific names.
+
 ## [Unreleased]
 
 ### Added

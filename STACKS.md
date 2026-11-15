@@ -246,6 +246,11 @@ Every generated Go app receives:
 | `rust/axum` | Rust | Axum, SQLx/Postgres, JWT, Docker, CI | Implemented |
 | `python/fastapi` | Python | FastAPI candidate | Provisional |
 
+The Rust base includes `src/response.rs` with success helpers, RFC 9457
+`ProblemDetails`, typed field errors, and automatic `instance`/`request_id`
+context. `src/error.rs` owns the application error and delegates HTTP mapping to
+the response layer.
+
 ## Mobile — provisional
 
 | Stack ID | Platform | UI | Status |

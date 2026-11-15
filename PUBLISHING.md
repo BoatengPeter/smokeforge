@@ -249,7 +249,7 @@ Homebrew is configured but commented out in `.goreleaser.yaml`.
 ## 9. Registry release
 
 The registry is versioned separately from the CLI. Current latest is
-`v0.4.0`.
+`v0.5.0`.
 
 ### Recommended: tag-driven workflow
 
@@ -258,8 +258,8 @@ In the registry repository:
 ```bash
 git switch main
 git pull --ff-only
-git tag -a v0.4.1 -m "smokeforge-registry v0.4.1"
-git push origin v0.4.1
+git tag -a v0.5.1 -m "smokeforge-registry v0.5.1"
+git push origin v0.5.1
 ```
 
 The registry release workflow packages `registry.tar.gz` with a top-level
@@ -268,7 +268,7 @@ marks it latest. Watch it with:
 
 ```bash
 gh run list --repo BoatengPeter/smokeforge-registry --workflow=release.yml
-gh release view v0.4.1 --repo BoatengPeter/smokeforge-registry --json isDraft,assets
+gh release view v0.5.1 --repo BoatengPeter/smokeforge-registry --json isDraft,assets
 ```
 
 ### Manual fallback
@@ -280,12 +280,12 @@ rsync -a --exclude .git --exclude dist ./ dist/registry/
 tar -czf dist/registry.tar.gz -C dist registry
 (cd dist && sha256sum registry.tar.gz > registry.sha256)
 
-gh release create v0.4.1 \
+gh release create v0.5.1 \
   --repo BoatengPeter/smokeforge-registry \
   dist/registry.tar.gz \
   dist/registry.sha256 \
-  --title "smokeforge-registry v0.4.1" \
-  --notes "Registry release v0.4.1" \
+  --title "smokeforge-registry v0.5.1" \
+  --notes "Registry release v0.5.1" \
   --latest
 ```
 

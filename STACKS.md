@@ -117,7 +117,8 @@ They are scoped to the generated frontend app, not the smokeforge CLI repo.
 
 **Status:** implemented; all four architecture bases and the PostgreSQL, JWT,
 TOTP, Redis cache, RabbitMQ queue/scheduler, leader election, dedupe,
-compression, image media, Docker, and CI overlays are wired.
+compression, image media, Meilisearch search, Docker, and CI overlays are
+wired.
 
 | Component | Version | Notes |
 | --- | --- | --- |
@@ -138,6 +139,7 @@ compression, image media, Docker, and CI overlays are wired.
 | MinIO | latest | Optional private media bucket |
 | imgproxy | 3.30.1 | Optional signed image transformations |
 | nginx | 1.28.2 | Optional transform response cache |
+| Meilisearch | 1.6 | Optional public full-text search |
 | Redis | 8 | Optional cache, dedupe markers, scheduler lease |
 | RabbitMQ | 4.1 | Optional durable queue, retries, and DLQ |
 | JWT | `golang-jwt/jwt/v5` 5.3.1 | HS256 access and MFA tokens |
@@ -164,7 +166,8 @@ configuration anchors, feature-owned packages, and one overlay family.
 ### Defaults
 
 - Presets: `api` (default; Postgres + JWT) and `api-custom` (select database,
-  cache, queue, scheduler, dedupe, compression, auth, TOTP, media, Docker, and CI).
+  cache, queue, scheduler, dedupe, compression, auth, TOTP, media, search,
+  Docker, and CI).
 - Base API: `/healthz`, `/readyz`, `/api/v1/ping`, Swagger UI, merged OpenAPI,
   RFC 9457 errors, request IDs, recovery, body limits, CORS, rate limiting, and
   graceful shutdown.
@@ -207,6 +210,7 @@ Every generated Go app receives:
 | `media` | Implemented | Authenticated uploads, private reads, PostgreSQL metadata |
 | `media-provider:minio` | Implemented | MinIO, imgproxy, nginx cache |
 | `media-provider:r2` | Implemented | Standalone Cloudflare R2, original images only |
+| `search:meilisearch` | Implemented | Public query API, internal indexing, Meilisearch container |
 | Observability | Deferred | OTel, Prometheus, Sentry, pprof overlay next |
 
 ## Backend options — provisional
@@ -239,7 +243,7 @@ Every generated Go app receives:
 | Database | Postgres 17 | Implemented for Next and Go |
 | Cache | Redis | Deferred for Next |
 | Queue | RabbitMQ (backend stacks) | Deferred for Next |
-| Storage/search | MinIO/imgproxy/nginx, R2, Meilisearch/Elasticsearch | Deferred |
+| Storage/search | MinIO/imgproxy/nginx, R2, Meilisearch | Implemented for Go; Elasticsearch deferred |
 | Registry | GitHub release tarball + SHA-256 | Implemented |
 
 ## Registry format

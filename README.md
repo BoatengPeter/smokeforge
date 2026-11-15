@@ -178,7 +178,7 @@ Presets are starting points. Required companions are added automatically.
 | `frontend` | A polished frontend or landing page | Next.js, shadcn/ui, SEO, API helpers, Jest |
 | `fullstack` | A SaaS or app with accounts | Frontend + Postgres + Better Auth + Zustand |
 | `api` | A Go API with persistence and accounts | Go + Postgres + JWT auth |
-| `api-custom` | Choosing your own Go API features | Select database, auth, TOTP, Docker, and CI |
+| `api-custom` | Choosing your own Go API features | Select database, cache, queue, scheduler, dedupe, compression, auth, TOTP, media, Docker, and CI |
 
 Defaults are kind-scoped: `fullstack` for frontend, `api` for backend.
 

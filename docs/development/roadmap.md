@@ -38,8 +38,9 @@ lockfile, `.env`, optional git initialization, and a buildable Go fixture.
 ### M3 — Registry content and overlays _(in progress)_
 
 The Next.js template and the Go/Gin backend are implemented. The Go slice has
-four architecture bases, PostgreSQL/sqlc/goose, JWT auth, TOTP, Docker, CI,
-Swagger UI, and all 17 Go skills. Rust, Python, mobile, desktop, and remaining
+four architecture bases, PostgreSQL/sqlc/goose, JWT auth, TOTP, Redis cache,
+RabbitMQ queue/scheduler, leader election, dedupe, compression, image media,
+Docker, CI, Swagger UI, and all 17 Go skills. Rust, Python, mobile, desktop, and remaining
 backend overlays are still pending.
 
 - [ ] Registry repo governance, layout, release process
@@ -47,7 +48,7 @@ backend overlays are still pending.
 - [x] Go overlays: `database:postgres`, `auth:jwt`, `totp`, `docker`, `ci:github`
 - [ ] Base templates: `rust/axum`, `python/fastapi`,
       `ios/swiftui`, `android/compose`, `desktop/gpui`, `desktop/egui`
-- [ ] Overlays: `cache:redis`, `queue:rabbitmq`
+- [x] Overlays: `cache:redis`, `queue:rabbitmq`, `scheduler:leader`, `dedupe:redis`, `compression:gzip`, `media`, `media-provider:minio`, `media-provider:r2`
 - [ ] Contract tests for every overlay×base pair
 - [ ] Native build matrix in registry CI
 
@@ -96,7 +97,7 @@ tag, release review, Homebrew tap, and the remaining v1 scope.
 | Frontend | Next.js |
 | Mobile | SwiftUI iOS, Jetpack Compose Android |
 | Desktop | GPUI, EGUI |
-| Features | Postgres, Redis cache, RabbitMQ queue, JWT auth, TOTP, Docker, GitHub Actions CI |
+| Features | Postgres, Redis cache, RabbitMQ queue/scheduler, leader election, dedupe, compression, JWT auth, TOTP, image media, Docker, GitHub Actions CI |
 | Lifecycle | new, add, remove, install, list, registry, doctor |
 
 ## Pending decisions (backend/mobile/desktop templates)

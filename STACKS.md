@@ -110,13 +110,14 @@ They are scoped to the generated frontend app, not the smokeforge CLI repo.
 | `analytics:posthog` | Implemented | Client-only, consent-first |
 | `docker` | Implemented | Non-root multi-stage, package-manager aware |
 | `ci:github` | Implemented | GitHub Actions; E2E steps run only when Playwright exists |
-| `cache:redis` | Deferred | After deployment/DB flow is proven |
-| `queue` | Deferred | Next worker model unsupported in this pass |
+| `cache:redis` | Deferred | Go cache overlay exists; Next.js cache is not planned |
+| `queue` | Deferred | Go RabbitMQ overlay exists; Next.js queue is not planned |
 
 ## Backend — Go/Gin
 
 **Status:** implemented; all four architecture bases and the PostgreSQL, JWT,
-TOTP, Docker, and CI overlays are wired.
+TOTP, Redis cache, RabbitMQ queue/scheduler, leader election, dedupe,
+compression, image media, Docker, and CI overlays are wired.
 
 | Component | Version | Notes |
 | --- | --- | --- |
@@ -133,6 +134,12 @@ TOTP, Docker, and CI overlays are wired.
 | pgx | 5.13.0 | Connection pool and SQL driver |
 | sqlc | 1.31.1 | Compile-checked queries |
 | goose | 3.30.1 | Embedded migrations |
+| AWS SDK | v1.47.3 | S3-compatible media storage and presigning |
+| MinIO | latest | Optional private media bucket |
+| imgproxy | 3.30.1 | Optional signed image transformations |
+| nginx | 1.28.2 | Optional transform response cache |
+| Redis | 8 | Optional cache, dedupe markers, scheduler lease |
+| RabbitMQ | 4.1 | Optional durable queue, retries, and DLQ |
 | JWT | `golang-jwt/jwt/v5` 5.3.1 | HS256 access and MFA tokens |
 | Passwords | `x/crypto` 0.59.0 | Argon2id |
 | TOTP | `pquerna/otp` 1.5.0 | Enrollment, verification, recovery codes |
@@ -157,7 +164,7 @@ configuration anchors, feature-owned packages, and one overlay family.
 ### Defaults
 
 - Presets: `api` (default; Postgres + JWT) and `api-custom` (select database,
-  auth, TOTP, Docker, and CI).
+  cache, queue, scheduler, dedupe, compression, auth, TOTP, media, Docker, and CI).
 - Base API: `/healthz`, `/readyz`, `/api/v1/ping`, Swagger UI, merged OpenAPI,
   RFC 9457 errors, request IDs, recovery, body limits, CORS, rate limiting, and
   graceful shutdown.
@@ -192,10 +199,15 @@ Every generated Go app receives:
 | `totp` | Implemented | Enrollment, recovery codes, second-factor login |
 | `docker` | Implemented | Multi-stage, non-root, health check |
 | `ci:github` | Implemented | Format, vet, lint, tests, race, build, govulncheck |
-| `cache:redis` | Deferred | Next Go slice |
-| `queue:rabbitmq` | Deferred | Worker overlay next |
+| `cache:redis` | Implemented | Fail-open cache, TTLs, miniredis tests |
+| `queue:rabbitmq` | Implemented | Worker pool, quorum queues, retries, DLQ, scheduler |
+| `scheduler:leader` | Implemented | Redis lease with renewal and failover |
+| `dedupe:redis` | Implemented | Success markers with fail-closed checks |
+| `compression:gzip` | Implemented | Bounded gzip queue payloads |
+| `media` | Implemented | Authenticated uploads, private reads, PostgreSQL metadata |
+| `media-provider:minio` | Implemented | MinIO, imgproxy, nginx cache |
+| `media-provider:r2` | Implemented | Standalone Cloudflare R2, original images only |
 | Observability | Deferred | OTel, Prometheus, Sentry, pprof overlay next |
-| Scheduler/admin CLI | Deferred | Runtime scenarios reserved by the scaffold contract |
 
 ## Backend options — provisional
 

@@ -494,3 +494,90 @@ func TestNewFullstack(t *testing.T) {
 		}
 	}
 }
+
+func TestNextStepLinesDesktop(t *testing.T) {
+	t.Parallel()
+
+	plan := &resolve.Plan{
+		Target: resolve.TargetPlan{
+			Stack: manifest.Stack{ID: "desktop/electron", Name: "Electron"},
+		},
+	}
+
+	lines := strings.Join(nextStepLines(plan, "my-desktop", true), "\n")
+	for _, want := range []string{"make install", "make dev", "make test", "make build"} {
+		if !strings.Contains(lines, want) {
+			t.Fatalf("desktop next steps missing %q:\n%s", want, lines)
+		}
+	}
+}
+
+const desktopManifestYAML = `schemaVersion: 1
+name: desktop-cli
+kinds:
+  desktop: {max: 1}
+stacks:
+  - id: desktop/electron
+    kind: desktop
+    name: Electron
+    template: templates/electron
+    variables: [bundle_id, package_manager, api_url]
+presets:
+  - id: desktop
+    name: Desktop
+    kinds: [desktop]
+    default: true
+    features: []
+features: []
+`
+
+func writeDesktopCLIRegistry(t *testing.T) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "manifest.yaml"), desktopManifestYAML)
+	writeTestFile(t, filepath.Join(dir, "templates", "electron", "template.yaml"),
+		"id: desktop/electron\nvariables:\n  - name: bundle_id\n    default: com.example.app\n  - name: package_manager\n    default: pnpm\n  - name: api_url\n    default: http://localhost:8080\n")
+	writeTestFile(t, filepath.Join(dir, "templates", "electron", "files", "README.md.tmpl"),
+		"# {{.project_name}}\n")
+	writeTestFile(t, filepath.Join(dir, "templates", "electron", "files", "package.json.tmpl"),
+		"{\"name\":\"{{.project_slug}}\",\"packageManager\":\"{{.package_manager}}\"}\n")
+	writeTestFile(t, filepath.Join(dir, "templates", "electron", "files", "src", "main", "index.ts"),
+		"export const app = true;\n")
+
+	return dir
+}
+
+func TestNewDesktop(t *testing.T) {
+	t.Parallel()
+
+	registryDir := writeDesktopCLIRegistry(t)
+	target := filepath.Join(t.TempDir(), "desktop")
+
+	out, _, err := executeCommand(
+		t,
+		"new", target,
+		"--registry", registryDir,
+		"--kind", "desktop",
+		"--stack", "desktop/electron",
+		"--name", "Desktop App",
+		"--var", "bundle_id=com.example.desktop",
+		"--var", "package_manager=npm",
+		"--var", "api_url=http://localhost:8080",
+		"--no-input",
+		"--no-git",
+	)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	for _, want := range []string{"Desktop App", "make dev", "make build"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("output %q missing %q", out, want)
+		}
+	}
+
+	if _, err := os.Stat(filepath.Join(target, "src", "main", "index.ts")); err != nil {
+		t.Fatalf("desktop entry missing: %v", err)
+	}
+}

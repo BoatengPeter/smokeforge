@@ -1,7 +1,7 @@
 # Fullstack composition
 
-**Status:** implemented for API + Next.js. Mobile and desktop targets remain
-planned.
+**Status:** API + Next.js is implemented. A standalone `desktop/electron` base
+is implemented; adding a desktop target to fullstack remains planned.
 
 ## Kinds and limits
 
@@ -12,7 +12,7 @@ The registry manifest declares per-kind selection limits:
 | `backend` | 1 | `go/gin-layered`, `rust/axum`, `python/fastapi` |
 | `frontend` | 1 | `next` |
 | `mobile` | 2 | `ios/swiftui` + `android/compose` |
-| `desktop` | 1 | `desktop/gpui` **or** `desktop/egui` |
+| `desktop` | 1 | `desktop/electron`; GPUI/EGUI deferred |
 
 A fullstack project is one API target plus any supported clients. A backend-only
 project is a fullstack project with no clients; a client-only project is one
@@ -27,7 +27,7 @@ acme/
     web/                  # Next.js target
     ios/                  # SwiftUI target
     android/              # Jetpack Compose target
-    desktop/              # GPUI or EGUI target
+    desktop/              # Electron target (standalone implemented)
   .github/
     workflows/
       ci.yml

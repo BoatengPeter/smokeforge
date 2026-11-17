@@ -1,7 +1,8 @@
 # smokeforge stack catalog
 
 The stacks, versions, and defaults smokeforge targets. Next.js and the Go/Gin
-backend and the Rust/Axum backend are implemented; Python, mobile, and desktop remain provisional.
+backend, the Rust/Axum backend, and the Electron desktop base are implemented;
+Python, mobile, and the remaining native desktop options remain provisional.
 Items marked **deferred** are not yet shipped and require the decisions noted.
 
 ## Status legend
@@ -266,8 +267,15 @@ search sync, retry queues, and imgproxy/nginx minio transformations.
 
 | Stack ID | Framework | Status |
 | --- | --- | --- |
-| `desktop/gpui` | GPUI | Under consideration |
-| `desktop/egui` | EGUI | Under consideration |
+| `desktop/electron` | Electron + React + TypeScript | Implemented |
+| `desktop/gpui` | GPUI | Deferred |
+| `desktop/egui` | EGUI | Deferred |
+
+The Electron base uses React + Vite + TypeScript, a sandboxed renderer, a typed
+Zod-validated preload IPC bridge, electron-vite, and electron-builder. The
+default `desktop` preset includes TanStack Query, Zustand, and SQLite; Playwright
+Electron and GitHub Actions are optional. Package manager is selectable (pnpm,
+npm, or bun).
 
 ## Infrastructure
 

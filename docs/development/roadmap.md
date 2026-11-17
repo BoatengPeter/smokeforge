@@ -1,6 +1,9 @@
 # Roadmap
 
-**Status:** M1, M2, the M4 lifecycle, and M5 release engineering are complete. M3 has Next.js, the Go/Gin backend, and the Rust/Axum backend with project-scoped skills; Python, mobile, and desktop remain pending.
+**Status:** M1, M2, the M4 lifecycle, M5 release engineering, and the standalone
+Electron desktop base are complete. M3 has Next.js, the Go/Gin backend, and the
+Rust/Axum backend with project-scoped skills; Python, mobile, and fullstack
+desktop targeting remain pending.
 
 ## Milestones
 
@@ -51,6 +54,7 @@ backend overlays are still pending.
 - [x] Rust base: `rust/axum` with SQLx/Postgres, JWT, Docker, CI, and Rust skills
 - [ ] Base templates: `python/fastapi`,
       `ios/swiftui`, `android/compose`, `desktop/gpui`, `desktop/egui`
+- [x] Desktop base: `desktop/electron` with secure IPC, SQLite, TanStack, Zustand, and Playwright
 - [x] Overlays: `cache:redis`, `queue:rabbitmq`, `scheduler:leader`, `dedupe:redis`, `compression:gzip`, `media`, `media-provider:minio`, `media-provider:r2`, `search:meilisearch`, `search-sync:rabbitmq`, `pagination`
 - [ ] Contract tests for every overlay×base pair
 - [ ] Native build matrix in registry CI

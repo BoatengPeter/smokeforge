@@ -235,7 +235,7 @@ flowchart TD
     wizard --> web["apps/web\nNext.js"]
     wizard --> ios["apps/ios\nSwiftUI"]
     wizard --> android["apps/android\nCompose"]
-    wizard --> desktop["apps/desktop\nGPUI or EGUI"]
+    wizard --> desktop["apps/desktop\nElectron (standalone implemented)"]
     wizard --> root["workspace/fullstack\nroot base"]
 
     api --> apiFeatures["database, cache, queue,\nauth, totp"]

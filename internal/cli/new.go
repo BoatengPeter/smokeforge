@@ -48,6 +48,7 @@ func newNewCmd(opts *options) *cobra.Command {
 Presets:
   frontend       Next.js app with shadcn/ui, SEO, API helpers, and Jest
   fullstack      Next.js + one API, BFF auth, TanStack Query, Docker, and CI
+  desktop        Secure Electron + React app with SQLite, TanStack Query, and Zustand
   api            Backend API with Postgres and JWT authentication
   api-custom     Backend API where you choose database, auth, TOTP, Docker, and CI
 
@@ -57,6 +58,7 @@ E2E. Use --feature to select individual features instead of a preset.`,
   smokeforge new my-app --preset frontend
   smokeforge new my-saas --kind fullstack --backend go/gin-layered
   smokeforge new my-saas --kind fullstack --backend rust/axum --frontend next
+  smokeforge new my-app --kind desktop --stack desktop/electron
   smokeforge new my-api --kind backend --preset api
   smokeforge new my-api --kind backend --preset api-custom --feature database:postgres --feature auth:jwt
   smokeforge new my-app --preset frontend --feature docker --feature ci:github
@@ -452,6 +454,15 @@ func nextStepLines(plan *resolve.Plan, path string, dockerInstalled bool) []stri
 			"  make api-dev        # API",
 			"  make web-dev        # Next.js",
 			"  make test",
+		)
+	}
+
+	if plan.Target.Stack.ID == "desktop/electron" {
+		return append(lines,
+			"  make install",
+			"  make dev",
+			"  make test",
+			"  make build",
 		)
 	}
 

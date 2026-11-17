@@ -9,9 +9,10 @@ fullstack projects for clients. Pick a stack, compose the features you need
 (database, auth, client state, analytics, Docker, CI), and get a wired,
 buildable project — reproducibly, from a pinned template registry.
 
-> **Status:** v0.2.0 is published. CLI generation, lifecycle, fullstack composition, and release engineering are complete.
-> The Next.js template, Go/Gin backend (four architectures), and their presets
-> and overlays are implemented. Mobile and desktop templates remain provisional.
+> **Status:** v0.2.1 is published. CLI generation, lifecycle, fullstack composition, and release engineering are complete.
+> The Next.js template, Go/Gin backend (four architectures), Rust/Axum backend,
+> and Electron desktop base are implemented. Mobile and remaining native desktop
+> templates remain provisional.
 > `smokeforge install` and Homebrew are not available yet. See the [stack catalog](STACKS.md) and
 > [roadmap](docs/development/roadmap.md).
 
@@ -154,7 +155,7 @@ same template data. For local registry development, pass `--registry <dir>`.
 If you have Go 1.26.11+:
 
 ```bash
-go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.2.0
+go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.2.1
 smokeforge version
 ```
 
@@ -178,6 +179,7 @@ Presets are starting points. Required companions are added automatically.
 | `frontend` | A polished frontend or landing page | Next.js, shadcn/ui, SEO, API helpers, Jest |
 | `fullstack` | A Next.js app with its own auth/database | Frontend + Postgres + Better Auth + Zustand + TanStack Query |
 | `fullstack-api` | Next.js + a Go or Rust API | Next.js BFF + API + Postgres/JWT + TanStack Query + Docker + CI |
+| `desktop` | A secure Electron desktop app | Electron + React + TypeScript + TanStack Query + Zustand + SQLite |
 | `api` | A backend API with persistence and accounts | Backend + Postgres + JWT auth |
 | `api-custom` | Choosing your own backend features | Select database, cache, queue, scheduler, dedupe, compression, auth, TOTP, media, search, search sync, pagination, Docker, and CI |
 
@@ -190,6 +192,9 @@ smokeforge new my-saas --preset fullstack
 # Fullstack API + Next.js (Go or Rust)
 smokeforge new my-saas --kind fullstack --backend go/gin-layered
 smokeforge new my-saas --kind fullstack --backend rust/axum
+
+# Standalone Electron desktop app
+smokeforge new my-desktop --kind desktop --stack desktop/electron
 
 # Go API: choose an architecture and start from the backend preset
 smokeforge new my-api --kind backend --stack go/gin-layered --preset api
@@ -365,7 +370,8 @@ Restart your shell after installing completion.
 | Backend | `rust/axum` (Axum + SQLx + JWT) | Implemented |
 | Backend | `python/fastapi` | Provisional |
 | Mobile | `ios/swiftui`, `android/compose` | Provisional |
-| Desktop | `desktop/gpui`, `desktop/egui` | Provisional |
+| Desktop | `desktop/electron` (Electron + React + TypeScript) | Implemented |
+| Desktop | `desktop/gpui`, `desktop/egui` | Deferred |
 | Workspace | `workspace/fullstack` | Implemented for API + Next.js |
 
 ## Supported features
@@ -655,7 +661,7 @@ docs/                  design, architecture, registry, and development docs
    Next.js base, fullstack presets, overlays, and project-scoped skills. _(Next.js implemented; other stacks provisional)_
 5. **Full matrix** — fullstack composition and client wiring complete; `install` remains pending.
 6. **Release** — goreleaser, checksums, release workflow, and install docs.
-   _(v0.2.0 published)_
+   _(v0.2.1 published)_
 
 Details and acceptance criteria: [roadmap](docs/development/roadmap.md).
 

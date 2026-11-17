@@ -4,6 +4,27 @@ All notable changes to smokeforge are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 semantic versioning with pre-1.0 releases using `v0.x.y`.
 
+## [0.2.1] - 2026-11-17
+
+### Added
+
+- `desktop` project kind and `desktop/electron` stack for standalone Electron apps.
+- Secure TypeScript Electron base with React/Vite, typed preload IPC, sandboxed
+  renderer, custom `app://` production protocol, CSP/navigation guards, and
+  electron-builder packaging/fuses.
+- Desktop `desktop` preset with TanStack Query, Zustand, and SQLite local data.
+- Typed atomic JSON settings store for non-sensitive preferences.
+- `storage:sqlite` overlay with WAL migrations, validated local-data IPC, and
+  native-module rebuild support.
+- Optional Playwright Electron E2E and GitHub Actions overlays.
+- Selectable pnpm, npm, or bun package manager for desktop projects.
+- `electron-best-practices`, `zod`, React, Zustand, Tailwind, and frontend skills
+  vendored into generated desktop projects with lock metadata.
+
+### Changed
+
+- `new` help and next-step output now describe and support desktop generation.
+
 ## [0.2.0] - 2026-11-15
 
 ### Added

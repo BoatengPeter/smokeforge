@@ -129,6 +129,7 @@ func resolveFullstack(m *manifest.Manifest, registryDir string, sel Selection) (
 
 	webFeatures = fullstackWebFeatures(apiFeatures, webFeatures)
 	desktopFeatures = fullstackDesktopFeatures(apiFeatures, desktopFeatures, stacks.desktop != nil)
+	apiFeatures = fullstackSyncAPIFeatures(apiFeatures, stacks.desktop != nil)
 
 	if err := validateFullstackFeatures(apiFeatures, rootFeatures); err != nil {
 		return nil, err
@@ -218,7 +219,23 @@ func fullstackDesktopFeatures(apiFeatures, desktopFeatures []string, hasDesktop 
 		desktopFeatures = append(desktopFeatures, "storage:sqlite")
 	}
 
+	if featureSelected(apiFeatures, "database", "postgres") && featureSelected(apiFeatures, "auth", "jwt") && !featureSelected(desktopFeatures, "sync", "library-client") {
+		desktopFeatures = append(desktopFeatures, "sync:library-client")
+	}
+
 	return desktopFeatures
+}
+
+func fullstackSyncAPIFeatures(apiFeatures []string, hasDesktop bool) []string {
+	if !hasDesktop {
+		return apiFeatures
+	}
+
+	if featureSelected(apiFeatures, "database", "postgres") && featureSelected(apiFeatures, "auth", "jwt") && !featureSelected(apiFeatures, "sync", "library") {
+		return append(apiFeatures, "sync:library")
+	}
+
+	return apiFeatures
 }
 
 func validateFullstackFeatures(apiFeatures, rootFeatures []string) error {

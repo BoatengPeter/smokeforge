@@ -688,6 +688,14 @@ func fullstackManifest() *manifest.Manifest {
 				}}},
 			},
 			{
+				ID:    "sync",
+				Kinds: []string{"backend", "desktop"},
+				Variants: []manifest.Variant{
+					{ID: "library", Requires: []string{"database:postgres", "auth:jwt"}, Overlays: map[string]string{"go/api": "overlays/api/sync"}},
+					{ID: "library-client", Overlays: map[string]string{"desktop/electron": "overlays/desktop/sync"}},
+				},
+			},
+			{
 				ID:    "data",
 				Kinds: []string{"frontend", "desktop"},
 				Variants: []manifest.Variant{{ID: "tanstack-query", Default: true, Overlays: map[string]string{
@@ -733,7 +741,7 @@ func writeFullstackRegistry(t *testing.T) string {
 	for _, path := range []string{
 		"overlays/api/db", "overlays/api/auth", "overlays/web/bff",
 		"overlays/web/query", "overlays/desktop/query", "overlays/desktop/state", "overlays/desktop/storage",
-		"overlays/desktop/auth", "overlays/api/docker", "overlays/web/docker",
+		"overlays/desktop/auth", "overlays/desktop/sync", "overlays/api/sync", "overlays/api/docker", "overlays/web/docker",
 		"overlays/root/docker", "overlays/workspace/fullstack/desktop", "overlays/api/ci", "overlays/web/ci", "overlays/root/ci",
 	} {
 		writeFile(t, filepath.Join(dir, path, "overlay.yaml"),
@@ -790,7 +798,7 @@ func TestResolveFullstackDesktop(t *testing.T) {
 		t.Fatalf("desktop target = %+v", plan.Targets[2])
 	}
 
-	if got := overlayIDs(plan.Targets[2].Overlays); strings.Join(got, ",") != "data:tanstack-query,auth:electron,state:zustand,storage:sqlite" {
+	if got := overlayIDs(plan.Targets[2].Overlays); strings.Join(got, ",") != "data:tanstack-query,auth:electron,state:zustand,storage:sqlite,sync:library-client" {
 		t.Fatalf("desktop overlays = %v", got)
 	}
 

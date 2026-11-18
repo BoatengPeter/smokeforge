@@ -624,6 +624,7 @@ func fullstackManifest() *manifest.Manifest {
 			"backend":   {Max: 1},
 			"frontend":  {Max: 1},
 			"fullstack": {Max: 1},
+			"desktop":   {Max: 1},
 		},
 		Stacks: []manifest.Stack{
 			{
@@ -639,6 +640,13 @@ func fullstackManifest() *manifest.Manifest {
 				Name:      "Next.js",
 				Template:  "templates/web",
 				Variables: []string{"package_manager", "module_path"},
+			},
+			{
+				ID:        "desktop/electron",
+				Kind:      "desktop",
+				Name:      "Electron",
+				Template:  "templates/desktop",
+				Variables: []string{"bundle_id", "package_manager", "api_url"},
 			},
 			{
 				ID:        "workspace/fullstack",
@@ -665,16 +673,26 @@ func fullstackManifest() *manifest.Manifest {
 			},
 			{
 				ID:    "auth",
-				Kinds: []string{"backend", "frontend"},
+				Kinds: []string{"backend", "frontend", "desktop"},
 				Variants: []manifest.Variant{
 					{ID: "jwt", Requires: []string{"database:postgres"}, Overlays: map[string]string{"go/api": "overlays/api/auth"}},
 					{ID: "bff", Requires: []string{"data:tanstack-query"}, Overlays: map[string]string{nextStackID: "overlays/web/bff"}},
+					{ID: "electron", Requires: []string{"data:tanstack-query"}, Overlays: map[string]string{"desktop/electron": "overlays/desktop/auth"}},
 				},
 			},
 			{
-				ID:       "data",
-				Kinds:    []string{"frontend"},
-				Variants: []manifest.Variant{{ID: "tanstack-query", Default: true, Overlays: map[string]string{nextStackID: "overlays/web/query"}}},
+				ID:    "data",
+				Kinds: []string{"frontend", "desktop"},
+				Variants: []manifest.Variant{{ID: "tanstack-query", Default: true, Overlays: map[string]string{
+					nextStackID: "overlays/web/query", "desktop/electron": "overlays/desktop/query",
+				}}},
+			},
+			{
+				ID:    "storage",
+				Kinds: []string{"desktop"},
+				Variants: []manifest.Variant{{ID: "sqlite", Default: true, Overlays: map[string]string{
+					"desktop/electron": "overlays/desktop/storage",
+				}}},
 			},
 			{
 				ID:       "docker",
@@ -702,11 +720,14 @@ func writeFullstackRegistry(t *testing.T) string {
 		"id: next\nvariables:\n  - name: package_manager\n    default: pnpm\n  - name: module_path\n    default: web\n")
 	writeFile(t, filepath.Join(dir, "templates", "root", "template.yaml"),
 		"id: workspace/fullstack\nvariables:\n  - name: package_manager\n    default: pnpm\n")
+	writeFile(t, filepath.Join(dir, "templates", "desktop", "template.yaml"),
+		"id: desktop/electron\nvariables:\n  - name: bundle_id\n    default: com.example.app\n  - name: package_manager\n    default: pnpm\n  - name: api_url\n    default: http://localhost:8080\n")
 
 	for _, path := range []string{
 		"overlays/api/db", "overlays/api/auth", "overlays/web/bff",
-		"overlays/web/query", "overlays/api/docker", "overlays/web/docker",
-		"overlays/root/docker", "overlays/api/ci", "overlays/web/ci", "overlays/root/ci",
+		"overlays/web/query", "overlays/desktop/query", "overlays/desktop/storage",
+		"overlays/desktop/auth", "overlays/api/docker", "overlays/web/docker",
+		"overlays/root/docker", "overlays/workspace/fullstack/desktop", "overlays/api/ci", "overlays/web/ci", "overlays/root/ci",
 	} {
 		writeFile(t, filepath.Join(dir, path, "overlay.yaml"),
 			"id: "+strings.ReplaceAll(path, "overlays/", "")+"\nops:\n  - env:\n      key: TEST_FLAG\n      example: \"1\"\n")
@@ -732,6 +753,47 @@ func TestResolveFullstack(t *testing.T) {
 	assertFullstackTargets(t, plan)
 	assertFullstackOverlays(t, plan)
 	assertFullstackVariables(t, plan)
+}
+
+func TestResolveFullstackDesktop(t *testing.T) {
+	t.Parallel()
+
+	plan, err := Resolve(fullstackManifest(), writeFullstackRegistry(t), Selection{
+		Name:    "Acme Desktop",
+		Kind:    "fullstack",
+		Backend: "go/api",
+		Desktop: "electron",
+		Preset:  "fullstack-api",
+		Variables: map[string]string{
+			"module_path":     "example.com/acme",
+			"package_manager": "pnpm",
+			"bundle_id":       "com.example.acme",
+			"api_url":         "http://localhost:8080",
+		},
+	})
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+
+	if len(plan.Targets) != 3 {
+		t.Fatalf("targets = %+v", plan.Targets)
+	}
+
+	if plan.Targets[2].Path != "apps/desktop" || plan.Targets[2].Stack.ID != "desktop/electron" {
+		t.Fatalf("desktop target = %+v", plan.Targets[2])
+	}
+
+	if got := overlayIDs(plan.Targets[2].Overlays); strings.Join(got, ",") != "data:tanstack-query,auth:electron,storage:sqlite" {
+		t.Fatalf("desktop overlays = %v", got)
+	}
+
+	if got := overlayIDs(plan.Root.Overlays); strings.Join(got, ",") != "docker,ci:github,desktop" {
+		t.Fatalf("root overlays = %v", got)
+	}
+
+	if plan.Targets[2].Variables["bundle_id"] != "com.example.acme" {
+		t.Fatalf("desktop variables = %v", plan.Targets[2].Variables)
+	}
 }
 
 func assertFullstackTargets(t *testing.T, plan *Plan) {

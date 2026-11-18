@@ -1,7 +1,7 @@
 # Fullstack composition
 
-**Status:** API + Next.js is implemented. A standalone `desktop/electron` base
-is implemented; adding a desktop target to fullstack remains planned.
+**Status:** API + Next.js is implemented, and `--desktop electron` adds an
+Electron target. Offline outbox synchronization remains planned.
 
 ## Kinds and limits
 
@@ -27,7 +27,7 @@ acme/
     web/                  # Next.js target
     ios/                  # SwiftUI target
     android/              # Jetpack Compose target
-    desktop/              # Electron target (standalone implemented)
+    desktop/              # Electron target (optional fullstack client)
   .github/
     workflows/
       ci.yml
@@ -71,7 +71,8 @@ Clients must not require manual URL hunting. At generation time:
   the browser uses same-origin BFF routes.
 - iOS: a generated `Config.swift` (or xcconfig) contains the base URL for debug.
 - Android: `BuildConfig` field or `local.properties` entry for the base URL.
-- Desktop: a config module/env var for the base URL.
+- Desktop: `DESKTOP_API_URL` in the main process; tokens stay in main. SQLite is
+  local data/cache, not a second server database.
 - Root `.env.example` documents shared values; compose uses the same names.
 
 This wiring is implemented by small client-specific overlays shipped with each

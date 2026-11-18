@@ -1,7 +1,7 @@
 # Release guide
 
-**Status:** CLI and registry releases are active. Current CLI is `v0.2.1`;
-current registry is `v0.7.1`. The Homebrew tap and `v1.0.0` remain pending.
+**Status:** CLI and registry releases are active. Current CLI is `v0.2.2`;
+current registry is `v0.8.0`. The Homebrew tap and `v1.0.0` remain pending.
 
 ## Versioning policy
 
@@ -57,8 +57,8 @@ The version output must include the snapshot version, commit, and date.
 4. Create and push an annotated tag:
 
    ```bash
-   git tag -a v0.2.1 -m "smokeforge v0.2.1"
-   git push origin v0.2.1
+   git tag -a v0.2.2 -m "smokeforge v0.2.2"
+   git push origin v0.2.2
    ```
 
 5. The `release` workflow runs tests, builds six platform archives, generates
@@ -67,12 +67,12 @@ The version output must include the snapshot version, commit, and date.
 7. Publish it:
 
    ```bash
-   gh release edit v0.2.1 --draft=false --latest
+   gh release edit v0.2.2 --draft=false --latest
    ```
 8. Verify installation and self-update:
 
    ```bash
-   go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.2.1
+   go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.2.2
    smokeforge version
    smokeforge update --check
    ```
@@ -97,13 +97,13 @@ Homebrew publishing is commented out in `.goreleaser.yaml` until a tap exists.
 ## Registry release
 
 The template registry is released separately from the CLI. Current latest is
-`v0.7.1`.
+`v0.8.0`.
 
 ### Recommended: tag-driven workflow
 
 ```bash
-git tag -a v0.7.2 -m "smokeforge-registry v0.7.2"
-git push origin v0.7.2
+git tag -a v0.8.1 -m "smokeforge-registry v0.8.1"
+git push origin v0.8.1
 ```
 
 The registry workflow publishes `registry.tar.gz` and `registry.sha256`
@@ -118,11 +118,11 @@ rsync -a --exclude .git --exclude dist ./ dist/registry/
 tar -czf dist/registry.tar.gz -C dist registry
 (cd dist && sha256sum registry.tar.gz > registry.sha256)
 
-gh release create v0.7.2 \
+gh release create v0.8.1 \
   --repo BoatengPeter/smokeforge-registry \
   dist/registry.tar.gz dist/registry.sha256 \
-  --title "smokeforge-registry v0.7.2" \
-  --notes "Registry release v0.7.2" \
+  --title "smokeforge-registry v0.8.1" \
+  --notes "Registry release v0.8.1" \
   --latest
 ```
 

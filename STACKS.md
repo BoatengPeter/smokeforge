@@ -130,8 +130,13 @@ They are scoped to the generated frontend app, not the smokeforge CLI repo.
 | Hooks | `apps/web/src/lib/query/hooks.ts` | `useAuthSession`, `useLogin`, `useRegister`, `useLogout` |
 
 Fullstack preset: `fullstack-api` = API + Next.js + Postgres/JWT + TanStack Query
-+ Docker + CI. `smokeforge new` accepts `--backend` and `--frontend`; `--frontend`
-defaults to `next`.
++ Docker + CI. `smokeforge new` accepts `--backend`, `--frontend`, and optional
+`--desktop electron`; `--frontend` defaults to `next`.
+
+With `--desktop electron`, the workspace also gets `apps/desktop`: Electron
+main/preload/renderer, SQLite, TanStack Query, main-process API auth, safeStorage
+refresh tokens, and a root desktop CI job. Offline write outbox is a separate
+planned feature.
 
 Root compose extends the generated API/web compose files, adds Postgres and the
 migration service for the fullstack preset, and wires `API_URL=http://api:8080`.

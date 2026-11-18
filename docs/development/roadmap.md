@@ -69,8 +69,8 @@ applies to every supported base and the result builds.
 - [ ] `install` per-stack idempotent setup
 - [ ] Toolchain checks in `doctor`
 - [x] `workspace/fullstack` root base
-- [x] Multi-target monorepo generation (`apps/api`, `apps/web`; native clients pend)
-- [x] Client API-URL wiring (`API_URL` + BFF)
+- [x] Multi-target monorepo generation (`apps/api`, `apps/web`, optional `apps/desktop`)
+- [x] Client API-URL wiring (`API_URL` + BFF + desktop main-process session)
 - [x] Root compose/CI aggregation
 - [ ] End-to-end matrix for every fullstack combo
 

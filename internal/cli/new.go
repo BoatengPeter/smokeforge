@@ -22,11 +22,14 @@ import (
 
 var errProjectAborted = errors.New("project creation aborted")
 
+const fullstackKind = "fullstack"
+
 type newOptions struct {
 	kind        string
 	stack       string
 	backend     string
 	frontend    string
+	desktop     string
 	name        string
 	preset      string
 	features    []string
@@ -58,6 +61,7 @@ E2E. Use --feature to select individual features instead of a preset.`,
   smokeforge new my-app --preset frontend
   smokeforge new my-saas --kind fullstack --backend go/gin-layered
   smokeforge new my-saas --kind fullstack --backend rust/axum --frontend next
+  smokeforge new my-saas --kind fullstack --backend go/gin-layered --desktop electron
   smokeforge new my-app --kind desktop --stack desktop/electron
   smokeforge new my-api --kind backend --preset api
   smokeforge new my-api --kind backend --preset api-custom --feature database:postgres --feature auth:jwt
@@ -79,6 +83,7 @@ E2E. Use --feature to select individual features instead of a preset.`,
 	flags.StringVar(&newOpts.stack, "stack", "", "stack ID")
 	flags.StringVar(&newOpts.backend, "backend", "", "backend stack ID for fullstack projects")
 	flags.StringVar(&newOpts.frontend, "frontend", "", "frontend stack ID for fullstack projects (default next)")
+	flags.StringVar(&newOpts.desktop, "desktop", "", "optional desktop stack for fullstack projects (electron)")
 	flags.StringVar(&newOpts.name, "name", "", "project name")
 	flags.StringVar(&newOpts.preset, "preset", "", "feature preset")
 	flags.StringArrayVar(&newOpts.features, "feature", nil, "feature selection (repeatable, id[:variant])")
@@ -224,6 +229,7 @@ func collectSelection(
 		Stack:     newOpts.stack,
 		Backend:   newOpts.backend,
 		Frontend:  newOpts.frontend,
+		Desktop:   newOpts.desktop,
 		Name:      newOpts.name,
 		Preset:    newOpts.preset,
 		Features:  append([]string{}, newOpts.features...),
@@ -245,7 +251,11 @@ func collectSelection(
 		return resolve.Selection{}, errors.New("kind is required (use --kind)")
 	}
 
-	if selection.Kind == "fullstack" {
+	if selection.Kind != fullstackKind && strings.TrimSpace(selection.Desktop) != "" {
+		return resolve.Selection{}, errors.New("--desktop is only valid with --kind fullstack")
+	}
+
+	if selection.Kind == fullstackKind {
 		if strings.TrimSpace(selection.Backend) == "" && strings.TrimSpace(selection.Stack) != "" {
 			selection.Backend = selection.Stack
 		}
@@ -340,7 +350,7 @@ func parseVariables(values []string) (map[string]string, error) {
 }
 
 func summaryLines(plan *resolve.Plan, dir, registryTag string) []string {
-	if plan.Kind == "fullstack" {
+	if plan.Kind == fullstackKind {
 		return fullstackSummaryLines(plan, dir, registryTag)
 	}
 
@@ -448,13 +458,18 @@ func nextStepLines(plan *resolve.Plan, path string, dockerInstalled bool) []stri
 		"  cd " + path,
 	}
 
-	if plan.Kind == "fullstack" {
-		return append(lines,
+	if plan.Kind == fullstackKind {
+		lines = append(lines,
 			"  make install",
 			"  make api-dev        # API",
 			"  make web-dev        # Next.js",
-			"  make test",
 		)
+
+		if hasTarget(plan, "apps/desktop") {
+			lines = append(lines, "  make desktop-dev    # Electron")
+		}
+
+		return append(lines, "  make test")
 	}
 
 	if plan.Target.Stack.ID == "desktop/electron" {
@@ -516,6 +531,16 @@ func packageInstallCommand(packageManager string) string {
 	default:
 		return "pnpm install"
 	}
+}
+
+func hasTarget(plan *resolve.Plan, targetPath string) bool {
+	for _, target := range plan.Targets {
+		if target.Path == targetPath {
+			return true
+		}
+	}
+
+	return false
 }
 
 func hasFeature(plan *resolve.Plan, featureID string) bool {

@@ -9,7 +9,7 @@ fullstack projects for clients. Pick a stack, compose the features you need
 (database, auth, client state, analytics, Docker, CI), and get a wired,
 buildable project — reproducibly, from a pinned template registry.
 
-> **Status:** v0.2.1 is published. CLI generation, lifecycle, fullstack composition, and release engineering are complete.
+> **Status:** v0.2.2 is published. CLI generation, lifecycle, fullstack composition, and release engineering are complete.
 > The Next.js template, Go/Gin backend (four architectures), Rust/Axum backend,
 > and Electron desktop base are implemented. Mobile and remaining native desktop
 > templates remain provisional.
@@ -155,7 +155,7 @@ same template data. For local registry development, pass `--registry <dir>`.
 If you have Go 1.26.11+:
 
 ```bash
-go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.2.1
+go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.2.2
 smokeforge version
 ```
 
@@ -192,6 +192,7 @@ smokeforge new my-saas --preset fullstack
 # Fullstack API + Next.js (Go or Rust)
 smokeforge new my-saas --kind fullstack --backend go/gin-layered
 smokeforge new my-saas --kind fullstack --backend rust/axum
+smokeforge new my-saas --kind fullstack --backend go/gin-layered --desktop electron
 
 # Standalone Electron desktop app
 smokeforge new my-desktop --kind desktop --stack desktop/electron
@@ -222,6 +223,10 @@ There are two fullstack shapes:
 - `fullstack`: Next.js owns auth and the database through Route Handlers.
 - `fullstack-api`: Next.js is the BFF and a Go or Rust API owns JWT auth and
   persistence.
+
+Add `--desktop electron` to fullstack-api to generate `apps/desktop`. The
+desktop main process owns the API session; SQLite is local storage. Offline
+write outbox is a separate planned feature.
 
 ### Fullstack API + Next.js
 
@@ -661,7 +666,7 @@ docs/                  design, architecture, registry, and development docs
    Next.js base, fullstack presets, overlays, and project-scoped skills. _(Next.js implemented; other stacks provisional)_
 5. **Full matrix** — fullstack composition and client wiring complete; `install` remains pending.
 6. **Release** — goreleaser, checksums, release workflow, and install docs.
-   _(v0.2.1 published)_
+   _(v0.2.2 published)_
 
 Details and acceptance criteria: [roadmap](docs/development/roadmap.md).
 

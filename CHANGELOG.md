@@ -4,6 +4,26 @@ All notable changes to smokeforge are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 semantic versioning with pre-1.0 releases using `v0.x.y`.
 
+## [0.2.2] - 2026-11-17
+
+### Added
+
+- Optional `--desktop electron` target for fullstack projects, producing
+  `apps/desktop` alongside `apps/api` and `apps/web`.
+- Root desktop wiring: Make targets, README/CONTEXT-MAP sections, env
+  documentation, and a conditional desktop CI job.
+- Electron main-process API auth with safeStorage refresh tokens and a typed
+  preload auth bridge.
+- Fullstack desktop SQLite local storage and TanStack Query auth hooks.
+- Offline outbox design documentation for future fullstack synchronization.
+
+### Changed
+
+- Fullstack next-step output includes `make desktop-dev` when a desktop target is
+  present.
+- Fullstack CI setup now honors the selected pnpm/npm/bun package manager for
+  web and desktop jobs.
+
 ## [0.2.1] - 2026-11-17
 
 ### Added

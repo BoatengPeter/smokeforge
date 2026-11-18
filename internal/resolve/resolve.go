@@ -210,6 +210,10 @@ func fullstackDesktopFeatures(apiFeatures, desktopFeatures []string, hasDesktop 
 		desktopFeatures = append([]string{"auth:electron"}, desktopFeatures...)
 	}
 
+	if !featureSelected(desktopFeatures, "state", "zustand") {
+		desktopFeatures = append(desktopFeatures, "state:zustand")
+	}
+
 	if !featureSelected(desktopFeatures, "storage", "sqlite") {
 		desktopFeatures = append(desktopFeatures, "storage:sqlite")
 	}

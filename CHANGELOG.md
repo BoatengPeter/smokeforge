@@ -4,6 +4,16 @@ All notable changes to smokeforge are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 semantic versioning with pre-1.0 releases using `v0.x.y`.
 
+## [Unreleased]
+
+### Added
+
+- Fullstack desktop offline Library sync with idempotent mutations, version
+  checks, changefeed cursors, retries, manual conflicts, and per-user outbox
+  rows.
+- Go and Rust Library sync APIs with changefeeds, tombstones, and idempotency
+  records.
+
 ## [0.2.2] - 2026-11-17
 
 ### Added

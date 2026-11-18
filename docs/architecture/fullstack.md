@@ -1,7 +1,7 @@
 # Fullstack composition
 
 **Status:** API + Next.js is implemented, and `--desktop electron` adds an
-Electron target. Offline outbox synchronization remains planned.
+Electron target with offline Library synchronization: local outbox, idempotent mutations, version checks, cursors, retries, and manual conflicts.
 
 ## Kinds and limits
 

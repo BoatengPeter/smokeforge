@@ -136,8 +136,8 @@ Fullstack preset: `fullstack-api` = API + Next.js + Postgres/JWT + TanStack Quer
 With `--desktop electron`, the workspace also gets `apps/desktop`: the React
 Router app shell, Drizzle-backed SQLite, TanStack Query, Zustand, main-process
 API auth, safeStorage refresh tokens, and a root desktop CI job. Optional
-`shell:tray` and `auth:oauth-pkce` features are available. Offline write outbox
-is a separate planned feature.
+`shell:tray` and `auth:oauth-pkce` features are available. Offline Library sync
+is included with idempotency, version checks, retries, and manual conflicts.
 
 Root compose extends the generated API/web compose files, adds Postgres and the
 migration service for the fullstack preset, and wires `API_URL=http://api:8080`.
@@ -243,6 +243,7 @@ Every generated Go app receives:
 | `media-provider:r2` | Implemented | Standalone Cloudflare R2, original images only |
 | `search:meilisearch` | Implemented | Public query API, internal indexing, Meilisearch container |
 | `search-sync:rabbitmq` | Implemented | Queue-backed async indexing with worker retries and DLQ |
+| `sync:library` | Implemented | Go/Rust versioned Library API and desktop offline outbox with retries/manual conflicts |
 | `pagination` | Implemented | Signed HMAC cursors, offset helpers, caps, metadata |
 | Observability | Deferred | OTel, Prometheus, Sentry, pprof overlay next |
 

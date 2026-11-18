@@ -227,8 +227,8 @@ There are two fullstack shapes:
 Add `--desktop electron` to fullstack-api to generate `apps/desktop`. The
 desktop main process owns the API session; Drizzle-backed SQLite is local
 storage; TanStack Query and Zustand are added automatically. Optional
-`shell:tray` and `auth:oauth-pkce` features are available. Offline write outbox
-is a separate planned feature.
+`shell:tray` and `auth:oauth-pkce` features are available. Offline Library sync
+is included with idempotency, version checks, retries, and manual conflicts.
 
 ### Fullstack API + Next.js
 
@@ -396,6 +396,7 @@ Restart your shell after installing completion.
 | `cache` | `redis` | Backend only, deferred |
 | `queue` | `rabbitmq` | Backend only, deferred |
 | `totp` | — | Implemented for Go (`auth:jwt` required) |
+| `sync` | `library` | Go/Rust versioned API + desktop offline outbox; fullstack desktop default |
 
 ## Requirements and troubleshooting
 

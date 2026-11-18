@@ -179,7 +179,7 @@ Presets are starting points. Required companions are added automatically.
 | `frontend` | A polished frontend or landing page | Next.js, shadcn/ui, SEO, API helpers, Jest |
 | `fullstack` | A Next.js app with its own auth/database | Frontend + Postgres + Better Auth + Zustand + TanStack Query |
 | `fullstack-api` | Next.js + a Go or Rust API | Next.js BFF + API + Postgres/JWT + TanStack Query + Docker + CI |
-| `desktop` | A secure Electron desktop app | Electron + React + TypeScript + TanStack Query + Zustand + SQLite |
+| `desktop` | A secure Electron desktop app | Electron + React Router + shadcn/ui + TanStack Query + Zustand + SQLite + Drizzle |
 | `api` | A backend API with persistence and accounts | Backend + Postgres + JWT auth |
 | `api-custom` | Choosing your own backend features | Select database, cache, queue, scheduler, dedupe, compression, auth, TOTP, media, search, search sync, pagination, Docker, and CI |
 
@@ -225,8 +225,10 @@ There are two fullstack shapes:
   persistence.
 
 Add `--desktop electron` to fullstack-api to generate `apps/desktop`. The
-desktop main process owns the API session; SQLite is local storage. Offline
-write outbox is a separate planned feature.
+desktop main process owns the API session; Drizzle-backed SQLite is local
+storage; TanStack Query and Zustand are added automatically. Optional
+`shell:tray` and `auth:oauth-pkce` features are available. Offline write outbox
+is a separate planned feature.
 
 ### Fullstack API + Next.js
 

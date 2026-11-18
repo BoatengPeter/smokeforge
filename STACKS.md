@@ -133,10 +133,11 @@ Fullstack preset: `fullstack-api` = API + Next.js + Postgres/JWT + TanStack Quer
 + Docker + CI. `smokeforge new` accepts `--backend`, `--frontend`, and optional
 `--desktop electron`; `--frontend` defaults to `next`.
 
-With `--desktop electron`, the workspace also gets `apps/desktop`: Electron
-main/preload/renderer, SQLite, TanStack Query, main-process API auth, safeStorage
-refresh tokens, and a root desktop CI job. Offline write outbox is a separate
-planned feature.
+With `--desktop electron`, the workspace also gets `apps/desktop`: the React
+Router app shell, Drizzle-backed SQLite, TanStack Query, Zustand, main-process
+API auth, safeStorage refresh tokens, and a root desktop CI job. Optional
+`shell:tray` and `auth:oauth-pkce` features are available. Offline write outbox
+is a separate planned feature.
 
 Root compose extends the generated API/web compose files, adds Postgres and the
 migration service for the fullstack preset, and wires `API_URL=http://api:8080`.

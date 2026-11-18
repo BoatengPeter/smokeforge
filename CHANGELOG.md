@@ -4,7 +4,7 @@ All notable changes to smokeforge are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 semantic versioning with pre-1.0 releases using `v0.x.y`.
 
-## [Unreleased]
+## [0.2.3] - 2026-11-18
 
 ### Added
 

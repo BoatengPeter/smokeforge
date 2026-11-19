@@ -4,6 +4,12 @@ All notable changes to smokeforge are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 semantic versioning with pre-1.0 releases using `v0.x.y`.
 
+## [0.3.2] - 2026-11-19
+
+### Fixed
+
+- Invalid Go switch expression in GPUI next-step output.
+
 ## [0.3.1] - 2026-11-19
 
 ### Fixed

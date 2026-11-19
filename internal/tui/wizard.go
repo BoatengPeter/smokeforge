@@ -359,7 +359,7 @@ func wizardFeatureOptions(m *manifest.Manifest, kind string, stack manifest.Stac
 		return featureOptions(m, stack)
 	}
 
-	options := append([]huh.Option[string]{}, featureOptions(m, stack)...)
+	options := prefixFeatureOptions(featureOptions(m, stack), "[API] ")
 
 	seen := make(map[string]bool, len(options))
 	for _, option := range options {
@@ -372,12 +372,21 @@ func wizardFeatureOptions(m *manifest.Manifest, kind string, stack manifest.Stac
 				continue
 			}
 
-			options = append(options, option)
+			options = append(options, huh.NewOption("[Web] "+option.Key, option.Value))
 			seen[option.Value] = true
 		}
 	}
 
 	return options
+}
+
+func prefixFeatureOptions(options []huh.Option[string], prefix string) []huh.Option[string] {
+	prefixed := make([]huh.Option[string], 0, len(options))
+	for _, option := range options {
+		prefixed = append(prefixed, huh.NewOption(prefix+option.Key, option.Value))
+	}
+
+	return prefixed
 }
 
 func stacksForKind(m *manifest.Manifest, kind string) []manifest.Stack {

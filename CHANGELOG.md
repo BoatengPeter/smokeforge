@@ -4,6 +4,15 @@ All notable changes to smokeforge are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 semantic versioning with pre-1.0 releases using `v0.x.y`.
 
+## [0.3.0] - 2026-11-19
+
+### Added
+
+- `desktop/gpui` stack and `desktop-gpui` preset.
+- Fullstack `--desktop gpui` composition.
+- GPUI Kit skill and design-guide installation support.
+- Pinned GPUI Kit 0.10.0 / GPUI 0.3.12 workflow.
+
 ## [0.2.9] - 2026-11-19
 
 ### Changed

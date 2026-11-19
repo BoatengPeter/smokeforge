@@ -549,10 +549,6 @@ func packageInstallCommand(packageManager string) string {
 	}
 }
 
-func hasTarget(plan *resolve.Plan, targetPath string) bool {
-	return targetByPath(plan, targetPath) != nil
-}
-
 func targetByPath(plan *resolve.Plan, targetPath string) *resolve.TargetPlan {
 	for index := range plan.Targets {
 		if plan.Targets[index].Path == targetPath {

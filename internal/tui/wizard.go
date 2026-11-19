@@ -102,6 +102,7 @@ func (w *Wizard) Run(ctx context.Context) error {
 	if err := validateFeatureVariants(features); err != nil {
 		return err
 	}
+
 	features = syncMediaProvider(w.Manifest, stack, features, mediaProvider)
 	features = syncCompression(stack, features, compressionEnabled)
 
@@ -551,9 +552,11 @@ func validateFeatureVariants(values []string) error {
 		if variantID == "" {
 			continue
 		}
+
 		if previous, ok := seen[featureID]; ok && previous != variantID {
 			return fmt.Errorf("feature %q was selected as both %q and %q; choose one variant", featureID, previous, variantID)
 		}
+
 		seen[featureID] = variantID
 	}
 

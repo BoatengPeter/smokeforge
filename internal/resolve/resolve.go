@@ -283,8 +283,10 @@ func buildFullstackPlan(
 		return nil, err
 	}
 
+	// Add the desktop-specific workspace wiring after the root target resolves.
 	if stacks.desktop != nil {
 		overlayPath, overlayID := fullstackDesktopOverlay(*stacks.desktop)
+
 		desktopOverlay, overlayErr := loadRootOverlay(registryDir, overlayPath, overlayID)
 		if overlayErr != nil {
 			return nil, overlayErr

@@ -83,3 +83,32 @@ func TestValidateFeatureVariantsRejectsTwoVariants(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestPresetsForStackFiltersUnsupportedFeatures(t *testing.T) {
+	t.Parallel()
+
+	m := &manifest.Manifest{
+		Stacks: []manifest.Stack{
+			{ID: "desktop/electron", Kind: "desktop"},
+			{ID: "desktop/egui", Kind: "desktop"},
+		},
+		Features: []manifest.Feature{{
+			ID:    "storage",
+			Kinds: []string{"desktop"},
+			Variants: []manifest.Variant{{
+				ID:       "sqlite",
+				Default:  true,
+				Overlays: map[string]string{"desktop/electron": "overlays/storage"},
+			}},
+		}},
+		Presets: []manifest.Preset{
+			{ID: "desktop", Kinds: []string{"desktop"}, Default: true, Features: []string{"storage:sqlite"}},
+			{ID: "desktop-egui", Kinds: []string{"desktop"}},
+		},
+	}
+
+	got := presetsForStack(m, "desktop", manifest.Stack{ID: "desktop/egui", Kind: "desktop"})
+	if len(got) != 1 || got[0].ID != "desktop-egui" {
+		t.Fatalf("egui presets = %+v, want desktop-egui only", got)
+	}
+}

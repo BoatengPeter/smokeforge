@@ -82,7 +82,7 @@ func (w *Wizard) Run(ctx context.Context) error {
 	}
 
 	groups := w.basicGroups(kinds, &kind, &selectedStackID, &name)
-	groups = append(groups, w.presetGroup(&kind, &presetID, &features, &lastPresetID, explicitFeatures))
+	groups = append(groups, w.presetGroup(&kind, &selectedStackID, &presetID, &features, &lastPresetID, explicitFeatures))
 	groups = append(groups, w.featureGroup(&kind, &selectedStackID, &features))
 	groups = append(groups, w.mediaProviderGroup(&selectedStackID, &features, &mediaProvider))
 	groups = append(groups, w.compressionGroup(&features, &compressionEnabled))
@@ -172,7 +172,7 @@ func (w *Wizard) basicGroups(
 }
 
 func (w *Wizard) presetGroup(
-	kind, presetID *string,
+	kind, selectedStackID, presetID *string,
 	features *[]string,
 	lastPresetID *string,
 	explicitFeatures bool,
@@ -182,9 +182,14 @@ func (w *Wizard) presetGroup(
 			Title("Which preset should it start from?").
 			Description("You can adjust individual features next. Shift+Tab goes back.").
 			OptionsFunc(func() []huh.Option[string] {
-				presets := presetsForKind(w.Manifest, *kind)
+				stack, ok := findStackByID(w.Manifest, *selectedStackID)
+				if !ok {
+					return nil
+				}
+
+				presets := presetsForStack(w.Manifest, *kind, stack)
 				if !presetIDIn(*presetID, presets) {
-					*presetID = defaultPresetID(w.Manifest, *kind)
+					*presetID = defaultPresetIDForStack(w.Manifest, *kind, stack)
 				}
 
 				if !explicitFeatures && *presetID != *lastPresetID {
@@ -193,10 +198,18 @@ func (w *Wizard) presetGroup(
 				}
 
 				return presetOptions(presets)
-			}, kind).
+			}, struct {
+				Kind  string
+				Stack string
+			}{*kind, *selectedStackID}).
 			Value(presetID),
 	).WithHideFunc(func() bool {
-		return explicitFeatures || len(presetsForKind(w.Manifest, *kind)) == 0
+		stack, ok := findStackByID(w.Manifest, *selectedStackID)
+		if !ok {
+			return true
+		}
+
+		return explicitFeatures || len(presetsForStack(w.Manifest, *kind, stack)) == 0
 	})
 }
 
@@ -473,6 +486,84 @@ func presetFeatures(m *manifest.Manifest, presetID string) []string {
 	}
 
 	return slices.Clone(preset.Features)
+}
+
+func presetsForStack(m *manifest.Manifest, kind string, stack manifest.Stack) []manifest.Preset {
+	presets := presetsForKind(m, kind)
+	if kind == fullstackKind {
+		return presets
+	}
+
+	filtered := make([]manifest.Preset, 0, len(presets))
+	for _, preset := range presets {
+		if presetSupportsStack(m, preset, stack) {
+			filtered = append(filtered, preset)
+		}
+	}
+
+	return filtered
+}
+
+func presetSupportsStack(m *manifest.Manifest, preset manifest.Preset, stack manifest.Stack) bool {
+	for _, raw := range preset.Features {
+		featureID, variantID, _ := strings.Cut(raw, ":")
+
+		var feature manifest.Feature
+
+		found := false
+
+		for _, candidate := range m.Features {
+			if candidate.ID == featureID {
+				feature = candidate
+				found = true
+
+				break
+			}
+		}
+
+		if !found || !featureSupportsStack(feature, variantID, stack) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func featureSupportsStack(feature manifest.Feature, variantID string, stack manifest.Stack) bool {
+	if !supportsStack(feature, stack) {
+		return false
+	}
+
+	if len(feature.Variants) == 0 {
+		return feature.Overlays[stack.ID] != ""
+	}
+
+	for _, variant := range feature.Variants {
+		if variantID != "" && variant.ID != variantID {
+			continue
+		}
+
+		if variant.Overlays[stack.ID] != "" {
+			return true
+		}
+	}
+
+	return false
+}
+
+func defaultPresetIDForStack(m *manifest.Manifest, kind string, stack manifest.Stack) string {
+	presets := presetsForStack(m, kind, stack)
+	for _, preset := range presets {
+		if preset.Default {
+			return preset.ID
+		}
+	}
+
+	if len(presets) == 0 {
+		return ""
+	}
+
+	return presets[0].ID
 }
 
 func presetsForKind(m *manifest.Manifest, kind string) []manifest.Preset {

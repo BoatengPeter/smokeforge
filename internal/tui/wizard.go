@@ -203,7 +203,7 @@ func (w *Wizard) featureGroup(kind, selectedStackID *string, features *[]string)
 	return huh.NewGroup(
 		huh.NewMultiSelect[string]().
 			Title("Which features should be included?").
-			Description("Required companions are added automatically.").
+			Description("Required companions are added automatically. Choose one variant per feature.").
 			OptionsFunc(func() []huh.Option[string] {
 				stack, ok := findStackByID(w.Manifest, *selectedStackID)
 				if !ok {

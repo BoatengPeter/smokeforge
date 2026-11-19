@@ -305,11 +305,14 @@ func buildFullstackPlan(
 }
 
 func fullstackDesktopOverlay(desktop manifest.Stack) (path, featureID string) {
-	if desktop.ID == "desktop/egui" {
+	switch desktop.ID {
+	case "desktop/egui":
 		return "overlays/workspace/fullstack/desktop-egui", "desktop-egui"
+	case "desktop/gpui":
+		return "overlays/workspace/fullstack/desktop-gpui", "desktop-gpui"
+	default:
+		return "overlays/workspace/fullstack/desktop", "desktop"
 	}
-
-	return "overlays/workspace/fullstack/desktop", "desktop"
 }
 
 func loadRootOverlay(registryDir, overlayPath, featureID string) (OverlayPlan, error) {

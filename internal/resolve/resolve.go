@@ -128,8 +128,8 @@ func resolveFullstack(m *manifest.Manifest, registryDir string, sel Selection) (
 	}
 
 	webFeatures = fullstackWebFeatures(apiFeatures, webFeatures)
-	desktopFeatures = fullstackDesktopFeatures(apiFeatures, desktopFeatures, stacks.desktop != nil)
-	apiFeatures = fullstackSyncAPIFeatures(apiFeatures, stacks.desktop != nil)
+	desktopFeatures = fullstackDesktopFeatures(apiFeatures, desktopFeatures, stacks.desktop)
+	apiFeatures = fullstackSyncAPIFeatures(apiFeatures, stacks.desktop)
 
 	if err := validateFullstackFeatures(apiFeatures, rootFeatures); err != nil {
 		return nil, err
@@ -202,8 +202,11 @@ func fullstackWebFeatures(apiFeatures, webFeatures []string) []string {
 	return webFeatures
 }
 
-func fullstackDesktopFeatures(apiFeatures, desktopFeatures []string, hasDesktop bool) []string {
-	if !hasDesktop {
+func fullstackDesktopFeatures(
+	apiFeatures, desktopFeatures []string,
+	desktop *manifest.Stack,
+) []string {
+	if desktop == nil || desktop.ID != "desktop/electron" {
 		return desktopFeatures
 	}
 
@@ -226,8 +229,8 @@ func fullstackDesktopFeatures(apiFeatures, desktopFeatures []string, hasDesktop 
 	return desktopFeatures
 }
 
-func fullstackSyncAPIFeatures(apiFeatures []string, hasDesktop bool) []string {
-	if !hasDesktop {
+func fullstackSyncAPIFeatures(apiFeatures []string, desktop *manifest.Stack) []string {
+	if desktop == nil || desktop.ID != "desktop/electron" {
 		return apiFeatures
 	}
 
@@ -281,7 +284,8 @@ func buildFullstackPlan(
 	}
 
 	if stacks.desktop != nil {
-		desktopOverlay, overlayErr := loadRootOverlay(registryDir, "overlays/workspace/fullstack/desktop", "desktop")
+		overlayPath, overlayID := fullstackDesktopOverlay(*stacks.desktop)
+		desktopOverlay, overlayErr := loadRootOverlay(registryDir, overlayPath, overlayID)
 		if overlayErr != nil {
 			return nil, overlayErr
 		}
@@ -296,6 +300,14 @@ func buildFullstackPlan(
 		Targets: targets,
 		Root:    &root,
 	}, nil
+}
+
+func fullstackDesktopOverlay(desktop manifest.Stack) (path, featureID string) {
+	if desktop.ID == "desktop/egui" {
+		return "overlays/workspace/fullstack/desktop-egui", "desktop-egui"
+	}
+
+	return "overlays/workspace/fullstack/desktop", "desktop"
 }
 
 func loadRootOverlay(registryDir, overlayPath, featureID string) (OverlayPlan, error) {

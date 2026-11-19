@@ -62,7 +62,9 @@ E2E. Use --feature to select individual features instead of a preset.`,
   smokeforge new my-saas --kind fullstack --backend go/gin-layered
   smokeforge new my-saas --kind fullstack --backend rust/axum --frontend next
   smokeforge new my-saas --kind fullstack --backend go/gin-layered --desktop electron
+  smokeforge new my-saas --kind fullstack --backend rust/axum --desktop egui
   smokeforge new my-app --kind desktop --stack desktop/electron
+  smokeforge new my-app --kind desktop --stack desktop/egui --preset desktop-egui
   smokeforge new my-api --kind backend --preset api
   smokeforge new my-api --kind backend --preset api-custom --feature database:postgres --feature auth:jwt
   smokeforge new my-app --preset frontend --feature docker --feature ci:github
@@ -83,7 +85,7 @@ E2E. Use --feature to select individual features instead of a preset.`,
 	flags.StringVar(&newOpts.stack, "stack", "", "stack ID")
 	flags.StringVar(&newOpts.backend, "backend", "", "backend stack ID for fullstack projects")
 	flags.StringVar(&newOpts.frontend, "frontend", "", "frontend stack ID for fullstack projects (default next)")
-	flags.StringVar(&newOpts.desktop, "desktop", "", "optional desktop stack for fullstack projects (electron)")
+	flags.StringVar(&newOpts.desktop, "desktop", "", "optional desktop stack for fullstack projects (electron or egui)")
 	flags.StringVar(&newOpts.name, "name", "", "project name")
 	flags.StringVar(&newOpts.preset, "preset", "", "feature preset")
 	flags.StringArrayVar(&newOpts.features, "feature", nil, "feature selection (repeatable, id[:variant])")
@@ -465,8 +467,13 @@ func nextStepLines(plan *resolve.Plan, path string, dockerInstalled bool) []stri
 			"  make web-dev        # Next.js",
 		)
 
-		if hasTarget(plan, "apps/desktop") {
-			lines = append(lines, "  make desktop-dev    # Electron")
+		if target := targetByPath(plan, "apps/desktop"); target != nil {
+			label := "Electron"
+			if target.Stack.ID == "desktop/egui" {
+				label = "egui"
+			}
+
+			lines = append(lines, "  make desktop-dev    # "+label)
 		}
 
 		return append(lines, "  make test")
@@ -476,6 +483,15 @@ func nextStepLines(plan *resolve.Plan, path string, dockerInstalled bool) []stri
 		return append(lines,
 			"  make install",
 			"  make dev",
+			"  make test",
+			"  make build",
+		)
+	}
+
+	if plan.Target.Stack.ID == "desktop/egui" {
+		return append(lines,
+			"  make install",
+			"  make run",
 			"  make test",
 			"  make build",
 		)
@@ -534,13 +550,17 @@ func packageInstallCommand(packageManager string) string {
 }
 
 func hasTarget(plan *resolve.Plan, targetPath string) bool {
-	for _, target := range plan.Targets {
-		if target.Path == targetPath {
-			return true
+	return targetByPath(plan, targetPath) != nil
+}
+
+func targetByPath(plan *resolve.Plan, targetPath string) *resolve.TargetPlan {
+	for index := range plan.Targets {
+		if plan.Targets[index].Path == targetPath {
+			return &plan.Targets[index]
 		}
 	}
 
-	return false
+	return nil
 }
 
 func hasFeature(plan *resolve.Plan, featureID string) bool {

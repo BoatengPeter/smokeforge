@@ -649,6 +649,13 @@ func fullstackManifest() *manifest.Manifest {
 				Variables: []string{"bundle_id", "package_manager", "api_url"},
 			},
 			{
+				ID:        "desktop/egui",
+				Kind:      "desktop",
+				Name:      "egui",
+				Template:  "templates/desktop-egui",
+				Variables: []string{"crate_name", "bundle_id", "api_url"},
+			},
+			{
 				ID:        "workspace/fullstack",
 				Kind:      "fullstack",
 				Name:      "Fullstack workspace",
@@ -737,12 +744,14 @@ func writeFullstackRegistry(t *testing.T) string {
 		"id: workspace/fullstack\nvariables:\n  - name: package_manager\n    default: pnpm\n")
 	writeFile(t, filepath.Join(dir, "templates", "desktop", "template.yaml"),
 		"id: desktop/electron\nvariables:\n  - name: bundle_id\n    default: com.example.app\n  - name: package_manager\n    default: pnpm\n  - name: api_url\n    default: http://localhost:8080\n")
+	writeFile(t, filepath.Join(dir, "templates", "desktop-egui", "template.yaml"),
+		"id: desktop/egui\nvariables:\n  - name: crate_name\n    default: example_app\n  - name: bundle_id\n    default: com.example.app\n  - name: api_url\n    default: http://localhost:8080\n")
 
 	for _, path := range []string{
 		"overlays/api/db", "overlays/api/auth", "overlays/web/bff",
 		"overlays/web/query", "overlays/desktop/query", "overlays/desktop/state", "overlays/desktop/storage",
 		"overlays/desktop/auth", "overlays/desktop/sync", "overlays/api/sync", "overlays/api/docker", "overlays/web/docker",
-		"overlays/root/docker", "overlays/workspace/fullstack/desktop", "overlays/api/ci", "overlays/web/ci", "overlays/root/ci",
+		"overlays/root/docker", "overlays/workspace/fullstack/desktop", "overlays/workspace/fullstack/desktop-egui", "overlays/api/ci", "overlays/web/ci", "overlays/root/ci",
 	} {
 		writeFile(t, filepath.Join(dir, path, "overlay.yaml"),
 			"id: "+strings.ReplaceAll(path, "overlays/", "")+"\nops:\n  - env:\n      key: TEST_FLAG\n      example: \"1\"\n")
@@ -891,5 +900,43 @@ func TestSelectFeaturesRejectsTwoVariantsOfOneFeature(t *testing.T) {
 	_, err := selectFeatures(m, manifest.Stack{ID: "desktop/electron", Kind: "desktop"}, []string{"auth:electron", "auth:oauth-pkce"})
 	if err == nil || !strings.Contains(err.Error(), "choose one variant") {
 		t.Fatalf("error = %v, want one-variant guidance", err)
+	}
+}
+
+func TestResolveFullstackDesktopEgui(t *testing.T) {
+	t.Parallel()
+
+	plan, err := Resolve(fullstackManifest(), writeFullstackRegistry(t), Selection{
+		Name:    "Acme Egui",
+		Kind:    "fullstack",
+		Backend: "go/api",
+		Desktop: "egui",
+		Preset:  "fullstack-api",
+		Variables: map[string]string{
+			"module_path":     "example.com/acme",
+			"package_manager": "pnpm",
+			"crate_name":      "acme_desktop",
+			"bundle_id":       "com.example.acme",
+			"api_url":         "http://localhost:8080",
+		},
+	})
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+
+	if len(plan.Targets) != 3 {
+		t.Fatalf("targets = %+v", plan.Targets)
+	}
+
+	if plan.Targets[2].Path != "apps/desktop" || plan.Targets[2].Stack.ID != "desktop/egui" {
+		t.Fatalf("desktop target = %+v", plan.Targets[2])
+	}
+
+	if len(plan.Targets[2].Overlays) != 0 {
+		t.Fatalf("egui desktop overlays = %+v, want none", plan.Targets[2].Overlays)
+	}
+
+	if got := overlayIDs(plan.Root.Overlays); strings.Join(got, ",") != "docker,ci:github,desktop-egui" {
+		t.Fatalf("root overlays = %v", got)
 	}
 }

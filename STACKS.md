@@ -280,7 +280,7 @@ search sync, retry queues, and imgproxy/nginx minio transformations.
 
 The egui base is a Cargo workspace with `core`, `api-client`, `storage`, `app`,
 and `desktop` crates. It uses exact-pinned egui/eframe 0.37, rusqlite/refinery,
-eframe layout persistence, CraftAnything theme tokens, egui_tiles, English and
+eframe layout persistence, the near-black egui desktop theme tokens, egui_tiles, English and
 Spanish locales, and `egui_kittest`/Rust skills. Generate it with
 `--kind desktop --stack desktop/egui --preset desktop-egui`. Fullstack egui
 composition is tracked separately.

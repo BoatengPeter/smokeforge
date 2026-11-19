@@ -581,3 +581,20 @@ func TestNewDesktop(t *testing.T) {
 		t.Fatalf("desktop entry missing: %v", err)
 	}
 }
+
+func TestNextStepLinesEguiDesktop(t *testing.T) {
+	t.Parallel()
+
+	plan := &resolve.Plan{
+		Target: resolve.TargetPlan{
+			Stack: manifest.Stack{ID: "desktop/egui", Name: "egui"},
+		},
+	}
+
+	lines := strings.Join(nextStepLines(plan, "my-egui", true), "\n")
+	for _, want := range []string{"make install", "make run", "make test", "make build"} {
+		if !strings.Contains(lines, want) {
+			t.Fatalf("egui next steps missing %q:\n%s", want, lines)
+		}
+	}
+}

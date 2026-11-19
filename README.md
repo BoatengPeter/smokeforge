@@ -227,7 +227,7 @@ There are two fullstack shapes:
 - `fullstack-api`: Next.js is the BFF and a Go or Rust API owns JWT auth and
   persistence.
 
-Add `--desktop electron` to fullstack-api to generate `apps/desktop`. The
+Add `--desktop electron` or `--desktop egui` to fullstack-api to generate `apps/desktop`. The
 desktop main process owns the API session; Drizzle-backed SQLite is local
 storage; TanStack Query and Zustand are added automatically. Optional
 `shell:tray` and `auth:oauth-pkce` features are available. Offline Library sync

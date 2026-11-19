@@ -1,8 +1,8 @@
 # smokeforge stack catalog
 
 The stacks, versions, and defaults smokeforge targets. Next.js and the Go/Gin
-backend, the Rust/Axum backend, and the Electron desktop base are implemented;
-Python, mobile, and the remaining native desktop options remain provisional.
+backend, the Rust/Axum backend, the Electron desktop base, and the native egui
+desktop base are implemented; Python, mobile, and GPUI remain provisional.
 Items marked **deferred** are not yet shipped and require the decisions noted.
 
 ## Status legend
@@ -270,13 +270,20 @@ search sync, retry queues, and imgproxy/nginx minio transformations.
 | `ios/swiftui` | Swift/iOS | SwiftUI candidate | Provisional |
 | `android/compose` | Kotlin/Android | Jetpack Compose candidate | Provisional |
 
-## Desktop — provisional
+## Desktop
 
 | Stack ID | Framework | Status |
 | --- | --- | --- |
 | `desktop/electron` | Electron + React + TypeScript | Implemented |
 | `desktop/gpui` | GPUI | Deferred |
-| `desktop/egui` | EGUI | Deferred |
+| `desktop/egui` | eframe/egui + Rust | Implemented |
+
+The egui base is a Cargo workspace with `core`, `api-client`, `storage`, `app`,
+and `desktop` crates. It uses exact-pinned egui/eframe 0.37, rusqlite/refinery,
+eframe layout persistence, CraftAnything theme tokens, egui_tiles, English and
+Spanish locales, and `egui_kittest`/Rust skills. Generate it with
+`--kind desktop --stack desktop/egui --preset desktop-egui`. Fullstack egui
+composition is tracked separately.
 
 The Electron base uses React + Vite + TypeScript, a sandboxed renderer, a typed
 Zod-validated preload IPC bridge, electron-vite, and electron-builder. The

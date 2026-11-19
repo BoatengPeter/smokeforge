@@ -4,6 +4,16 @@ All notable changes to smokeforge are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 semantic versioning with pre-1.0 releases using `v0.x.y`.
 
+## [0.2.4] - 2026-11-19
+
+### Fixed
+
+- The feature picker now rejects selecting two variants of one feature, such as
+  Electron auth and OAuth PKCE, instead of failing later with `duplicate feature
+  "auth"`.
+- The resolver error names both conflicting variants and tells the user to choose
+  one.
+
 ## [0.2.3] - 2026-11-18
 
 ### Added

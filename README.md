@@ -9,7 +9,7 @@ fullstack projects for clients. Pick a stack, compose the features you need
 (database, auth, client state, analytics, Docker, CI), and get a wired,
 buildable project — reproducibly, from a pinned template registry.
 
-> **Status:** v0.2.3 is published. CLI generation, lifecycle, fullstack composition, and release engineering are complete.
+> **Status:** v0.2.4 is published. CLI generation, lifecycle, fullstack composition, native egui base generation, and release engineering are complete.
 > The Next.js template, Go/Gin backend (four architectures), Rust/Axum backend,
 > and Electron desktop base are implemented. Mobile and remaining native desktop
 > templates remain provisional.
@@ -155,7 +155,7 @@ same template data. For local registry development, pass `--registry <dir>`.
 If you have Go 1.26.11+:
 
 ```bash
-go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.2.3
+go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.2.4
 smokeforge version
 ```
 
@@ -196,6 +196,9 @@ smokeforge new my-saas --kind fullstack --backend go/gin-layered --desktop elect
 
 # Standalone Electron desktop app
 smokeforge new my-desktop --kind desktop --stack desktop/electron
+
+# Standalone native Rust egui desktop app
+smokeforge new my-egui --kind desktop --stack desktop/egui --preset desktop-egui
 
 # Go API: choose an architecture and start from the backend preset
 smokeforge new my-api --kind backend --stack go/gin-layered --preset api
@@ -378,7 +381,8 @@ Restart your shell after installing completion.
 | Backend | `python/fastapi` | Provisional |
 | Mobile | `ios/swiftui`, `android/compose` | Provisional |
 | Desktop | `desktop/electron` (Electron + React + TypeScript) | Implemented |
-| Desktop | `desktop/gpui`, `desktop/egui` | Deferred |
+| Desktop | `desktop/egui` (Rust + eframe/egui + SQLite) | Implemented |
+| Desktop | `desktop/gpui` | Deferred |
 | Workspace | `workspace/fullstack` | Implemented for API + Next.js |
 
 ## Supported features
@@ -669,7 +673,7 @@ docs/                  design, architecture, registry, and development docs
    Next.js base, fullstack presets, overlays, and project-scoped skills. _(Next.js implemented; other stacks provisional)_
 5. **Full matrix** — fullstack composition and client wiring complete; `install` remains pending.
 6. **Release** — goreleaser, checksums, release workflow, and install docs.
-   _(v0.2.3 published)_
+   _(v0.2.4 published)_
 
 Details and acceptance criteria: [roadmap](docs/development/roadmap.md).
 

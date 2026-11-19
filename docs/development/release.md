@@ -1,7 +1,7 @@
 # Release guide
 
-**Status:** CLI and registry releases are active. Current CLI is `v0.2.3`;
-current registry is `v0.9.1`. The Homebrew tap and `v1.0.0` remain pending.
+**Status:** CLI and registry releases are active. Current CLI is `v0.2.4`;
+current registry is `v0.9.2`. The Homebrew tap and `v1.0.0` remain pending.
 
 ## Versioning policy
 
@@ -57,8 +57,8 @@ The version output must include the snapshot version, commit, and date.
 4. Create and push an annotated tag:
 
    ```bash
-   git tag -a v0.2.3 -m "smokeforge v0.2.3"
-   git push origin v0.2.3
+   git tag -a v0.2.4 -m "smokeforge v0.2.4"
+   git push origin v0.2.4
    ```
 
 5. The `release` workflow runs tests, builds six platform archives, generates
@@ -67,12 +67,12 @@ The version output must include the snapshot version, commit, and date.
 7. Publish it:
 
    ```bash
-   gh release edit v0.2.3 --draft=false --latest
+   gh release edit v0.2.4 --draft=false --latest
    ```
 8. Verify installation and self-update:
 
    ```bash
-   go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.2.3
+   go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.2.4
    smokeforge version
    smokeforge update --check
    ```
@@ -97,7 +97,7 @@ Homebrew publishing is commented out in `.goreleaser.yaml` until a tap exists.
 ## Registry release
 
 The template registry is released separately from the CLI. Current latest is
-`v0.9.1`.
+`v0.9.2`.
 
 ### Recommended: tag-driven workflow
 

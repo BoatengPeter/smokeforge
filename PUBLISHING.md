@@ -249,7 +249,7 @@ Homebrew is configured but commented out in `.goreleaser.yaml`.
 ## 9. Registry release
 
 The registry is versioned separately from the CLI. Current latest is
-`v0.9.2`.
+`v0.9.3`.
 
 ### Recommended: tag-driven workflow
 

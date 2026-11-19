@@ -1,7 +1,7 @@
 # Release guide
 
 **Status:** CLI and registry releases are active. Current CLI is `v0.2.6`;
-current registry is `v0.9.2`. The Homebrew tap and `v1.0.0` remain pending.
+current registry is `v0.9.3`. The Homebrew tap and `v1.0.0` remain pending.
 
 ## Versioning policy
 
@@ -97,7 +97,7 @@ Homebrew publishing is commented out in `.goreleaser.yaml` until a tap exists.
 ## Registry release
 
 The template registry is released separately from the CLI. Current latest is
-`v0.9.2`.
+`v0.9.3`.
 
 ### Recommended: tag-driven workflow
 

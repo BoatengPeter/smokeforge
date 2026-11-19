@@ -496,9 +496,15 @@ func presetsForStack(m *manifest.Manifest, kind string, stack manifest.Stack) []
 
 	filtered := make([]manifest.Preset, 0, len(presets))
 	for _, preset := range presets {
-		if presetSupportsStack(m, preset, stack) {
-			filtered = append(filtered, preset)
+		if len(preset.Stacks) > 0 && !slices.Contains(preset.Stacks, stack.ID) {
+			continue
 		}
+
+		if len(preset.Stacks) == 0 && !presetSupportsStack(m, preset, stack) {
+			continue
+		}
+
+		filtered = append(filtered, preset)
 	}
 
 	return filtered

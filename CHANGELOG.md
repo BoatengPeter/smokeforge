@@ -4,6 +4,14 @@ All notable changes to smokeforge are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 semantic versioning with pre-1.0 releases using `v0.x.y`.
 
+## [0.2.8] - 2026-11-19
+
+### Fixed
+
+- Presets now declare supported stacks. The Electron desktop preset applies
+  only to `desktop/electron`; `desktop-egui` applies only to `desktop/egui`, so
+  the preset and feature pickers stay aligned.
+
 ## [0.2.7] - 2026-11-19
 
 ### Fixed

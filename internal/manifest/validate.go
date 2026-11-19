@@ -46,12 +46,13 @@ func (m *Manifest) Validate() error {
 		return err
 	}
 
-	return validatePresets(m.Presets, m.Features, m.Kinds)
+	return validatePresets(m.Presets, m.Features, m.Stacks, m.Kinds)
 }
 
 func validatePresets(
 	presets []Preset,
 	features []Feature,
+	stacks []Stack,
 	kinds map[string]Kind,
 ) error {
 	byID := make(map[string]Feature, len(features))
@@ -59,11 +60,16 @@ func validatePresets(
 		byID[feature.ID] = feature
 	}
 
+	stackIDs := make(map[string]bool, len(stacks))
+	for _, stack := range stacks {
+		stackIDs[stack.ID] = true
+	}
+
 	seen := make(map[string]bool, len(presets))
 	defaults := make(map[string]int, len(kinds))
 
 	for _, preset := range presets {
-		if err := validatePreset(preset, byID, kinds, seen); err != nil {
+		if err := validatePreset(preset, byID, stackIDs, kinds, seen); err != nil {
 			return err
 		}
 
@@ -94,6 +100,7 @@ func validatePresets(
 func validatePreset(
 	preset Preset,
 	byID map[string]Feature,
+	stackIDs map[string]bool,
 	kinds map[string]Kind,
 	seen map[string]bool,
 ) error {
@@ -114,6 +121,12 @@ func validatePreset(
 	for _, kind := range preset.Kinds {
 		if _, ok := kinds[kind]; !ok {
 			return fmt.Errorf("preset %q: unknown kind %q", preset.ID, kind)
+		}
+	}
+
+	for _, stackID := range preset.Stacks {
+		if !stackIDs[stackID] {
+			return fmt.Errorf("preset %q: unknown stack %q", preset.ID, stackID)
 		}
 	}
 

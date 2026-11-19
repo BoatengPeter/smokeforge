@@ -30,6 +30,7 @@ type Preset struct {
 	Name        string   `yaml:"name"`
 	Description string   `yaml:"description"`
 	Kinds       []string `yaml:"kinds"`
+	Stacks      []string `yaml:"stacks"`
 	Default     bool     `yaml:"default"`
 	Features    []string `yaml:"features"`
 }

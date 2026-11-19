@@ -4,6 +4,13 @@ All notable changes to smokeforge are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 semantic versioning with pre-1.0 releases using `v0.x.y`.
 
+## [0.2.5] - 2026-11-19
+
+### Added
+
+- Fullstack `--desktop egui` composition without Electron-only overlays.
+- Egui next-step guidance and workspace desktop Makefile targets.
+
 ## [0.2.4] - 2026-11-19
 
 ### Fixed

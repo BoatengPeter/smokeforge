@@ -1,6 +1,6 @@
 # Release guide
 
-**Status:** CLI and registry releases are active. Current CLI is `v0.2.5`;
+**Status:** CLI and registry releases are active. Current CLI is `v0.2.6`;
 current registry is `v0.9.2`. The Homebrew tap and `v1.0.0` remain pending.
 
 ## Versioning policy
@@ -57,8 +57,8 @@ The version output must include the snapshot version, commit, and date.
 4. Create and push an annotated tag:
 
    ```bash
-   git tag -a v0.2.5 -m "smokeforge v0.2.5"
-   git push origin v0.2.5
+   git tag -a v0.2.6 -m "smokeforge v0.2.6"
+   git push origin v0.2.6
    ```
 
 5. The `release` workflow runs tests, builds six platform archives, generates
@@ -67,12 +67,12 @@ The version output must include the snapshot version, commit, and date.
 7. Publish it:
 
    ```bash
-   gh release edit v0.2.5 --draft=false --latest
+   gh release edit v0.2.6 --draft=false --latest
    ```
 8. Verify installation and self-update:
 
    ```bash
-   go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.2.5
+   go install github.com/BoatengPeter/smokeforge/cmd/smokeforge@v0.2.6
    smokeforge version
    smokeforge update --check
    ```

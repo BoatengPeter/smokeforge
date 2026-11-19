@@ -4,6 +4,12 @@ All notable changes to smokeforge are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 semantic versioning with pre-1.0 releases using `v0.x.y`.
 
+## [0.2.6] - 2026-11-19
+
+### Fixed
+
+- Go lint issues in fullstack egui resolution and wizard validation.
+
 ## [0.2.5] - 2026-11-19
 
 ### Added

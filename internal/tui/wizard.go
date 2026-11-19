@@ -99,6 +99,9 @@ func (w *Wizard) Run(ctx context.Context) error {
 	}
 
 	features = filterFeatureValues(features, wizardFeatureOptions(w.Manifest, kind, stack))
+	if err := validateFeatureVariants(features); err != nil {
+		return err
+	}
 	features = syncMediaProvider(w.Manifest, stack, features, mediaProvider)
 	features = syncCompression(stack, features, compressionEnabled)
 
@@ -212,7 +215,8 @@ func (w *Wizard) featureGroup(kind, selectedStackID *string, features *[]string)
 
 				return options
 			}, selectedStackID).
-			Value(features),
+			Value(features).
+			Validate(validateFeatureVariants),
 	).WithHideFunc(func() bool {
 		stack, ok := findStackByID(w.Manifest, *selectedStackID)
 
@@ -538,6 +542,22 @@ func allFeatureOptions(m *manifest.Manifest, stack manifest.Stack) []huh.Option[
 	}
 
 	return options
+}
+
+func validateFeatureVariants(values []string) error {
+	seen := make(map[string]string, len(values))
+	for _, value := range values {
+		featureID, variantID, _ := strings.Cut(value, ":")
+		if variantID == "" {
+			continue
+		}
+		if previous, ok := seen[featureID]; ok && previous != variantID {
+			return fmt.Errorf("feature %q was selected as both %q and %q; choose one variant", featureID, previous, variantID)
+		}
+		seen[featureID] = variantID
+	}
+
+	return nil
 }
 
 func filterFeatureValues(values []string, options []huh.Option[string]) []string {

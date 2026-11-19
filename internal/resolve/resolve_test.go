@@ -872,3 +872,24 @@ func overlayIDs(overlays []OverlayPlan) []string {
 
 	return ids
 }
+
+func TestSelectFeaturesRejectsTwoVariantsOfOneFeature(t *testing.T) {
+	t.Parallel()
+
+	m := &manifest.Manifest{
+		Features: []manifest.Feature{{
+			ID:    "auth",
+			Kinds: []string{"desktop"},
+			Variants: []manifest.Variant{
+				{ID: "electron", Overlays: map[string]string{"desktop/electron": "auth/electron"}},
+				{ID: "oauth-pkce", Overlays: map[string]string{"desktop/electron": "auth/oauth-pkce"}},
+			},
+		}},
+		Stacks: []manifest.Stack{{ID: "desktop/electron", Kind: "desktop"}},
+	}
+
+	_, err := selectFeatures(m, manifest.Stack{ID: "desktop/electron", Kind: "desktop"}, []string{"auth:electron", "auth:oauth-pkce"})
+	if err == nil || !strings.Contains(err.Error(), "choose one variant") {
+		t.Fatalf("error = %v, want one-variant guidance", err)
+	}
+}

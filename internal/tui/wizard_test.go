@@ -70,3 +70,16 @@ func TestWizardFullstackFeatureOptions(t *testing.T) {
 		t.Fatal("fullstack options must not include frontend-owned session auth")
 	}
 }
+
+func TestValidateFeatureVariantsRejectsTwoVariants(t *testing.T) {
+	t.Parallel()
+
+	err := validateFeatureVariants([]string{"auth:electron", "auth:oauth-pkce"})
+	if err == nil || !strings.Contains(err.Error(), "choose one variant") {
+		t.Fatalf("error = %v, want one-variant guidance", err)
+	}
+
+	if err := validateFeatureVariants([]string{"auth:electron", "database:postgres"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

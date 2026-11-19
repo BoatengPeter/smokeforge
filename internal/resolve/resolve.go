@@ -772,8 +772,17 @@ func selectFeatures(
 			return nil, err
 		}
 
-		if _, exists := selected[entry.feature.ID]; exists {
-			return nil, fmt.Errorf("duplicate feature %q", entry.feature.ID)
+		if existing, exists := selected[entry.feature.ID]; exists {
+			if existing.variantID == entry.variantID {
+				return nil, fmt.Errorf("duplicate feature %q", entry.feature.ID)
+			}
+
+			return nil, fmt.Errorf(
+				"feature %q was selected as both %q and %q; choose one variant",
+				entry.feature.ID,
+				existing.variantID,
+				entry.variantID,
+			)
 		}
 
 		selected[entry.feature.ID] = entry

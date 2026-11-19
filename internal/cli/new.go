@@ -468,11 +468,13 @@ func nextStepLines(plan *resolve.Plan, path string, dockerInstalled bool) []stri
 		)
 
 		if target := targetByPath(plan, "apps/desktop"); target != nil {
-			label := "Electron"
-			if target.Stack.ID == "desktop/egui" {
-				label = "egui"
-			} else if target.Stack.ID == "desktop/gpui" {
-				label = "GPUI"
+			label := switch target.Stack.ID {
+			case "desktop/egui":
+				"egui"
+			case "desktop/gpui":
+				"GPUI"
+			default:
+				"Electron"
 			}
 
 			lines = append(lines, "  make desktop-dev    # "+label)

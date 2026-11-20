@@ -284,6 +284,7 @@ func prepareRemove(req RemoveRequest) (*preparedRemove, error) {
 		pc:            pc,
 		remainingPlan: remainingPlan,
 		fullPlan:      fullPlan,
+		manifest:      req.Registry.Manifest,
 		plans:         plans,
 		indexes:       indexes,
 		touched:       touched,

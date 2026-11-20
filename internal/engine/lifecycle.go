@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/BoatengPeter/smokeforge/internal/manifest"
 	"github.com/BoatengPeter/smokeforge/internal/patch"
 	"github.com/BoatengPeter/smokeforge/internal/project"
 	"github.com/BoatengPeter/smokeforge/internal/registry"
@@ -67,6 +68,7 @@ type projectContext struct {
 type preparedAdd struct {
 	pc       *projectContext
 	plan     *resolve.Plan
+	manifest *manifest.Manifest
 	overlays []resolve.OverlayPlan
 	touched  []string
 }
@@ -135,7 +137,7 @@ func prepareAdd(req AddRequest) (*preparedAdd, error) {
 
 	touched = append(touched, project.StateFile, project.LockFile)
 
-	return &preparedAdd{pc: pc, plan: plan, overlays: overlays, touched: touched}, nil
+	return &preparedAdd{pc: pc, plan: plan, manifest: req.Registry.Manifest, overlays: overlays, touched: touched}, nil
 }
 
 func applyAddedFeatures(
@@ -180,6 +182,10 @@ func applyAddedFeatures(
 
 	pc.state.Targets[0].Features = featuresFromPlan(prepared.plan)
 
+	if err := writeArchitecture(pc.root, prepared.plan, prepared.manifest); err != nil {
+		return err
+	}
+
 	if err := project.Rehash(pc.root, pc.state); err != nil {
 		return err
 	}
@@ -191,6 +197,7 @@ type preparedRemove struct {
 	pc            *projectContext
 	remainingPlan *resolve.Plan
 	fullPlan      *resolve.Plan
+	manifest      *manifest.Manifest
 	plans         []resolve.OverlayPlan
 	indexes       []int
 	touched       []string
@@ -353,6 +360,10 @@ func applyRemovedFeatures(
 
 	pc.state.Applied = removeApplied(pc.state.Applied, prepared.indexes)
 	pc.state.Targets[0].Features = featuresFromPlan(prepared.remainingPlan)
+
+	if err := writeArchitecture(pc.root, prepared.remainingPlan, prepared.manifest); err != nil {
+		return err
+	}
 
 	for _, plan := range prepared.plans {
 		delete(pc.lock.Overlays, plan.Path)

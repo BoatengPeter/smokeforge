@@ -124,55 +124,90 @@ func prepareStaging(target string) (string, error) {
 func buildProject(ctx context.Context, req Request, staging string) (*Result, error) {
 	report(req, "rendering base templates")
 
-	builds := make([]targetBuild, 0, len(generationTargets(req.Plan)))
+	builds, err := buildTargets(ctx, req, staging)
+	if err != nil {
+		return nil, err
+	}
 
-	for _, target := range generationTargets(req.Plan) {
-		targetDir := filepath.Join(staging, filepath.FromSlash(target.Path))
+	return finalizeProject(ctx, req, staging, builds)
+}
 
-		//nolint:gosec // generated project paths are validated before rendering.
-		if err := os.MkdirAll(targetDir, 0o755); err != nil {
-			return nil, fmt.Errorf("create target directory %q: %w", target.Path, err)
-		}
+func buildTargets(ctx context.Context, req Request, staging string) ([]targetBuild, error) {
+	targets := generationTargets(req.Plan)
+	builds := make([]targetBuild, 0, len(targets))
 
-		targetRoot, err := os.OpenRoot(targetDir)
+	for _, target := range targets {
+		build, err := buildTarget(ctx, req, staging, target)
 		if err != nil {
-			return nil, fmt.Errorf("open target root %q: %w", target.Path, err)
-		}
-
-		targetRenderer := render.New(req.Plan.Name, target.Variables)
-
-		if _, err := renderBase(ctx, targetRoot, target, targetRenderer); err != nil {
-			_ = targetRoot.Close()
-
 			return nil, err
 		}
 
-		report(req, "applying feature overlays")
+		builds = append(builds, build)
+	}
 
-		applications, envEntries, err := applyOverlayPlans(ctx, targetDir, target.Overlays, targetRenderer)
-		if err != nil {
-			_ = targetRoot.Close()
+	return builds, nil
+}
 
-			return nil, err
-		}
+func buildTarget(
+	ctx context.Context,
+	req Request,
+	staging string,
+	target resolve.TargetPlan,
+) (targetBuild, error) {
+	targetDir := filepath.Join(staging, filepath.FromSlash(target.Path))
 
-		report(req, "writing environment files")
+	//nolint:gosec // generated project paths are validated before rendering.
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+		return targetBuild{}, fmt.Errorf("create target directory %q: %w", target.Path, err)
+	}
 
-		if err := writeEnvFiles(targetRoot, envEntries); err != nil {
-			_ = targetRoot.Close()
+	targetRoot, err := os.OpenRoot(targetDir)
+	if err != nil {
+		return targetBuild{}, fmt.Errorf("open target root %q: %w", target.Path, err)
+	}
 
-			return nil, err
-		}
+	defer func() { _ = targetRoot.Close() }()
 
-		if err := targetRoot.Close(); err != nil {
-			return nil, fmt.Errorf("close target root %q: %w", target.Path, err)
-		}
+	targetRenderer := render.New(req.Plan.Name, target.Variables)
 
-		builds = append(builds, targetBuild{
-			plan:         target,
-			dir:          targetDir,
-			applications: applications,
-		})
+	if _, err := renderBase(ctx, targetRoot, target, targetRenderer); err != nil {
+		return targetBuild{}, err
+	}
+
+	report(req, "applying feature overlays")
+
+	applications, envEntries, err := applyOverlayPlans(ctx, targetDir, target.Overlays, targetRenderer)
+	if err != nil {
+		return targetBuild{}, err
+	}
+
+	report(req, "writing environment files")
+
+	if err := writeEnvFiles(targetRoot, envEntries); err != nil {
+		return targetBuild{}, err
+	}
+
+	if err := targetRoot.Close(); err != nil {
+		return targetBuild{}, fmt.Errorf("close target root %q: %w", target.Path, err)
+	}
+
+	return targetBuild{
+		plan:         target,
+		dir:          targetDir,
+		applications: applications,
+	}, nil
+}
+
+func finalizeProject(
+	ctx context.Context,
+	req Request,
+	staging string,
+	builds []targetBuild,
+) (*Result, error) {
+	report(req, "writing architecture map")
+
+	if err := writeArchitecture(staging, req.Plan, req.Registry.Manifest); err != nil {
+		return nil, err
 	}
 
 	report(req, "writing project state")

@@ -70,3 +70,43 @@ func TestWriteArchitectureUsesCapabilitiesNotInternalFeatureIDs(t *testing.T) {
 		}
 	}
 }
+
+func TestWriteArchitectureIncludesMobileTarget(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "apps", "android", "app"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(filepath.Join(root, "apps", "android", "README.md"), []byte("# Android\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	plan := &resolve.Plan{
+		Kind: "fullstack",
+		Targets: []resolve.TargetPlan{
+			{Path: "apps/api", Stack: manifest.Stack{Kind: "backend"}},
+			{Path: "apps/web", Stack: manifest.Stack{Kind: "frontend"}},
+			{Path: "apps/android", Stack: manifest.Stack{ID: "android/compose", Kind: "mobile"}},
+		},
+		Root: &resolve.TargetPlan{Path: "."},
+	}
+
+	if err := writeArchitecture(root, plan, &manifest.Manifest{}); err != nil {
+		t.Fatal(err)
+	}
+
+	//nolint:gosec // path is constrained to the test temporary directory.
+	data, err := os.ReadFile(filepath.Join(root, architectureFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	content := string(data)
+	for _, want := range []string{"apps/android", "Android app", "Android app] -->|authenticated API|"} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("architecture missing %q:\n%s", want, content)
+		}
+	}
+}

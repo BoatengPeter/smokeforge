@@ -1,9 +1,9 @@
 # Roadmap
 
 **Status:** M1, M2, the M4 lifecycle, M5 release engineering, and the standalone
-Electron desktop base are complete. M3 has Next.js, the Go/Gin backend, and the
-Rust/Axum backend with project-scoped skills; Python, mobile, and fullstack
-desktop targeting remain pending.
+Electron desktop base are complete. M3 has Next.js, the Go/Gin backend, the
+Rust/Axum backend, and the Android Compose base with project-scoped skills;
+Python, iOS, and remaining fullstack targeting remain pending.
 
 ## Milestones
 
@@ -44,16 +44,17 @@ The Next.js template and the Go/Gin backend are implemented. The Go slice has
 four architecture bases, PostgreSQL/sqlc/goose, JWT auth, TOTP, Redis cache,
 RabbitMQ queue/scheduler, leader election, dedupe, compression, image media,
 Meilisearch search, RabbitMQ search index sync, signed pagination, Docker, CI,
-Swagger UI, all 17 Go skills, and the Rust/Axum base with SQLx/JWT, Redis cache, signed pagination, TOTP, Meilisearch search, private S3/MinIO/R2 media, and a RabbitMQ worker/scheduler. Python,
-mobile, desktop, and remaining
-backend overlays are still pending.
+Swagger UI, all 17 Go skills, the Rust/Axum base, and the Android Compose base
+with Hilt, Retrofit, encrypted DataStore, auth, and fullstack mobile wiring.
+Python, iOS, and remaining backend overlays are still pending.
 
 - [ ] Registry repo governance, layout, release process
 - [x] Go/Gin bases: `go/gin-flat`, `go/gin-layered`, `go/gin-hexagonal`, `go/gin-ddd`
 - [x] Go overlays: `database:postgres`, `auth:jwt`, `totp`, `docker`, `ci:github`
 - [x] Rust base: `rust/axum` with SQLx/Postgres, JWT, Docker, CI, and Rust skills
-- [ ] Base templates: `python/fastapi`,
-      `ios/swiftui`, `android/compose`, `desktop/gpui`, `desktop/egui`
+- [ ] Base templates: `python/fastapi`, `ios/swiftui`, `desktop/gpui`
+- [x] Android base: `android/compose` with Hilt, Retrofit, encrypted DataStore, auth, and CI
+- [x] Fullstack mobile: `--mobile android/compose` adds `apps/android`
 - [x] Desktop base: `desktop/electron` with secure IPC, SQLite, TanStack, Zustand, and Playwright
 - [x] Overlays: `cache:redis`, `queue:rabbitmq`, `scheduler:leader`, `dedupe:redis`, `compression:gzip`, `media`, `media-provider:minio`, `media-provider:r2`, `search:meilisearch`, `search-sync:rabbitmq`, `pagination`
 - [ ] Contract tests for every overlay×base pair
@@ -106,20 +107,15 @@ tag, release review, Homebrew tap, and the remaining v1 scope.
 | Features | Postgres, Redis cache, RabbitMQ queue/scheduler, leader election, dedupe, compression, JWT auth, TOTP, image media, Meilisearch search, RabbitMQ search sync, signed pagination, Docker, GitHub Actions CI |
 | Lifecycle | new, add, remove, install, list, registry, doctor |
 
-## Pending decisions (backend/mobile/desktop templates)
+## Pending decisions (future templates)
 
-These are deliberately not decided yet and must be discussed before any
-generated-app template or overlay is written:
+These remain open for Python, iOS, and remaining overlays:
 
-- Backend HTTP frameworks and project layout (Go, Rust, Python).
-- Database access: driver vs ORM/query builder, migration tooling.
-- Redis client and cache abstraction.
-- Queue client and worker model (RabbitMQ).
-- JWT/session implementation and TOTP library.
-- Native mobile UI approach (SwiftUI vs UIKit; Compose vs Views) and project
-  scaffolding tool.
-- Desktop UI framework selection (GPUI vs EGUI) and app architecture.
-- Dependency management and formatting conventions inside generated apps.
+- Python HTTP framework and project layout.
+- Python database, Redis, and queue conventions.
+- iOS UI approach and project scaffolding.
+- Remaining backend overlays and cross-target feature wiring.
+- Dependency management and formatting conventions inside future generated apps.
 
 Stack IDs in the manifest are provisional until these discussions conclude.
 The CLI foundation does not depend on their outcome.

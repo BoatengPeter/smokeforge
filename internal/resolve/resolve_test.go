@@ -616,6 +616,7 @@ func TestResolveBackendDefaultVariant(t *testing.T) {
 	}
 }
 
+//nolint:funlen // Test fixture keeps the fullstack shape visible in one place.
 func fullstackManifest() *manifest.Manifest {
 	return &manifest.Manifest{
 		SchemaVersion: 1,
@@ -624,6 +625,7 @@ func fullstackManifest() *manifest.Manifest {
 			"backend":   {Max: 1},
 			"frontend":  {Max: 1},
 			"fullstack": {Max: 1},
+			"mobile":    {Max: 2},
 			"desktop":   {Max: 1},
 		},
 		Stacks: []manifest.Stack{
@@ -640,6 +642,13 @@ func fullstackManifest() *manifest.Manifest {
 				Name:      "Next.js",
 				Template:  "templates/web",
 				Variables: []string{"package_manager", "module_path"},
+			},
+			{
+				ID:        "android/compose",
+				Kind:      "mobile",
+				Name:      "Android",
+				Template:  "templates/android",
+				Variables: []string{"application_id", "package_name", "api_base_url"},
 			},
 			{
 				ID:        "desktop/electron",
@@ -742,6 +751,8 @@ func writeFullstackRegistry(t *testing.T) string {
 		"id: next\nvariables:\n  - name: package_manager\n    default: pnpm\n  - name: module_path\n    default: web\n")
 	writeFile(t, filepath.Join(dir, "templates", "root", "template.yaml"),
 		"id: workspace/fullstack\nvariables:\n  - name: package_manager\n    default: pnpm\n")
+	writeFile(t, filepath.Join(dir, "templates", "android", "template.yaml"),
+		"id: android/compose\nvariables:\n  - name: application_id\n    default: com.example.app\n  - name: package_name\n    default: com.example.app\n  - name: api_base_url\n    default: http://10.0.2.2:8080\n")
 	writeFile(t, filepath.Join(dir, "templates", "desktop", "template.yaml"),
 		"id: desktop/electron\nvariables:\n  - name: bundle_id\n    default: com.example.app\n  - name: package_manager\n    default: pnpm\n  - name: api_url\n    default: http://localhost:8080\n")
 	writeFile(t, filepath.Join(dir, "templates", "desktop-egui", "template.yaml"),
@@ -751,7 +762,7 @@ func writeFullstackRegistry(t *testing.T) string {
 		"overlays/api/db", "overlays/api/auth", "overlays/web/bff",
 		"overlays/web/query", "overlays/desktop/query", "overlays/desktop/state", "overlays/desktop/storage",
 		"overlays/desktop/auth", "overlays/desktop/sync", "overlays/api/sync", "overlays/api/docker", "overlays/web/docker",
-		"overlays/root/docker", "overlays/workspace/fullstack/desktop", "overlays/workspace/fullstack/desktop-egui", "overlays/api/ci", "overlays/web/ci", "overlays/root/ci",
+		"overlays/root/docker", "overlays/workspace/fullstack/mobile", "overlays/workspace/fullstack/desktop", "overlays/workspace/fullstack/desktop-egui", "overlays/api/ci", "overlays/web/ci", "overlays/root/ci",
 	} {
 		writeFile(t, filepath.Join(dir, path, "overlay.yaml"),
 			"id: "+strings.ReplaceAll(path, "overlays/", "")+"\nops:\n  - env:\n      key: TEST_FLAG\n      example: \"1\"\n")
@@ -817,6 +828,66 @@ func TestResolveFullstackDesktop(t *testing.T) {
 
 	if plan.Targets[2].Variables["bundle_id"] != "com.example.acme" {
 		t.Fatalf("desktop variables = %v", plan.Targets[2].Variables)
+	}
+}
+
+func TestResolveFullstackMobile(t *testing.T) {
+	t.Parallel()
+
+	plan, err := Resolve(fullstackManifest(), writeFullstackRegistry(t), Selection{
+		Name:    "Acme Mobile",
+		Kind:    "fullstack",
+		Backend: "go/api",
+		Mobile:  "android/compose",
+		Preset:  "fullstack-api",
+		Variables: map[string]string{
+			"module_path":     "example.com/acme",
+			"package_manager": "pnpm",
+			"application_id":  "com.example.acme",
+			"package_name":    "com.example.acme",
+			"api_base_url":    "http://10.0.2.2:8080",
+		},
+	})
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+
+	if len(plan.Targets) != 3 {
+		t.Fatalf("targets = %+v", plan.Targets)
+	}
+
+	if plan.Targets[2].Path != "apps/android" || plan.Targets[2].Stack.ID != "android/compose" {
+		t.Fatalf("mobile target = %+v", plan.Targets[2])
+	}
+
+	if got := overlayIDs(plan.Root.Overlays); strings.Join(got, ",") != "docker,ci:github,mobile" {
+		t.Fatalf("root overlays = %v", got)
+	}
+
+	if plan.Targets[2].Variables["package_name"] != "com.example.acme" {
+		t.Fatalf("mobile variables = %v", plan.Targets[2].Variables)
+	}
+}
+
+func TestResolveFullstackMobileRequiresAPIJWT(t *testing.T) {
+	t.Parallel()
+
+	m := fullstackManifest()
+	m.Presets[0].Features = []string{"database:postgres"}
+
+	_, err := Resolve(m, writeFullstackRegistry(t), Selection{
+		Name:    "Acme Mobile",
+		Kind:    "fullstack",
+		Backend: "go/api",
+		Mobile:  "android/compose",
+		Preset:  "fullstack-api",
+		Variables: map[string]string{
+			"module_path":     "example.com/acme",
+			"package_manager": "pnpm",
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "requires auth:jwt") {
+		t.Fatalf("error = %v, want auth requirement", err)
 	}
 }
 

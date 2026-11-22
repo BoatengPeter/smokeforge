@@ -1,8 +1,9 @@
 # smokeforge stack catalog
 
 The stacks, versions, and defaults smokeforge targets. Next.js and the Go/Gin
-backend, the Rust/Axum backend, the Electron desktop base, and the native egui
-desktop base are implemented; Python, mobile, and GPUI remain provisional.
+backend, the Rust/Axum backend, the Electron desktop base, the native egui
+desktop base, and the Android Compose base are implemented; Python, iOS, and
+GPUI remain provisional.
 Items marked **deferred** are not yet shipped and require the decisions noted.
 
 ## Status legend
@@ -263,12 +264,18 @@ overlays cover TOTP login/recovery, email
 verification/reset, Google OAuth, Redis dedupe, scheduler leadership, RabbitMQ
 search sync, retry queues, and imgproxy/nginx minio transformations.
 
-## Mobile — provisional
+## Mobile
 
 | Stack ID | Platform | UI | Status |
 | --- | --- | --- | --- |
-| `ios/swiftui` | Swift/iOS | SwiftUI candidate | Provisional |
-| `android/compose` | Kotlin/Android | Jetpack Compose candidate | Provisional |
+| `android/compose` | Kotlin/Android | Jetpack Compose, Hilt, Retrofit, DataStore | Implemented |
+| `ios/swiftui` | Swift/iOS | SwiftUI | Provisional |
+
+The Android base is a modular Compose app with build-logic convention plugins,
+Hilt/KSP, Retrofit/OkHttp, encrypted DataStore tokens, email/password auth with
+refresh rotation, debug/staging/release variants, R8, project-scoped Kotlin and
+Android skills, and fullstack `apps/android` composition. Offline sync, OAuth,
+and TOTP are future overlays.
 
 ## Desktop
 

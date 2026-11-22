@@ -75,13 +75,17 @@ func (r *Renderer) data() map[string]string {
 
 func (r *Renderer) funcMap() template.FuncMap {
 	return template.FuncMap{
-		"lower":  strings.ToLower,
-		"upper":  strings.ToUpper,
-		"snake":  snake,
-		"kebab":  kebab,
-		"camel":  camel,
-		"pascal": pascal,
-		"quote":  strconv.Quote,
+		"lower":   strings.ToLower,
+		"upper":   strings.ToUpper,
+		"snake":   snake,
+		"kebab":   kebab,
+		"camel":   camel,
+		"pascal":  pascal,
+		"quote":   strconv.Quote,
+		"replace": strings.ReplaceAll,
+		"packagePath": func(value string) string {
+			return strings.ReplaceAll(value, ".", "/")
+		},
 		"default": func(fallback, value string) string {
 			if value == "" {
 				return fallback

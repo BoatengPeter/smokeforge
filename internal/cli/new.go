@@ -30,6 +30,7 @@ type newOptions struct {
 	backend     string
 	frontend    string
 	desktop     string
+	mobile      string
 	name        string
 	preset      string
 	features    []string
@@ -63,9 +64,11 @@ E2E. Use --feature to select individual features instead of a preset.`,
   smokeforge new my-saas --kind fullstack --backend rust/axum --frontend next
   smokeforge new my-saas --kind fullstack --backend go/gin-layered --desktop electron
   smokeforge new my-saas --kind fullstack --backend rust/axum --desktop egui
+  smokeforge new my-saas --kind fullstack --backend go/gin-layered --mobile android/compose
   smokeforge new my-app --kind desktop --stack desktop/electron
   smokeforge new my-app --kind desktop --stack desktop/egui --preset desktop-egui
   smokeforge new my-api --kind backend --preset api
+  smokeforge new my-app --kind mobile --stack android/compose
   smokeforge new my-api --kind backend --preset api-custom --feature database:postgres --feature auth:jwt
   smokeforge new my-app --preset frontend --feature docker --feature ci:github
   smokeforge new my-app --registry ./smokeforge-registry --tag v0.1.0`,
@@ -86,6 +89,7 @@ E2E. Use --feature to select individual features instead of a preset.`,
 	flags.StringVar(&newOpts.backend, "backend", "", "backend stack ID for fullstack projects")
 	flags.StringVar(&newOpts.frontend, "frontend", "", "frontend stack ID for fullstack projects (default next)")
 	flags.StringVar(&newOpts.desktop, "desktop", "", "optional desktop stack for fullstack projects (electron or egui)")
+	flags.StringVar(&newOpts.mobile, "mobile", "", "optional mobile stack for fullstack projects (android/compose)")
 	flags.StringVar(&newOpts.name, "name", "", "project name")
 	flags.StringVar(&newOpts.preset, "preset", "", "feature preset")
 	flags.StringArrayVar(&newOpts.features, "feature", nil, "feature selection (repeatable, id[:variant])")
@@ -232,6 +236,7 @@ func collectSelection(
 		Backend:   newOpts.backend,
 		Frontend:  newOpts.frontend,
 		Desktop:   newOpts.desktop,
+		Mobile:    newOpts.mobile,
 		Name:      newOpts.name,
 		Preset:    newOpts.preset,
 		Features:  append([]string{}, newOpts.features...),
@@ -249,31 +254,51 @@ func collectSelection(
 		selection = withDefaultPreset(selection, registryResult.Manifest)
 	}
 
-	if strings.TrimSpace(selection.Kind) == "" {
-		return resolve.Selection{}, errors.New("kind is required (use --kind)")
-	}
-
-	if selection.Kind != fullstackKind && strings.TrimSpace(selection.Desktop) != "" {
-		return resolve.Selection{}, errors.New("--desktop is only valid with --kind fullstack")
-	}
-
-	if selection.Kind == fullstackKind {
-		if strings.TrimSpace(selection.Backend) == "" && strings.TrimSpace(selection.Stack) != "" {
-			selection.Backend = selection.Stack
-		}
-
-		if strings.TrimSpace(selection.Backend) == "" {
-			return resolve.Selection{}, errors.New("backend stack is required for fullstack (use --backend)")
-		}
-	} else if strings.TrimSpace(selection.Stack) == "" {
-		return resolve.Selection{}, errors.New("stack is required (use --stack)")
-	}
-
-	if strings.TrimSpace(selection.Name) == "" {
-		return resolve.Selection{}, errors.New("project name is required (use --name)")
+	if err := validateSelection(&selection); err != nil {
+		return resolve.Selection{}, err
 	}
 
 	return selection, nil
+}
+
+func validateSelection(selection *resolve.Selection) error {
+	if strings.TrimSpace(selection.Kind) == "" {
+		return errors.New("kind is required (use --kind)")
+	}
+
+	if selection.Kind != fullstackKind && strings.TrimSpace(selection.Desktop) != "" {
+		return errors.New("--desktop is only valid with --kind fullstack")
+	}
+
+	if selection.Kind != fullstackKind && strings.TrimSpace(selection.Mobile) != "" {
+		return errors.New("--mobile is only valid with --kind fullstack")
+	}
+
+	if selection.Kind != fullstackKind {
+		if strings.TrimSpace(selection.Stack) == "" {
+			return errors.New("stack is required (use --stack)")
+		}
+
+		return validateProjectName(selection)
+	}
+
+	if strings.TrimSpace(selection.Backend) == "" && strings.TrimSpace(selection.Stack) != "" {
+		selection.Backend = selection.Stack
+	}
+
+	if strings.TrimSpace(selection.Backend) == "" {
+		return errors.New("backend stack is required for fullstack (use --backend)")
+	}
+
+	return validateProjectName(selection)
+}
+
+func validateProjectName(selection *resolve.Selection) error {
+	if strings.TrimSpace(selection.Name) == "" {
+		return errors.New("project name is required (use --name)")
+	}
+
+	return nil
 }
 
 func runWizard(
@@ -292,6 +317,8 @@ func runWizard(
 			Stack:     selection.Stack,
 			Backend:   selection.Backend,
 			Frontend:  selection.Frontend,
+			Desktop:   selection.Desktop,
+			Mobile:    selection.Mobile,
 			Name:      selection.Name,
 			Preset:    selection.Preset,
 			Features:  selection.Features,
@@ -467,6 +494,10 @@ func nextStepLines(plan *resolve.Plan, path string, dockerInstalled bool) []stri
 			"  make web-dev        # Next.js",
 		)
 
+		if target := targetByPath(plan, "apps/android"); target != nil {
+			lines = append(lines, "  make mobile-build    # "+target.Stack.Name)
+		}
+
 		if target := targetByPath(plan, "apps/desktop"); target != nil {
 			label := "Electron"
 
@@ -483,22 +514,16 @@ func nextStepLines(plan *resolve.Plan, path string, dockerInstalled bool) []stri
 		return append(lines, "  make test")
 	}
 
-	if plan.Target.Stack.ID == "desktop/electron" {
+	if plan.Target.Stack.Kind == "mobile" {
 		return append(lines,
-			"  make install",
-			"  make dev",
-			"  make test",
-			"  make build",
+			"  ./gradlew test",
+			"  ./gradlew lint",
+			"  ./gradlew assembleDebug",
 		)
 	}
 
-	if plan.Target.Stack.ID == "desktop/egui" || plan.Target.Stack.ID == "desktop/gpui" {
-		return append(lines,
-			"  make install",
-			"  make run",
-			"  make test",
-			"  make build",
-		)
+	if lines, ok := desktopNextSteps(plan, lines); ok {
+		return lines
 	}
 
 	if plan.Target.Stack.ID != "next" {
@@ -534,6 +559,17 @@ func nextStepLines(plan *resolve.Plan, path string, dockerInstalled bool) []stri
 	}
 
 	return append(lines, "  make dev")
+}
+
+func desktopNextSteps(plan *resolve.Plan, lines []string) ([]string, bool) {
+	switch plan.Target.Stack.ID {
+	case "desktop/electron":
+		return append(lines, "  make install", "  make dev", "  make test", "  make build"), true
+	case "desktop/egui", "desktop/gpui":
+		return append(lines, "  make install", "  make run", "  make test", "  make build"), true
+	default:
+		return lines, false
+	}
 }
 
 func isDockerInstalled() bool {

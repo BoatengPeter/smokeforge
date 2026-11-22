@@ -9,10 +9,10 @@ fullstack projects for clients. Pick a stack, compose the features you need
 (database, auth, client state, analytics, Docker, CI), and get a wired,
 buildable project — reproducibly, from a pinned template registry.
 
-> **Status:** v0.3.4 is published. CLI generation, lifecycle, fullstack composition, native egui base generation, and release engineering are complete.
+> **Status:** CLI generation, lifecycle, fullstack composition, native egui base generation, and the production Android base are complete.
 > The Next.js template, Go/Gin backend (four architectures), Rust/Axum backend,
-> and Electron desktop base are implemented. Mobile and remaining native desktop
-> templates remain provisional.
+> Electron desktop base, and Android Compose base are implemented. iOS and
+> remaining native desktop templates remain provisional.
 > `smokeforge install` and Homebrew are not available yet. See the [stack catalog](STACKS.md) and
 > [roadmap](docs/development/roadmap.md).
 
@@ -179,6 +179,7 @@ Presets are starting points. Required companions are added automatically.
 | `frontend` | A polished frontend or landing page | Next.js, shadcn/ui, SEO, API helpers, Jest |
 | `fullstack` | A Next.js app with its own auth/database | Frontend + Postgres + Better Auth + Zustand + TanStack Query |
 | `fullstack-api` | Next.js + a Go or Rust API | Next.js BFF + API + Postgres/JWT + TanStack Query + Docker + CI |
+| `mobile` | A production-shaped Android app | Compose + Hilt + Retrofit + encrypted DataStore + API auth |
 | `desktop` | A secure Electron desktop app | Electron + React Router + shadcn/ui + TanStack Query + Zustand + SQLite + Drizzle |
 | `api` | A backend API with persistence and accounts | Backend + Postgres + JWT auth |
 | `api-custom` | Choosing your own backend features | Select database, cache, queue, scheduler, dedupe, compression, auth, TOTP, media, search, search sync, pagination, Docker, and CI |
@@ -199,6 +200,12 @@ smokeforge new my-desktop --kind desktop --stack desktop/electron
 
 # Standalone native Rust egui desktop app
 smokeforge new my-egui --kind desktop --stack desktop/egui --preset desktop-egui
+
+# Standalone Android app
+smokeforge new my-android --kind mobile --stack android/compose
+
+# Fullstack API + Next.js + Android
+smokeforge new my-product --kind fullstack --backend go/gin-layered --mobile android/compose
 
 # Go API: choose an architecture and start from the backend preset
 smokeforge new my-api --kind backend --stack go/gin-layered --preset api
@@ -227,7 +234,7 @@ There are two fullstack shapes:
 - `fullstack-api`: Next.js is the BFF and a Go or Rust API owns JWT auth and
   persistence.
 
-Add `--desktop electron` or `--desktop egui` to fullstack-api to generate `apps/desktop`. The
+Add `--desktop electron`, `--desktop egui`, or `--mobile android/compose` to fullstack-api to generate the matching client target. The
 desktop main process owns the API session; Drizzle-backed SQLite is local
 storage; TanStack Query and Zustand are added automatically. Optional
 `shell:tray` and `auth:oauth-pkce` features are available. Offline Library sync
@@ -379,7 +386,8 @@ Restart your shell after installing completion.
 | Backend | `go/gin-flat`, `go/gin-layered`, `go/gin-hexagonal`, `go/gin-ddd` | Implemented |
 | Backend | `rust/axum` (Axum + SQLx + JWT) | Implemented |
 | Backend | `python/fastapi` | Provisional |
-| Mobile | `ios/swiftui`, `android/compose` | Provisional |
+| Mobile | `android/compose` | Implemented |
+| Mobile | `ios/swiftui` | Provisional |
 | Desktop | `desktop/electron` (Electron + React + TypeScript) | Implemented |
 | Desktop | `desktop/egui` (Rust + eframe/egui + SQLite) | Implemented |
 | Desktop | `desktop/gpui` | Deferred |

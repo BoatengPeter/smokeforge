@@ -413,6 +413,7 @@ name: fullstack-cli
 kinds:
   backend: {max: 1}
   frontend: {max: 1}
+  mobile: {max: 2}
   fullstack: {max: 1}
 stacks:
   - id: go/api
@@ -425,6 +426,11 @@ stacks:
     name: Next.js
     template: templates/web
     variables: [package_manager]
+  - id: android/compose
+    kind: mobile
+    name: Android
+    template: templates/android
+    variables: [application_id, package_name, api_base_url]
   - id: workspace/fullstack
     kind: fullstack
     name: Workspace
@@ -435,8 +441,19 @@ presets:
     name: Fullstack API
     kinds: [fullstack]
     default: true
-    features: []
-features: []
+    features: [auth:jwt]
+features:
+  - id: auth
+    kinds: [backend, frontend]
+    variants:
+      - id: jwt
+        stacks: [go/api]
+        overlays:
+          go/api: overlays/api/auth
+      - id: bff
+        stacks: [next]
+        overlays:
+          next: overlays/web/bff
 `
 
 func writeFullstackCLIRegistry(t *testing.T) string {
@@ -452,8 +469,20 @@ func writeFullstackCLIRegistry(t *testing.T) string {
 		"id: next\nvariables:\n  - name: package_manager\n    default: pnpm\n")
 	writeTestFile(t, filepath.Join(dir, "templates", "web", "files", "package.json.tmpl"),
 		"{\"name\":\"{{.project_slug}}\"}\n")
+	writeTestFile(t, filepath.Join(dir, "templates", "android", "template.yaml"),
+		"id: android/compose\nvariables:\n  - name: application_id\n    default: com.example.app\n  - name: package_name\n    default: com.example.app\n  - name: api_base_url\n    default: http://10.0.2.2:8080\n")
+	writeTestFile(t, filepath.Join(dir, "templates", "android", "files", "README.md.tmpl"),
+		"# {{.project_name}}\n")
 	writeTestFile(t, filepath.Join(dir, "templates", "root", "template.yaml"),
 		"id: workspace/fullstack\nvariables:\n  - name: package_manager\n    default: pnpm\n")
+	writeTestFile(t, filepath.Join(dir, "overlays", "workspace", "fullstack", "mobile", "overlay.yaml"),
+		"id: mobile\nops:\n  - addFiles:\n      - {path: README.md, dest: README.md}\n")
+	writeTestFile(t, filepath.Join(dir, "overlays", "workspace", "fullstack", "mobile", "files", "README.md"),
+		"# Mobile workspace\n")
+	writeTestFile(t, filepath.Join(dir, "overlays", "api", "auth", "overlay.yaml"),
+		"id: auth/jwt\nops:\n  - env:\n      key: AUTH_ENABLED\n      example: \"1\"\n")
+	writeTestFile(t, filepath.Join(dir, "overlays", "web", "bff", "overlay.yaml"),
+		"id: auth/bff\nops:\n  - env:\n      key: BFF_ENABLED\n      example: \"1\"\n")
 	writeTestFile(t, filepath.Join(dir, "templates", "root", "files", "CONTEXT-MAP.md"),
 		"# Context map\n")
 
@@ -492,6 +521,64 @@ func TestNewFullstack(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(target, filepath.FromSlash(want))); err != nil {
 			t.Fatalf("missing %s: %v", want, err)
 		}
+	}
+}
+
+func TestNewFullstackMobile(t *testing.T) {
+	t.Parallel()
+
+	registryDir := writeFullstackCLIRegistry(t)
+	target := filepath.Join(t.TempDir(), "acme-fullstack-mobile")
+
+	out, _, err := executeCommand(
+		t,
+		"new", target,
+		"--registry", registryDir,
+		"--kind", "fullstack",
+		"--backend", "go/api",
+		"--mobile", "android/compose",
+		"--name", "Acme Fullstack Mobile",
+		"--preset", "fullstack-api",
+		"--var", "module_path=example.com/acme",
+		"--var", "application_id=com.example.acme",
+		"--var", "package_name=com.example.acme",
+		"--var", "api_base_url=http://10.0.2.2:8080",
+		"--no-input",
+		"--no-git",
+	)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	for _, want := range []string{"apps/android (android/compose)", "make mobile-build"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("output %q missing %q", out, want)
+		}
+	}
+
+	if _, err := os.Stat(filepath.Join(target, "apps", "android", "README.md")); err != nil {
+		t.Fatalf("mobile target missing: %v", err)
+	}
+}
+
+func TestMobileRequiresFullstack(t *testing.T) {
+	t.Parallel()
+
+	registryDir := writeFullstackCLIRegistry(t)
+
+	_, _, err := executeCommand(
+		t,
+		"new", filepath.Join(t.TempDir(), "invalid-mobile"),
+		"--registry", registryDir,
+		"--kind", "backend",
+		"--stack", "go/api",
+		"--mobile", "android/compose",
+		"--name", "Invalid Mobile",
+		"--no-input",
+		"--no-git",
+	)
+	if err == nil || !strings.Contains(err.Error(), "--mobile is only valid with --kind fullstack") {
+		t.Fatalf("error = %v, want fullstack restriction", err)
 	}
 }
 

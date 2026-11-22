@@ -15,7 +15,7 @@ Docker, CI) as declarative overlays.
 - **Language:** Go 1.26.11+
 - **Template registry:** separate repo,
   `github.com/BoatengPeter/smokeforge-registry` (planned)
-- **Status:** M1, M2, the M4 lifecycle, and M5 release engineering are complete. M3 has the Next.js template and the Go/Gin backend (four architectures, database/auth/TOTP/Docker/CI overlays); mobile and desktop remain pending.
+- **Status:** M1, M2, the M4 lifecycle, and M5 release engineering are complete. M3 has the Next.js template, the Go/Gin backend, the Rust/Axum backend, the Android Compose base, and the desktop bases; Python and iOS remain pending.
 
 ## Read order (agents)
 
@@ -205,10 +205,10 @@ touches the network. `registry` depends on `manifest`.
 
 ## Scope discipline
 
-The Go/Gin backend internals are decided and implemented: four architectures,
-Gin, spec-first OpenAPI, Zap, pgx/sqlc/goose, JWT auth, and TOTP. Rust, Python,
-mobile, and desktop frameworks, ORMs, clients, migration tools, and layouts
-remain undecided. Do not choose those without an approved design.
+The Go/Gin, Rust/Axum, Android Compose, Electron, egui, and GPUI internals are
+decided and implemented. Python and iOS frameworks, ORMs, clients, migration
+tools, and layouts remain undecided. Do not choose those without an approved
+design.
 
 In v1: Go/Rust/Python backends, Next.js, SwiftUI, Compose, GPUI/EGUI, Postgres,
 Redis cache, RabbitMQ, JWT + TOTP, Docker, GitHub Actions, local/remote registry,

@@ -88,6 +88,21 @@ func TestRenderBytes(t *testing.T) {
 			want:  "example.com/myapp",
 		},
 		{
+			name:  "replace package dots",
+			input: `{{replace "com.example.app" "." "/"}}`,
+			want:  "com/example/app",
+		},
+		{
+			name:  "replace no match",
+			input: `{{replace "com/example/app" "." "/"}}`,
+			want:  "com/example/app",
+		},
+		{
+			name:  "package path",
+			input: `{{packagePath "com.example.app"}}`,
+			want:  "com/example/app",
+		},
+		{
 			name:    "missing variable",
 			input:   `{{.missing}}`,
 			wantErr: "missing",

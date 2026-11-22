@@ -184,7 +184,7 @@ Presets are starting points. Required companions are added automatically.
 | `api` | A backend API with persistence and accounts | Backend + Postgres + JWT auth |
 | `api-custom` | Choosing your own backend features | Select database, cache, queue, scheduler, dedupe, compression, auth, TOTP, media, search, search sync, pagination, Docker, and CI |
 
-Defaults are kind-scoped: `fullstack` for frontend, `fullstack-api` for fullstack, `api` for backend.
+Defaults are kind-scoped: `fullstack` for frontend, `fullstack-api` for fullstack, `api` for backend, and `mobile` for mobile.
 
 ```bash
 smokeforge new my-frontend --preset frontend

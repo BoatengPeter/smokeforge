@@ -4,6 +4,14 @@ All notable changes to smokeforge are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 semantic versioning with pre-1.0 releases using `v0.x.y`.
 
+## [Unreleased]
+
+### Changed
+
+- Desktop next steps: Electron explains that `make dev` hot reloads; egui and
+  GPUI now point to `make dev-tools` and the cargo-watch `make dev` loop
+  instead of `make run`.
+
 ## [0.3.4] - 2026-11-19
 
 ### Fixed

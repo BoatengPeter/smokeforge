@@ -813,7 +813,7 @@ func Variables(
 	tmpl manifest.Template,
 	provided map[string]string,
 ) (map[string]string, error) {
-	defaults, choices := templateVariables(tmpl)
+	defaults, specs := templateVariables(tmpl)
 
 	if err := validateDeclaredVariables(stack, defaults); err != nil {
 		return nil, err
@@ -824,19 +824,21 @@ func Variables(
 		return nil, err
 	}
 
-	return resolveVariableValues(stack, defaults, choices, provided)
+	return resolveVariableValues(stack, defaults, specs, provided)
 }
 
-func templateVariables(tmpl manifest.Template) (map[string]string, map[string][]string) {
+func templateVariables(
+	tmpl manifest.Template,
+) (map[string]string, map[string]manifest.TemplateVariable) {
 	defaults := make(map[string]string, len(tmpl.Variables))
-	choices := make(map[string][]string, len(tmpl.Variables))
+	specs := make(map[string]manifest.TemplateVariable, len(tmpl.Variables))
 
 	for _, variable := range tmpl.Variables {
 		defaults[variable.Name] = variable.Default
-		choices[variable.Name] = variable.Choices
+		specs[variable.Name] = variable
 	}
 
-	return defaults, choices
+	return defaults, specs
 }
 
 func variableSet(stack manifest.Stack) map[string]bool {
@@ -880,7 +882,7 @@ func validateProvidedVariables(provided map[string]string, declared map[string]b
 func resolveVariableValues(
 	stack manifest.Stack,
 	defaults map[string]string,
-	choices map[string][]string,
+	specs map[string]manifest.TemplateVariable,
 	provided map[string]string,
 ) (map[string]string, error) {
 	values := make(map[string]string, len(stack.Variables))
@@ -899,12 +901,8 @@ func resolveVariableValues(
 			continue
 		}
 
-		if len(choices[name]) > 0 && !slices.Contains(choices[name], value) {
-			return nil, fmt.Errorf(
-				"variable %q must be one of %s",
-				name,
-				strings.Join(choices[name], ", "),
-			)
+		if err := specs[name].CheckValue(value); err != nil {
+			return nil, err
 		}
 
 		values[name] = value

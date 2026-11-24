@@ -155,18 +155,98 @@ func TestTemplate_ValidateChoices(t *testing.T) {
 				},
 			}
 
-			err := tmpl.Validate()
-			if tt.want == "" {
-				if err != nil {
-					t.Fatalf("validate: %v", err)
-				}
+			assertValidateError(t, tmpl, tt.want)
+		})
+	}
+}
 
-				return
+func TestTemplate_ValidatePattern(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		pattern string
+		def     string
+		want    string
+	}{
+		{name: "valid", pattern: `[a-z][a-z0-9_]*`, def: "example_app"},
+		{name: "invalid regex", pattern: `([a-z`, def: "example_app", want: "invalid pattern"},
+		{name: "default does not match", pattern: `[a-z]+`, def: "Example App", want: "default"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			tmpl := &Template{
+				ID: "desktop/egui",
+				Variables: []TemplateVariable{
+					{Name: "crate_name", Prompt: "Crate", Default: tt.def, Pattern: tt.pattern},
+				},
 			}
 
-			if err == nil || !strings.Contains(err.Error(), tt.want) {
-				t.Fatalf("error = %v, want %q", err, tt.want)
+			assertValidateError(t, tmpl, tt.want)
+		})
+	}
+}
+
+func TestTemplateVariable_CheckValue(t *testing.T) {
+	t.Parallel()
+
+	crate := TemplateVariable{Name: "crate_name", Pattern: `[a-z][a-z0-9_]*`}
+	manager := TemplateVariable{Name: "package_manager", Choices: []string{"pnpm", "npm"}}
+	free := TemplateVariable{Name: "site_description"}
+
+	tests := []struct {
+		name     string
+		variable TemplateVariable
+		value    string
+		wantErr  bool
+	}{
+		{name: "pattern match", variable: crate, value: "my_app"},
+		{name: "pattern must match the whole value", variable: crate, value: "my_app\"); evil()", wantErr: true},
+		{name: "pattern partial prefix", variable: crate, value: "abc-1", wantErr: true},
+		{name: "shell substitution", variable: crate, value: "$(id)", wantErr: true},
+		{name: "choice accepted", variable: manager, value: "npm"},
+		{name: "choice rejected", variable: manager, value: "yarn", wantErr: true},
+		{name: "no constraints", variable: free, value: "Anything, really."},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := tt.variable.CheckValue(tt.value)
+			if tt.wantErr && err == nil {
+				t.Fatalf("CheckValue(%q) succeeded, want error", tt.value)
+			}
+
+			if !tt.wantErr && err != nil {
+				t.Fatalf("CheckValue(%q): %v", tt.value, err)
+			}
+
+			if tt.wantErr && !strings.Contains(err.Error(), tt.variable.Name) {
+				t.Fatalf("error %q should name variable %q", err, tt.variable.Name)
 			}
 		})
+	}
+}
+
+// assertValidateError checks that tmpl validates when want is empty, and
+// otherwise fails with an error containing want.
+func assertValidateError(t *testing.T, tmpl *Template, want string) {
+	t.Helper()
+
+	err := tmpl.Validate()
+	if want == "" {
+		if err != nil {
+			t.Fatalf("validate: %v", err)
+		}
+
+		return
+	}
+
+	if err == nil || !strings.Contains(err.Error(), want) {
+		t.Fatalf("error = %v, want %q", err, want)
 	}
 }

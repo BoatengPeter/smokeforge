@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -21,11 +22,53 @@ type Template struct {
 }
 
 // TemplateVariable declares one template input, its prompt, and its default.
+//
+// Pattern is an optional RE2 regular expression that every value must match
+// in full (it is implicitly anchored). Templates use it to keep free-text
+// values such as crate names and bundle identifiers from breaking or
+// injecting into the files they are rendered into.
 type TemplateVariable struct {
 	Name    string   `yaml:"name"`
 	Prompt  string   `yaml:"prompt"`
 	Default string   `yaml:"default"`
 	Choices []string `yaml:"choices"`
+	Pattern string   `yaml:"pattern"`
+}
+
+// CheckValue reports whether value satisfies the variable's choices and
+// pattern. It does not decide whether an empty value is allowed.
+func (v TemplateVariable) CheckValue(value string) error {
+	if len(v.Choices) > 0 && !slices.Contains(v.Choices, value) {
+		return fmt.Errorf(
+			"variable %q must be one of %s",
+			v.Name,
+			strings.Join(v.Choices, ", "),
+		)
+	}
+
+	if v.Pattern == "" {
+		return nil
+	}
+
+	pattern, err := compileVariablePattern(v.Pattern)
+	if err != nil {
+		return fmt.Errorf("variable %q: %w", v.Name, err)
+	}
+
+	if !pattern.MatchString(value) {
+		return fmt.Errorf("variable %q value %q must match %s", v.Name, value, v.Pattern)
+	}
+
+	return nil
+}
+
+func compileVariablePattern(pattern string) (*regexp.Regexp, error) {
+	compiled, err := regexp.Compile(`^(?:` + pattern + `)$`)
+	if err != nil {
+		return nil, fmt.Errorf("invalid pattern %q: %w", pattern, err)
+	}
+
+	return compiled, nil
 }
 
 // LoadTemplateFile reads and parses a template metadata file.
@@ -86,6 +129,10 @@ func (t *Template) Validate() error {
 		if err := validateChoices(t.ID, variable); err != nil {
 			return err
 		}
+
+		if err := validatePattern(t.ID, variable); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -125,6 +172,26 @@ func validateChoices(templateID string, variable TemplateVariable) error {
 			variable.Name,
 			variable.Default,
 		)
+	}
+
+	return nil
+}
+
+func validatePattern(templateID string, variable TemplateVariable) error {
+	if variable.Pattern == "" {
+		return nil
+	}
+
+	if _, err := compileVariablePattern(variable.Pattern); err != nil {
+		return fmt.Errorf("template %q: variable %q has an %w", templateID, variable.Name, err)
+	}
+
+	if variable.Default == "" {
+		return nil
+	}
+
+	if err := variable.CheckValue(variable.Default); err != nil {
+		return fmt.Errorf("template %q: default: %w", templateID, err)
 	}
 
 	return nil

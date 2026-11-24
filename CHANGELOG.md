@@ -6,6 +6,19 @@ semantic versioning with pre-1.0 releases using `v0.x.y`.
 
 ## [Unreleased]
 
+### Added
+
+- Template variables accept an optional `pattern` (anchored RE2). The CLI
+  validates patterns and defaults when loading a registry, rejects
+  non-matching `--var` values before writing, and validates wizard input.
+
+### Security
+
+- `smokeforge new` rejects project names containing characters that break or
+  inject into generated files (quotes, `$`, backticks, slashes, angle
+  brackets, control characters). Names such as `Demo $(cmd)` previously
+  reached generated shell scripts and ran on `make run`.
+
 ### Changed
 
 - Desktop next steps: Electron explains that `make dev` hot reloads; egui and

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/BoatengPeter/smokeforge/internal/manifest"
+	"github.com/BoatengPeter/smokeforge/internal/resolve"
 	"github.com/charmbracelet/huh"
 )
 
@@ -44,6 +45,7 @@ type wizardVariable struct {
 	prompt       string
 	defaultValue string
 	choices      []string
+	spec         manifest.TemplateVariable
 	value        *string
 }
 
@@ -169,7 +171,7 @@ func (w *Wizard) basicGroups(
 				Title("Project name").
 				Placeholder("Acme App").
 				Value(name).
-				Validate(nonEmpty("project name")).
+				Validate(resolve.ValidateProjectName).
 				WithWidth(60),
 		),
 	}
@@ -308,7 +310,7 @@ func (w *Wizard) variableGroups(
 				Title(variable.prompt).
 				Placeholder(variable.defaultValue).
 				Value(variable.value).
-				Validate(nonEmpty(variable.name)).
+				Validate(variableValidator(variable.spec)).
 				WithWidth(60))
 		}
 
@@ -807,7 +809,7 @@ func loadWizardVariables(
 		for _, variable := range tmpl.Variables {
 			value := variable.Default
 			if providedValue := provided[variable.Name]; providedValue != "" {
-				if len(variable.Choices) == 0 || slices.Contains(variable.Choices, providedValue) {
+				if variable.CheckValue(providedValue) == nil {
 					value = providedValue
 				}
 			}
@@ -820,6 +822,7 @@ func loadWizardVariables(
 				prompt:       variable.Prompt,
 				defaultValue: variable.Default,
 				choices:      variable.Choices,
+				spec:         variable,
 				value:        valuePointer,
 			})
 		}
@@ -835,6 +838,18 @@ func newForm(w *Wizard, groups ...*huh.Group) *huh.Form {
 		WithTheme(huh.ThemeCharm()).
 		WithInput(w.In).
 		WithOutput(w.Out)
+}
+
+func variableValidator(spec manifest.TemplateVariable) func(string) error {
+	required := nonEmpty(spec.Name)
+
+	return func(value string) error {
+		if err := required(value); err != nil {
+			return err
+		}
+
+		return spec.CheckValue(value)
+	}
 }
 
 func nonEmpty(label string) func(string) error {

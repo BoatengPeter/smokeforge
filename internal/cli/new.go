@@ -314,6 +314,10 @@ func validateProjectName(selection *resolve.Selection) error {
 		return errors.New("project name is required (use --name)")
 	}
 
+	if err := resolve.ValidateProjectName(selection.Name); err != nil {
+		return fmt.Errorf("invalid --name: %w", err)
+	}
+
 	return nil
 }
 

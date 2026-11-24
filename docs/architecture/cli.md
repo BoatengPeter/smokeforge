@@ -41,6 +41,12 @@ flag. Third-party registry environment overrides and `--json` are planned.
 smokeforge new [dir] [flags]
 ```
 
+The project name (`--name` or the wizard) may contain letters and digits in any
+script, spaces, `.`, `_`, and `-`; it must start with a letter or digit and be
+at most 64 characters. It is rendered verbatim into generated code, so quotes,
+`$`, backticks, slashes, and similar characters are rejected. Template
+variables are checked against their `choices` and `pattern` the same way.
+
 If `dir` is omitted, it defaults to the slug of the project name. The target must
 not exist or must be empty. `new` supports backend, frontend, mobile, fullstack,
 and desktop projects. Fullstack can combine an API with explicit web, one or two

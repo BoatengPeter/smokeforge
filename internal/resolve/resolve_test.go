@@ -1135,3 +1135,47 @@ func TestResolveFullstackDesktopEgui(t *testing.T) {
 		t.Fatalf("root overlays = %v", got)
 	}
 }
+
+func TestVariablesRejectPatternMismatch(t *testing.T) {
+	t.Parallel()
+
+	stack, tmpl := variablesFixture()
+	tmpl.Variables[0].Pattern = `[a-z0-9][a-z0-9./_-]*`
+
+	_, err := Variables(stack, tmpl, map[string]string{"module_path": "example.com/$(id)"})
+	if err == nil || !strings.Contains(err.Error(), "module_path") {
+		t.Fatalf("error = %v, want module_path pattern error", err)
+	}
+}
+
+func TestValidateProjectName(t *testing.T) {
+	t.Parallel()
+
+	valid := []string{"Acme App", "Next.js", "my_app-2", "A", "Café Órbita", "Acme Inc."}
+	for _, name := range valid {
+		if err := ValidateProjectName(name); err != nil {
+			t.Errorf("ValidateProjectName(%q): %v", name, err)
+		}
+	}
+
+	invalid := []string{
+		"",
+		"   ",
+		"Demo $(id)",
+		"Demo `id`",
+		`Acme "Pro"`,
+		"Bob's App",
+		"a/b",
+		`a\b`,
+		" leading",
+		"trailing ",
+		"line\nbreak",
+		"x<y>",
+		strings.Repeat("x", 65),
+	}
+	for _, name := range invalid {
+		if err := ValidateProjectName(name); err == nil {
+			t.Errorf("ValidateProjectName(%q) succeeded, want error", name)
+		}
+	}
+}

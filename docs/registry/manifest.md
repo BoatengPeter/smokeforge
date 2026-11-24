@@ -291,12 +291,25 @@ variables:
   - name: port
     prompt: HTTP port
     default: "8080"
+    pattern: '[0-9]{2,5}'
 ```
 
 Rules:
 
 - `id` must match the stack ID.
 - Variable names must match `^[a-z][a-z0-9_]*$`, be unique, and be non-empty.
+- `choices` (optional) restricts a value to a fixed list; the wizard shows a
+  select. The default must be one of the choices.
+- `pattern` (optional) is an RE2 regular expression that the whole value must
+  match; it is anchored automatically, so `[a-z_]+` means `^(?:[a-z_]+)$`.
+  The CLI rejects an invalid pattern or a non-matching default when it loads
+  the registry, rejects non-matching `--var` values before writing anything,
+  and validates wizard input as it is typed. Give every free-text variable
+  that is rendered into code, scripts, paths, or config a pattern; values are
+  inserted verbatim and are never escaped.
+- The built-in `project_name` is restricted by the CLI on `smokeforge new`:
+  letters and digits (any script), spaces, `.`, `_`, and `-`, starting with a
+  letter or digit, at most 64 characters. `project_slug` is derived from it.
 - The variable set must exactly match the stack's `variables` list.
 - Files ending in `.tmpl` are rendered and lose the suffix. Other files are
   copied byte-for-byte.

@@ -857,3 +857,31 @@ func TestNextStepLinesElectronDesktopHotReload(t *testing.T) {
 		t.Fatalf("electron next steps should explain make dev hot reload:\n%s", lines)
 	}
 }
+
+func TestNewRejectsUnsafeProjectName(t *testing.T) {
+	t.Parallel()
+
+	registryDir := writeDesktopCLIRegistry(t)
+	target := filepath.Join(t.TempDir(), "unsafe")
+
+	_, _, err := executeCommand(
+		t,
+		"new", target,
+		"--registry", registryDir,
+		"--kind", "desktop",
+		"--stack", "desktop/electron",
+		"--name", "Demo $(touch pwned)",
+		"--var", "bundle_id=com.example.desktop",
+		"--var", "package_manager=npm",
+		"--var", "api_url=http://localhost:8080",
+		"--no-input",
+		"--no-git",
+	)
+	if err == nil || !strings.Contains(err.Error(), "project name") {
+		t.Fatalf("error = %v, want project name error", err)
+	}
+
+	if _, statErr := os.Stat(target); !os.IsNotExist(statErr) {
+		t.Fatalf("target should not be created, stat err = %v", statErr)
+	}
+}

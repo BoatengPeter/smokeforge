@@ -231,21 +231,21 @@ without touching user edits.
 
 ```mermaid
 flowchart TD
-    wizard["fullstack selection"] --> api["apps/api\nGo, Rust, or Python"]
-    wizard --> web["apps/web\nNext.js"]
+    wizard["fullstack selection"] --> api["apps/api\nGo or Rust"]
+    wizard --> web["apps/web\nNext.js (explicit --frontend next)"]
     wizard --> ios["apps/ios\nSwiftUI"]
     wizard --> android["apps/android\nCompose"]
     wizard --> desktop["apps/desktop\nElectron (standalone implemented)"]
-    wizard --> root["workspace/fullstack\nroot base"]
+    wizard --> root["workspace/fullstack or workspace/mobile"]
 
     api --> apiFeatures["database, cache, queue,\nauth, totp"]
     root --> repoFeatures["docker, ci"]
     repoFeatures --> compose["compose.yaml"]
     repoFeatures --> workflows[".github/workflows/ci.yml"]
-    api --> wiring["API_URL + BFF"]
+    api --> wiring["API base URL and BFF wiring"]
     wiring --> web
-    wiring -.-> ios
-    wiring -.-> android
+    wiring --> ios
+    wiring --> android
     wiring -.-> desktop
 ```
 

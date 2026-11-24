@@ -22,7 +22,10 @@ import (
 
 var errProjectAborted = errors.New("project creation aborted")
 
-const fullstackKind = "fullstack"
+const (
+	fullstackKind = "fullstack"
+	mobileKind    = "mobile"
+)
 
 type newOptions struct {
 	kind        string
@@ -30,7 +33,7 @@ type newOptions struct {
 	backend     string
 	frontend    string
 	desktop     string
-	mobile      string
+	mobiles     []string
 	name        string
 	preset      string
 	features    []string
@@ -51,7 +54,9 @@ func newNewCmd(opts *options) *cobra.Command {
 
 Presets:
   frontend       Next.js app with shadcn/ui, SEO, API helpers, and Jest
-  fullstack      Next.js + one API, BFF auth, TanStack Query, Docker, and CI
+  fullstack      API + explicit Next.js/web and optional mobile/desktop clients
+  mobile         Android Compose or iOS SwiftUI client
+  mobile-api     API with Postgres/JWT plus Android/iOS clients
   desktop        Secure Electron + React app with SQLite, TanStack Query, and Zustand
   api            Backend API with Postgres and JWT authentication
   api-custom     Backend API where you choose database, auth, TOTP, Docker, and CI
@@ -60,11 +65,13 @@ Required companions are added automatically: auth adds database, and CI adds
 E2E. Use --feature to select individual features instead of a preset.`,
 		Example: `  smokeforge new my-app
   smokeforge new my-app --preset frontend
-  smokeforge new my-saas --kind fullstack --backend go/gin-layered
+  smokeforge new my-saas --kind fullstack --backend go/gin-layered --frontend next
   smokeforge new my-saas --kind fullstack --backend rust/axum --frontend next
-  smokeforge new my-saas --kind fullstack --backend go/gin-layered --desktop electron
-  smokeforge new my-saas --kind fullstack --backend rust/axum --desktop egui
-  smokeforge new my-saas --kind fullstack --backend go/gin-layered --mobile android/compose
+  smokeforge new my-saas --kind fullstack --backend go/gin-layered --frontend next --desktop electron
+  smokeforge new my-saas --kind fullstack --backend rust/axum --frontend next --desktop egui
+  smokeforge new my-saas --kind fullstack --backend go/gin-layered --mobile android/compose --mobile ios/swiftui
+  smokeforge new my-ios --kind mobile --stack ios/swiftui
+  smokeforge new my-ios --kind mobile --stack ios/swiftui --backend go/gin-layered
   smokeforge new my-app --kind desktop --stack desktop/electron
   smokeforge new my-app --kind desktop --stack desktop/egui --preset desktop-egui
   smokeforge new my-api --kind backend --preset api
@@ -86,10 +93,10 @@ E2E. Use --feature to select individual features instead of a preset.`,
 	flags := cmd.Flags()
 	flags.StringVar(&newOpts.kind, "kind", "", "project kind (backend, frontend, fullstack, mobile, desktop)")
 	flags.StringVar(&newOpts.stack, "stack", "", "stack ID")
-	flags.StringVar(&newOpts.backend, "backend", "", "backend stack ID for fullstack projects")
-	flags.StringVar(&newOpts.frontend, "frontend", "", "frontend stack ID for fullstack projects (default next)")
+	flags.StringVar(&newOpts.backend, "backend", "", "backend stack ID for fullstack or mobile+API projects")
+	flags.StringVar(&newOpts.frontend, "frontend", "", "frontend stack ID for fullstack projects (use next to include web)")
 	flags.StringVar(&newOpts.desktop, "desktop", "", "optional desktop stack for fullstack projects (electron or egui)")
-	flags.StringVar(&newOpts.mobile, "mobile", "", "optional mobile stack for fullstack projects (android/compose)")
+	flags.StringArrayVar(&newOpts.mobiles, "mobile", nil, "optional mobile stack for fullstack projects (repeatable: android/compose, ios/swiftui)")
 	flags.StringVar(&newOpts.name, "name", "", "project name")
 	flags.StringVar(&newOpts.preset, "preset", "", "feature preset")
 	flags.StringArrayVar(&newOpts.features, "feature", nil, "feature selection (repeatable, id[:variant])")
@@ -236,7 +243,7 @@ func collectSelection(
 		Backend:   newOpts.backend,
 		Frontend:  newOpts.frontend,
 		Desktop:   newOpts.desktop,
-		Mobile:    newOpts.mobile,
+		Mobiles:   append([]string{}, newOpts.mobiles...),
 		Name:      newOpts.name,
 		Preset:    newOpts.preset,
 		Features:  append([]string{}, newOpts.features...),
@@ -261,6 +268,7 @@ func collectSelection(
 	return selection, nil
 }
 
+//nolint:gocyclo // Validation covers each supported project shape in one place.
 func validateSelection(selection *resolve.Selection) error {
 	if strings.TrimSpace(selection.Kind) == "" {
 		return errors.New("kind is required (use --kind)")
@@ -270,7 +278,15 @@ func validateSelection(selection *resolve.Selection) error {
 		return errors.New("--desktop is only valid with --kind fullstack")
 	}
 
-	if selection.Kind != fullstackKind && strings.TrimSpace(selection.Mobile) != "" {
+	if selection.Kind == mobileKind && len(selection.Mobiles) > 0 {
+		return errors.New("--mobile is not valid with --kind mobile; use --stack")
+	}
+
+	if selection.Kind == mobileKind && strings.TrimSpace(selection.Frontend) != "" {
+		return errors.New("--frontend is only valid with --kind fullstack")
+	}
+
+	if selection.Kind != fullstackKind && selection.Kind != mobileKind && len(selection.Mobiles) > 0 {
 		return errors.New("--mobile is only valid with --kind fullstack")
 	}
 
@@ -318,7 +334,7 @@ func runWizard(
 			Backend:   selection.Backend,
 			Frontend:  selection.Frontend,
 			Desktop:   selection.Desktop,
-			Mobile:    selection.Mobile,
+			Mobiles:   append([]string{}, selection.Mobiles...),
 			Name:      selection.Name,
 			Preset:    selection.Preset,
 			Features:  selection.Features,
@@ -350,11 +366,30 @@ func withDefaultPreset(selection resolve.Selection, m *manifest.Manifest) resolv
 		return selection
 	}
 
-	if preset := m.DefaultPresetForKind(selection.Kind); preset != nil {
-		selection.Preset = preset.ID
+	switch {
+	case selection.Kind == mobileKind && strings.TrimSpace(selection.Backend) != "":
+		selection.Preset = existingPresetID(m, "mobile-api")
+	case selection.Kind == fullstackKind:
+		if strings.TrimSpace(selection.Frontend) != "" {
+			selection.Preset = existingPresetID(m, "fullstack-api")
+		} else if len(selection.Mobiles) > 0 {
+			selection.Preset = existingPresetID(m, "mobile-api")
+		}
+	default:
+		if preset := m.DefaultPresetForKind(selection.Kind); preset != nil {
+			selection.Preset = preset.ID
+		}
 	}
 
 	return selection
+}
+
+func existingPresetID(m *manifest.Manifest, id string) string {
+	if m.FindPreset(id) == nil {
+		return ""
+	}
+
+	return id
 }
 
 func parseVariables(values []string) (map[string]string, error) {
@@ -379,7 +414,7 @@ func parseVariables(values []string) (map[string]string, error) {
 }
 
 func summaryLines(plan *resolve.Plan, dir, registryTag string) []string {
-	if plan.Kind == fullstackKind {
+	if plan.Root != nil {
 		return fullstackSummaryLines(plan, dir, registryTag)
 	}
 
@@ -481,21 +516,33 @@ func printSuccess(
 	return err
 }
 
+//nolint:gocyclo // Next steps branch by selected targets.
 func nextStepLines(plan *resolve.Plan, path string, dockerInstalled bool) []string {
 	lines := []string{
 		tui.Muted("Next steps:"),
 		"  cd " + path,
 	}
 
-	if plan.Kind == fullstackKind {
+	if plan.Root != nil {
 		lines = append(lines,
 			"  make install",
 			"  make api-dev        # API",
-			"  make web-dev        # Next.js",
 		)
 
-		if target := targetByPath(plan, "apps/android"); target != nil {
-			lines = append(lines, "  make mobile-build    # "+target.Stack.Name)
+		if targetByPath(plan, "apps/web") != nil {
+			lines = append(lines, "  make web-dev        # Next.js")
+		}
+
+		mobiles := make([]string, 0, 2)
+
+		for _, path := range []string{"apps/android", "apps/ios"} {
+			if target := targetByPath(plan, path); target != nil {
+				mobiles = append(mobiles, target.Stack.Name)
+			}
+		}
+
+		if len(mobiles) > 0 {
+			lines = append(lines, "  make mobile-build    # "+strings.Join(mobiles, ", "))
 		}
 
 		if target := targetByPath(plan, "apps/desktop"); target != nil {
@@ -515,6 +562,14 @@ func nextStepLines(plan *resolve.Plan, path string, dockerInstalled bool) []stri
 	}
 
 	if plan.Target.Stack.Kind == "mobile" {
+		if plan.Target.Stack.ID == "ios/swiftui" {
+			return append(lines,
+				"  make project",
+				"  make test",
+				"  make build",
+			)
+		}
+
 		return append(lines,
 			"  ./gradlew test",
 			"  ./gradlew lint",
@@ -564,9 +619,22 @@ func nextStepLines(plan *resolve.Plan, path string, dockerInstalled bool) []stri
 func desktopNextSteps(plan *resolve.Plan, lines []string) ([]string, bool) {
 	switch plan.Target.Stack.ID {
 	case "desktop/electron":
-		return append(lines, "  make install", "  make dev", "  make test", "  make build"), true
+		return append(
+			lines,
+			"  make install",
+			"  make dev            # hot reload: renderer HMR, main/preload restart",
+			"  make test",
+			"  make build",
+		), true
 	case "desktop/egui", "desktop/gpui":
-		return append(lines, "  make install", "  make run", "  make test", "  make build"), true
+		return append(
+			lines,
+			"  make install",
+			"  make dev-tools      # once: installs cargo-watch",
+			"  make dev            # rebuild + restart on every save",
+			"  make test",
+			"  make build",
+		), true
 	default:
 		return lines, false
 	}

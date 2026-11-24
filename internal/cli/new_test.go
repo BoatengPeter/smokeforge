@@ -431,6 +431,16 @@ stacks:
     name: Android
     template: templates/android
     variables: [application_id, package_name, api_base_url]
+  - id: ios/swiftui
+    kind: mobile
+    name: iOS
+    template: templates/ios
+    variables: [bundle_id, ios_api_base_url]
+  - id: workspace/mobile
+    kind: fullstack
+    name: Mobile Workspace
+    template: templates/root-mobile
+    variables: [package_manager]
   - id: workspace/fullstack
     kind: fullstack
     name: Workspace
@@ -441,6 +451,10 @@ presets:
     name: Fullstack API
     kinds: [fullstack]
     default: true
+    features: [auth:jwt]
+  - id: mobile-api
+    name: Mobile API
+    kinds: [mobile, fullstack]
     features: [auth:jwt]
 features:
   - id: auth
@@ -473,8 +487,16 @@ func writeFullstackCLIRegistry(t *testing.T) string {
 		"id: android/compose\nvariables:\n  - name: application_id\n    default: com.example.app\n  - name: package_name\n    default: com.example.app\n  - name: api_base_url\n    default: http://10.0.2.2:8080\n")
 	writeTestFile(t, filepath.Join(dir, "templates", "android", "files", "README.md.tmpl"),
 		"# {{.project_name}}\n")
+	writeTestFile(t, filepath.Join(dir, "templates", "ios", "template.yaml"),
+		"id: ios/swiftui\nvariables:\n  - name: bundle_id\n    default: com.example.app\n  - name: ios_api_base_url\n    default: http://127.0.0.1:8080\n")
+	writeTestFile(t, filepath.Join(dir, "templates", "ios", "files", "README.md.tmpl"),
+		"# {{.project_name}}\n")
 	writeTestFile(t, filepath.Join(dir, "templates", "root", "template.yaml"),
 		"id: workspace/fullstack\nvariables:\n  - name: package_manager\n    default: pnpm\n")
+	writeTestFile(t, filepath.Join(dir, "templates", "root-mobile", "template.yaml"),
+		"id: workspace/mobile\nvariables:\n  - name: package_manager\n    default: pnpm\n")
+	writeTestFile(t, filepath.Join(dir, "templates", "root-mobile", "files", "CONTEXT-MAP.md"),
+		"# Context map\n")
 	writeTestFile(t, filepath.Join(dir, "overlays", "workspace", "fullstack", "mobile", "overlay.yaml"),
 		"id: mobile\nops:\n  - addFiles:\n      - {path: README.md, dest: README.md}\n")
 	writeTestFile(t, filepath.Join(dir, "overlays", "workspace", "fullstack", "mobile", "files", "README.md"),
@@ -501,6 +523,7 @@ func TestNewFullstack(t *testing.T) {
 		"--registry", registryDir,
 		"--kind", "fullstack",
 		"--backend", "go/api",
+		"--frontend", "next",
 		"--name", "Acme Fullstack",
 		"--preset", "fullstack-api",
 		"--var", "module_path=example.com/acme",
@@ -538,7 +561,7 @@ func TestNewFullstackMobile(t *testing.T) {
 		"--backend", "go/api",
 		"--mobile", "android/compose",
 		"--name", "Acme Fullstack Mobile",
-		"--preset", "fullstack-api",
+		"--preset", "mobile-api",
 		"--var", "module_path=example.com/acme",
 		"--var", "application_id=com.example.acme",
 		"--var", "package_name=com.example.acme",
@@ -577,8 +600,134 @@ func TestMobileRequiresFullstack(t *testing.T) {
 		"--no-input",
 		"--no-git",
 	)
-	if err == nil || !strings.Contains(err.Error(), "--mobile is only valid with --kind fullstack") {
-		t.Fatalf("error = %v, want fullstack restriction", err)
+	if err == nil || !strings.Contains(err.Error(), "--mobile is only valid") {
+		t.Fatalf("error = %v, want mobile composition restriction", err)
+	}
+}
+
+func TestNewMobileWithBackend(t *testing.T) {
+	t.Parallel()
+
+	registryDir := writeFullstackCLIRegistry(t)
+	target := filepath.Join(t.TempDir(), "acme-mobile-api")
+
+	out, _, err := executeCommand(
+		t,
+		"new", target,
+		"--registry", registryDir,
+		"--kind", "mobile",
+		"--stack", "android/compose",
+		"--backend", "go/api",
+		"--name", "Acme Mobile API",
+		"--var", "module_path=example.com/acme",
+		"--var", "application_id=com.example.acme",
+		"--var", "package_name=com.example.acme",
+		"--var", "api_base_url=http://10.0.2.2:8080",
+		"--no-input",
+		"--no-git",
+	)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	for _, want := range []string{"apps/api (go/api)", "apps/android (android/compose)"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("output %q missing %q", out, want)
+		}
+	}
+
+	if _, err := os.Stat(filepath.Join(target, "apps", "api", "go.mod")); err != nil {
+		t.Fatalf("API target missing: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(target, "apps", "web")); !os.IsNotExist(err) {
+		t.Fatalf("web target should not exist: %v", err)
+	}
+}
+
+func TestNewFullstackBothMobiles(t *testing.T) {
+	t.Parallel()
+
+	registryDir := writeFullstackCLIRegistry(t)
+	target := filepath.Join(t.TempDir(), "acme-both-mobile")
+
+	out, _, err := executeCommand(
+		t,
+		"new", target,
+		"--registry", registryDir,
+		"--kind", "fullstack",
+		"--backend", "go/api",
+		"--mobile", "android/compose",
+		"--mobile", "ios/swiftui",
+		"--name", "Acme Both Mobile",
+		"--preset", "mobile-api",
+		"--var", "module_path=example.com/acme",
+		"--var", "package_manager=pnpm",
+		"--var", "application_id=com.example.acme",
+		"--var", "package_name=com.example.acme",
+		"--var", "api_base_url=http://10.0.2.2:8080",
+		"--var", "bundle_id=com.example.acme",
+		"--var", "ios_api_base_url=http://127.0.0.1:8080",
+		"--no-input",
+		"--no-git",
+	)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	for _, want := range []string{"apps/android (android/compose)", "apps/ios (ios/swiftui)", "make mobile-build"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("output %q missing %q", out, want)
+		}
+	}
+
+	for _, path := range []string{"apps/android/README.md", "apps/ios/README.md", "apps/api/go.mod"} {
+		if _, err := os.Stat(filepath.Join(target, filepath.FromSlash(path))); err != nil {
+			t.Fatalf("missing %s: %v", path, err)
+		}
+	}
+
+	if _, err := os.Stat(filepath.Join(target, "apps", "web")); !os.IsNotExist(err) {
+		t.Fatalf("web target should not exist: %v", err)
+	}
+}
+
+func TestDefaultPresetTracksComposition(t *testing.T) {
+	t.Parallel()
+
+	m := &manifest.Manifest{
+		Presets: []manifest.Preset{
+			{ID: "mobile", Kinds: []string{"mobile"}, Default: true},
+			{ID: "mobile-api", Kinds: []string{"mobile", "fullstack"}},
+			{ID: "fullstack-api", Kinds: []string{"fullstack"}, Default: true},
+		},
+	}
+
+	mobileAPI := withDefaultPreset(resolve.Selection{
+		Kind:    "mobile",
+		Backend: "go/api",
+		Stack:   "ios/swiftui",
+	}, m)
+	if mobileAPI.Preset != "mobile-api" {
+		t.Fatalf("mobile+backend preset = %q", mobileAPI.Preset)
+	}
+
+	fullstackWeb := withDefaultPreset(resolve.Selection{
+		Kind:     "fullstack",
+		Backend:  "go/api",
+		Frontend: "next",
+	}, m)
+	if fullstackWeb.Preset != "fullstack-api" {
+		t.Fatalf("web fullstack preset = %q", fullstackWeb.Preset)
+	}
+
+	fullstackMobile := withDefaultPreset(resolve.Selection{
+		Kind:    "fullstack",
+		Backend: "go/api",
+		Mobiles: []string{"ios/swiftui"},
+	}, m)
+	if fullstackMobile.Preset != "mobile-api" {
+		t.Fatalf("mobile fullstack preset = %q", fullstackMobile.Preset)
 	}
 }
 
@@ -669,19 +818,42 @@ func TestNewDesktop(t *testing.T) {
 	}
 }
 
-func TestNextStepLinesEguiDesktop(t *testing.T) {
+func TestNextStepLinesRustDesktopUseWatchMode(t *testing.T) {
+	t.Parallel()
+
+	for _, stack := range []string{"desktop/egui", "desktop/gpui"} {
+		plan := &resolve.Plan{
+			Target: resolve.TargetPlan{
+				Stack: manifest.Stack{ID: stack, Name: stack},
+			},
+		}
+
+		lines := strings.Join(nextStepLines(plan, "my-desktop", true), "\n")
+		for _, want := range []string{
+			"make install",
+			"make dev-tools",
+			"make dev ",
+			"make test",
+			"make build",
+		} {
+			if !strings.Contains(lines, want) {
+				t.Fatalf("%s next steps missing %q:\n%s", stack, want, lines)
+			}
+		}
+	}
+}
+
+func TestNextStepLinesElectronDesktopHotReload(t *testing.T) {
 	t.Parallel()
 
 	plan := &resolve.Plan{
 		Target: resolve.TargetPlan{
-			Stack: manifest.Stack{ID: "desktop/egui", Name: "egui"},
+			Stack: manifest.Stack{ID: "desktop/electron", Name: "Electron"},
 		},
 	}
 
-	lines := strings.Join(nextStepLines(plan, "my-egui", true), "\n")
-	for _, want := range []string{"make install", "make run", "make test", "make build"} {
-		if !strings.Contains(lines, want) {
-			t.Fatalf("egui next steps missing %q:\n%s", want, lines)
-		}
+	lines := strings.Join(nextStepLines(plan, "my-electron", true), "\n")
+	if !strings.Contains(lines, "hot reload") {
+		t.Fatalf("electron next steps should explain make dev hot reload:\n%s", lines)
 	}
 }

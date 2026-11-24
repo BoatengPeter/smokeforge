@@ -21,7 +21,7 @@ type Selection struct {
 	Backend   string
 	Frontend  string
 	Desktop   string
-	Mobile    string
+	Mobiles   []string
 	Preset    string
 	Features  []string
 	Variables map[string]string
@@ -82,6 +82,10 @@ func Resolve(m *manifest.Manifest, registryDir string, sel Selection) (*Plan, er
 		return resolveFullstack(m, registryDir, sel)
 	}
 
+	if sel.Kind == "mobile" && strings.TrimSpace(sel.Backend) != "" {
+		return resolveMobileBackend(m, registryDir, sel)
+	}
+
 	stack, err := findStack(m, sel)
 	if err != nil {
 		return nil, err
@@ -101,12 +105,46 @@ func Resolve(m *manifest.Manifest, registryDir string, sel Selection) (*Plan, er
 }
 
 func resolveFullstack(m *manifest.Manifest, registryDir string, sel Selection) (*Plan, error) {
+	return resolveMultiTarget(m, registryDir, sel, sel.Kind)
+}
+
+func resolveMobileBackend(m *manifest.Manifest, registryDir string, sel Selection) (*Plan, error) {
+	if strings.TrimSpace(sel.Frontend) != "" {
+		return nil, errors.New("--frontend is not valid with --kind mobile")
+	}
+
+	if len(sel.Mobiles) > 0 {
+		return nil, errors.New("--mobile is not valid with --kind mobile; use --stack")
+	}
+
+	sel.Mobiles = []string{sel.Stack}
+
+	return resolveMultiTarget(m, registryDir, sel, "mobile")
+}
+
+func resolveMultiTarget(
+	m *manifest.Manifest,
+	registryDir string,
+	sel Selection,
+	planKind string,
+) (*Plan, error) {
 	stacks, err := fullstackStacks(m, sel)
 	if err != nil {
 		return nil, err
 	}
 
-	provided, err := fullstackVariables(stacks.backend, stacks.frontend, stacks.root, stacks.desktop, stacks.mobile, sel.Variables)
+	if sel.Preset == "fullstack-api" && stacks.frontend == nil {
+		return nil, errors.New("preset fullstack-api requires --frontend next")
+	}
+
+	provided, err := multiTargetVariables(
+		stacks.backend,
+		stacks.frontend,
+		stacks.root,
+		stacks.desktop,
+		stacks.mobiles,
+		sel.Variables,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +159,7 @@ func resolveFullstack(m *manifest.Manifest, registryDir string, sel Selection) (
 		requested,
 		stacks.backend,
 		stacks.frontend,
-		stacks.mobile,
+		stacks.mobiles,
 		stacks.desktop,
 		stacks.root,
 	)
@@ -129,11 +167,14 @@ func resolveFullstack(m *manifest.Manifest, registryDir string, sel Selection) (
 		return nil, err
 	}
 
-	webFeatures = fullstackWebFeatures(apiFeatures, webFeatures)
+	if stacks.frontend != nil {
+		webFeatures = fullstackWebFeatures(apiFeatures, webFeatures)
+	}
+
 	desktopFeatures = fullstackDesktopFeatures(apiFeatures, desktopFeatures, stacks.desktop)
 	apiFeatures = fullstackSyncAPIFeatures(apiFeatures, stacks.desktop)
 
-	if err := validateFullstackFeatures(apiFeatures, stacks.mobile, rootFeatures); err != nil {
+	if err := validateFullstackFeatures(apiFeatures, stacks.mobiles, rootFeatures); err != nil {
 		return nil, err
 	}
 
@@ -141,6 +182,7 @@ func resolveFullstack(m *manifest.Manifest, registryDir string, sel Selection) (
 		m,
 		registryDir,
 		sel,
+		planKind,
 		stacks,
 		provided,
 		apiFeatures,
@@ -153,12 +195,13 @@ func resolveFullstack(m *manifest.Manifest, registryDir string, sel Selection) (
 
 type fullstackStackSet struct {
 	backend  manifest.Stack
-	frontend manifest.Stack
-	mobile   *manifest.Stack
+	frontend *manifest.Stack
+	mobiles  []manifest.Stack
 	desktop  *manifest.Stack
 	root     manifest.Stack
 }
 
+//nolint:gocyclo // Selection validation covers backend, web, mobile, desktop, and root shape.
 func fullstackStacks(m *manifest.Manifest, sel Selection) (fullstackStackSet, error) {
 	backendID := strings.TrimSpace(sel.Backend)
 	if backendID == "" {
@@ -174,19 +217,52 @@ func fullstackStacks(m *manifest.Manifest, sel Selection) (fullstackStackSet, er
 		return fullstackStackSet{}, err
 	}
 
-	frontendID := strings.TrimSpace(sel.Frontend)
-	if frontendID == "" {
-		frontendID = "next"
+	var frontend *manifest.Stack
+
+	if strings.TrimSpace(sel.Frontend) != "" {
+		found, findErr := findStackByID(m, strings.TrimSpace(sel.Frontend), "frontend")
+		if findErr != nil {
+			return fullstackStackSet{}, findErr
+		}
+
+		frontend = &found
 	}
 
-	frontend, err := findStackByID(m, frontendID, "frontend")
-	if err != nil {
-		return fullstackStackSet{}, err
+	mobileLimit := m.Kinds["mobile"].Max
+	if mobileLimit > 0 && len(sel.Mobiles) > mobileLimit {
+		return fullstackStackSet{}, fmt.Errorf("at most %d mobile stacks may be selected", mobileLimit)
+	}
+
+	mobiles := make([]manifest.Stack, 0, len(sel.Mobiles))
+	seenMobiles := make(map[string]bool, len(sel.Mobiles))
+
+	for _, raw := range sel.Mobiles {
+		mobileID := strings.TrimSpace(raw)
+		if mobileID == "" {
+			return fullstackStackSet{}, errors.New("mobile stack must not be empty")
+		}
+
+		if seenMobiles[mobileID] {
+			return fullstackStackSet{}, fmt.Errorf("duplicate mobile stack %q", mobileID)
+		}
+
+		found, findErr := findStackByID(m, mobileID, "mobile")
+		if findErr != nil {
+			return fullstackStackSet{}, findErr
+		}
+
+		seenMobiles[mobileID] = true
+
+		mobiles = append(mobiles, found)
 	}
 
 	var desktop *manifest.Stack
 
 	if strings.TrimSpace(sel.Desktop) != "" {
+		if frontend == nil {
+			return fullstackStackSet{}, errors.New("--desktop requires an explicit frontend selection")
+		}
+
 		desktopID := strings.TrimSpace(sel.Desktop)
 		if !strings.Contains(desktopID, "/") {
 			desktopID = "desktop/" + desktopID
@@ -200,28 +276,29 @@ func fullstackStacks(m *manifest.Manifest, sel Selection) (fullstackStackSet, er
 		desktop = &found
 	}
 
-	var mobile *manifest.Stack
-
-	if strings.TrimSpace(sel.Mobile) != "" {
-		mobileID := strings.TrimSpace(sel.Mobile)
-		if !strings.Contains(mobileID, "/") {
-			mobileID = "android/" + mobileID
-		}
-
-		found, findErr := findStackByID(m, mobileID, "mobile")
-		if findErr != nil {
-			return fullstackStackSet{}, findErr
-		}
-
-		mobile = &found
+	if frontend == nil && len(mobiles) == 0 && desktop == nil {
+		return fullstackStackSet{}, errors.New(
+			"fullstack requires at least one client (use --frontend next or --mobile <stack>)",
+		)
 	}
 
-	root, err := findStackByID(m, "workspace/fullstack", "fullstack")
+	rootID := "workspace/mobile"
+	if frontend != nil {
+		rootID = "workspace/fullstack"
+	}
+
+	root, err := findStackByID(m, rootID, "fullstack")
 	if err != nil {
-		return fullstackStackSet{}, fmt.Errorf("fullstack workspace stack: %w", err)
+		return fullstackStackSet{}, fmt.Errorf("workspace stack %s: %w", rootID, err)
 	}
 
-	return fullstackStackSet{backend: backend, frontend: frontend, mobile: mobile, desktop: desktop, root: root}, nil
+	return fullstackStackSet{
+		backend:  backend,
+		frontend: frontend,
+		mobiles:  mobiles,
+		desktop:  desktop,
+		root:     root,
+	}, nil
 }
 
 func fullstackWebFeatures(apiFeatures, webFeatures []string) []string {
@@ -271,22 +348,24 @@ func fullstackSyncAPIFeatures(apiFeatures []string, desktop *manifest.Stack) []s
 	return apiFeatures
 }
 
-func validateFullstackFeatures(apiFeatures []string, mobile *manifest.Stack, rootFeatures []string) error {
+func validateFullstackFeatures(apiFeatures []string, mobiles []manifest.Stack, rootFeatures []string) error {
 	if slices.Contains(rootFeatures, "docker") && !featureSelected(apiFeatures, "database", "") {
 		return errors.New("fullstack docker requires database:postgres for the API")
 	}
 
-	if mobile != nil && !featureSelected(apiFeatures, "auth", "jwt") {
-		return errors.New("fullstack mobile requires auth:jwt for the API")
+	if len(mobiles) > 0 && !featureSelected(apiFeatures, "auth", "jwt") {
+		return errors.New("mobile composition requires auth:jwt for the API")
 	}
 
 	return nil
 }
 
+//nolint:gocyclo // The plan assembles optional clients and root wiring.
 func buildFullstackPlan(
 	m *manifest.Manifest,
 	registryDir string,
 	sel Selection,
+	planKind string,
 	stacks fullstackStackSet,
 	provided map[string]string,
 	apiFeatures, webFeatures, mobileFeatures, desktopFeatures, rootFeatures []string,
@@ -296,15 +375,24 @@ func buildFullstackPlan(
 		return nil, err
 	}
 
-	web, err := resolveTargetWithFeatures(m, registryDir, stacks.frontend, "apps/web", provided, webFeatures, true)
-	if err != nil {
-		return nil, err
+	targets := []TargetPlan{api}
+
+	if stacks.frontend != nil {
+		web, resolveErr := resolveTargetWithFeatures(m, registryDir, *stacks.frontend, "apps/web", provided, webFeatures, true)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+
+		targets = append(targets, web)
 	}
 
-	targets := []TargetPlan{api, web}
+	for _, mobileStack := range stacks.mobiles {
+		path, pathErr := mobileTargetPath(mobileStack)
+		if pathErr != nil {
+			return nil, pathErr
+		}
 
-	if stacks.mobile != nil {
-		mobile, resolveErr := resolveTargetWithFeatures(m, registryDir, *stacks.mobile, "apps/android", provided, mobileFeatures, true)
+		mobile, resolveErr := resolveTargetWithFeatures(m, registryDir, mobileStack, path, provided, mobileFeatures, true)
 		if resolveErr != nil {
 			return nil, resolveErr
 		}
@@ -326,11 +414,12 @@ func buildFullstackPlan(
 		return nil, err
 	}
 
-	// Add client-specific workspace wiring after the root target resolves.
-	if stacks.mobile != nil {
-		overlayPath, overlayID := "overlays/workspace/fullstack/mobile", "mobile"
-
-		mobileOverlay, overlayErr := loadRootOverlay(registryDir, overlayPath, overlayID)
+	if stacks.frontend != nil && len(stacks.mobiles) > 0 {
+		mobileOverlay, overlayErr := loadRootOverlay(
+			registryDir,
+			"overlays/workspace/fullstack/mobile",
+			"mobile",
+		)
 		if overlayErr != nil {
 			return nil, overlayErr
 		}
@@ -351,11 +440,22 @@ func buildFullstackPlan(
 
 	return &Plan{
 		Name:    sel.Name,
-		Kind:    sel.Kind,
+		Kind:    planKind,
 		Target:  api,
 		Targets: targets,
 		Root:    &root,
 	}, nil
+}
+
+func mobileTargetPath(stack manifest.Stack) (string, error) {
+	switch stack.ID {
+	case "android/compose":
+		return "apps/android", nil
+	case "ios/swiftui":
+		return "apps/ios", nil
+	default:
+		return "", fmt.Errorf("mobile stack %q has no known target path", stack.ID)
+	}
 }
 
 func fullstackDesktopOverlay(desktop manifest.Stack) (path, featureID string) {
@@ -405,17 +505,22 @@ func findStackByID(m *manifest.Manifest, id, kind string) (manifest.Stack, error
 	return manifest.Stack{}, fmt.Errorf("unknown %s stack %q", kind, id)
 }
 
-func fullstackVariables(
-	backend, frontend, root manifest.Stack,
-	desktop, mobile *manifest.Stack,
+func multiTargetVariables(
+	backend manifest.Stack,
+	frontend *manifest.Stack,
+	root manifest.Stack,
+	desktop *manifest.Stack,
+	mobiles []manifest.Stack,
 	provided map[string]string,
 ) (map[string]string, error) {
 	declared := make(map[string]bool)
 
-	stacks := []manifest.Stack{backend, frontend, root}
-	if mobile != nil {
-		stacks = append(stacks, *mobile)
+	stacks := []manifest.Stack{backend, root}
+	if frontend != nil {
+		stacks = append(stacks, *frontend)
 	}
+
+	stacks = append(stacks, mobiles...)
 
 	if desktop != nil {
 		stacks = append(stacks, *desktop)
@@ -522,12 +627,13 @@ func filterVariables(stack manifest.Stack, provided map[string]string) map[strin
 	return filtered
 }
 
-//nolint:gocyclo // Routing covers API, web, mobile, desktop, and workspace targets.
+//nolint:gocyclo // Routing covers API, optional web, mobile, desktop, and workspace targets.
 func routeFullstackFeatures(
 	m *manifest.Manifest,
 	requested []string,
-	backend, frontend manifest.Stack,
-	mobile *manifest.Stack,
+	backend manifest.Stack,
+	frontend *manifest.Stack,
+	mobiles []manifest.Stack,
 	desktop *manifest.Stack,
 	root manifest.Stack,
 ) (api, web, mobileFeatures, desktopFeatures, rootFeatures []string, err error) {
@@ -540,13 +646,20 @@ func routeFullstackFeatures(
 		}
 
 		apiOK := stackSupportsFeature(feature, variantID, backend)
-		webOK := stackSupportsFeature(feature, variantID, frontend)
-		mobileOK := mobile != nil && stackSupportsFeature(feature, variantID, *mobile)
+		webOK := frontend != nil && stackSupportsFeature(feature, variantID, *frontend)
+		mobileOK := false
+
+		for _, mobile := range mobiles {
+			if stackSupportsFeature(feature, variantID, mobile) {
+				mobileOK = true
+
+				break
+			}
+		}
+
 		desktopOK := desktop != nil && stackSupportsFeature(feature, variantID, *desktop)
 		rootOK := stackSupportsFeature(feature, variantID, root)
 
-		// Persistence belongs to the API in a fullstack project. The web app
-		// reaches it through the BFF, not with its own database overlay.
 		if feature.ID == "database" {
 			if !apiOK {
 				return nil, nil, nil, nil, nil, fmt.Errorf("feature %q requires a backend stack", raw)
@@ -557,8 +670,6 @@ func routeFullstackFeatures(
 			continue
 		}
 
-		// Deployment features are owned by the workspace root; Docker also
-		// installs the per-target Dockerfiles used by the root compose file.
 		if rootOK && feature.ID == "ci" {
 			rootFeatures = append(rootFeatures, raw)
 			continue
@@ -593,7 +704,7 @@ func routeFullstackFeatures(
 
 		if !routed {
 			return nil, nil, nil, nil, nil, fmt.Errorf(
-				"feature %q does not support the fullstack API, web, mobile, desktop, or workspace stack",
+				"feature %q does not support the selected API, web, mobile, or workspace stack",
 				raw,
 			)
 		}

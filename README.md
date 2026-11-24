@@ -9,10 +9,9 @@ fullstack projects for clients. Pick a stack, compose the features you need
 (database, auth, client state, analytics, Docker, CI), and get a wired,
 buildable project — reproducibly, from a pinned template registry.
 
-> **Status:** CLI generation, lifecycle, fullstack composition, native egui base generation, and the production Android base are complete.
+> **Status:** CLI generation, lifecycle, mobile/fullstack composition, native egui base generation, and the production Android/iOS mobile bases are complete.
 > The Next.js template, Go/Gin backend (four architectures), Rust/Axum backend,
-> Electron desktop base, and Android Compose base are implemented. iOS and
-> remaining native desktop templates remain provisional.
+> Electron desktop base, Android Compose, and iOS SwiftUI bases are implemented.
 > `smokeforge install` and Homebrew are not available yet. See the [stack catalog](STACKS.md) and
 > [roadmap](docs/development/roadmap.md).
 
@@ -179,21 +178,22 @@ Presets are starting points. Required companions are added automatically.
 | `frontend` | A polished frontend or landing page | Next.js, shadcn/ui, SEO, API helpers, Jest |
 | `fullstack` | A Next.js app with its own auth/database | Frontend + Postgres + Better Auth + Zustand + TanStack Query |
 | `fullstack-api` | Next.js + a Go or Rust API | Next.js BFF + API + Postgres/JWT + TanStack Query + Docker + CI |
-| `mobile` | A production-shaped Android app | Compose + Hilt + Retrofit + encrypted DataStore + API auth |
+| `mobile` | A production-shaped Android or iOS app | Android Compose/Hilt or iOS SwiftUI with API auth |
+| `mobile-api` | API + mobile clients | Postgres/JWT API + Android/iOS with CI |
 | `desktop` | A secure Electron desktop app | Electron + React Router + shadcn/ui + TanStack Query + Zustand + SQLite + Drizzle |
 | `api` | A backend API with persistence and accounts | Backend + Postgres + JWT auth |
 | `api-custom` | Choosing your own backend features | Select database, cache, queue, scheduler, dedupe, compression, auth, TOTP, media, search, search sync, pagination, Docker, and CI |
 
-Defaults are kind-scoped: `fullstack` for frontend, `fullstack-api` for fullstack, `api` for backend, and `mobile` for mobile.
+Defaults are shape-aware: web fullstack uses `fullstack-api`, API + mobile uses `mobile-api`, backend uses `api`, and a client-only mobile project uses `mobile`.
 
 ```bash
 smokeforge new my-frontend --preset frontend
 smokeforge new my-saas --preset fullstack
 
 # Fullstack API + Next.js (Go or Rust)
-smokeforge new my-saas --kind fullstack --backend go/gin-layered
-smokeforge new my-saas --kind fullstack --backend rust/axum
-smokeforge new my-saas --kind fullstack --backend go/gin-layered --desktop electron
+smokeforge new my-saas --kind fullstack --backend go/gin-layered --frontend next
+smokeforge new my-saas --kind fullstack --backend rust/axum --frontend next
+smokeforge new my-saas --kind fullstack --backend go/gin-layered --frontend next --desktop electron
 
 # Standalone Electron desktop app
 smokeforge new my-desktop --kind desktop --stack desktop/electron
@@ -201,11 +201,18 @@ smokeforge new my-desktop --kind desktop --stack desktop/electron
 # Standalone native Rust egui desktop app
 smokeforge new my-egui --kind desktop --stack desktop/egui --preset desktop-egui
 
-# Standalone Android app
+# Standalone Android or iOS app
 smokeforge new my-android --kind mobile --stack android/compose
+smokeforge new my-ios --kind mobile --stack ios/swiftui
 
-# Fullstack API + Next.js + Android
-smokeforge new my-product --kind fullstack --backend go/gin-layered --mobile android/compose
+# API + one mobile client, no web
+smokeforge new my-ios-api --kind mobile --stack ios/swiftui --backend go/gin-layered
+
+# API + Android + iOS, no web
+smokeforge new my-mobile --kind fullstack --backend go/gin-layered --mobile android/compose --mobile ios/swiftui
+
+# API + Next.js + both mobile clients
+smokeforge new my-product --kind fullstack --backend go/gin-layered --frontend next --mobile android/compose --mobile ios/swiftui
 
 # Go API: choose an architecture and start from the backend preset
 smokeforge new my-api --kind backend --stack go/gin-layered --preset api
@@ -228,13 +235,15 @@ Feature dependencies are automatic:
 
 ## Run a fullstack app locally
 
-There are two fullstack shapes:
+There are three composition shapes:
 
 - `fullstack`: Next.js owns auth and the database through Route Handlers.
 - `fullstack-api`: Next.js is the BFF and a Go or Rust API owns JWT auth and
   persistence.
+- API + mobile: a `workspace/mobile` project with one or both native apps and no
+  web target.
 
-Add `--desktop electron`, `--desktop egui`, or `--mobile android/compose` to fullstack-api to generate the matching client target. The
+Add `--frontend next` explicitly for the web app. Add `--desktop electron`, `--desktop egui`, or `--mobile <stack>` (repeatable) to generate the matching client targets. The
 desktop main process owns the API session; Drizzle-backed SQLite is local
 storage; TanStack Query and Zustand are added automatically. Optional
 `shell:tray` and `auth:oauth-pkce` features are available. Offline Library sync
@@ -243,7 +252,7 @@ is included with idempotency, version checks, retries, and manual conflicts.
 ### Fullstack API + Next.js
 
 ```bash
-smokeforge new my-product --kind fullstack --backend go/gin-layered
+smokeforge new my-product --kind fullstack --backend go/gin-layered --frontend next
 cd my-product
 make install
 make api-dev        # API on :8080
@@ -335,6 +344,16 @@ make ci
 
 Docker, E2E, and database targets appear only when their overlays are selected.
 
+### Desktop development loop
+
+| Stack | `make dev` does | Extra targets |
+| --- | --- | --- |
+| `desktop/electron` | `electron-vite dev --watch`: React Fast Refresh in the renderer, renderer reload on preload changes, Electron restart on main-process changes | `make dev-inspect` (V8 inspector on port 5858) |
+| `desktop/egui`, `desktop/gpui` | `cargo watch`: rebuild and restart the app on every save; settings, SQLite data, and keyring tokens persist | `make dev-tools` (installs pinned cargo-watch once), `make watch-check`, `make watch-test`, `make run` (run once) |
+
+In fullstack workspaces, `make desktop-dev` runs the same loop from the root.
+Each generated app documents details in `docs/DEVELOPMENT.md`.
+
 ## Help and shell completion
 
 ```bash
@@ -387,7 +406,7 @@ Restart your shell after installing completion.
 | Backend | `rust/axum` (Axum + SQLx + JWT) | Implemented |
 | Backend | `python/fastapi` | Provisional |
 | Mobile | `android/compose` | Implemented |
-| Mobile | `ios/swiftui` | Provisional |
+| Mobile | `ios/swiftui` | Implemented |
 | Desktop | `desktop/electron` (Electron + React + TypeScript) | Implemented |
 | Desktop | `desktop/egui` (Rust + eframe/egui + SQLite) | Implemented |
 | Desktop | `desktop/gpui` | Deferred |

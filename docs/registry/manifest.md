@@ -19,7 +19,8 @@ smokeforge-registry/
 │   ├── desktop/rust/
 │   │   ├── gpui/
 │   │   └── egui/
-│   └── workspace/fullstack/
+│   ├── workspace/fullstack/
+│   └── workspace/mobile/
 ├── overlays/
 │   ├── backend/
 │   │   ├── go/
@@ -89,12 +90,12 @@ stacks:
     kind: mobile
     name: iOS (SwiftUI)
     template: templates/mobile/ios/swiftui
-    variables: [bundle_id, team_id]
+    variables: [bundle_id, ios_api_base_url]
   - id: android/compose
     kind: mobile
     name: Android (Compose)
     template: templates/mobile/android/compose
-    variables: [application_id, package_name]
+    variables: [application_id, package_name, api_base_url]
   - id: desktop/gpui
     kind: desktop
     name: Desktop (GPUI)

@@ -554,6 +554,7 @@ func TestGenerateFullstackTargets(t *testing.T) {
 		Name:      "Acme App",
 		Kind:      "fullstack",
 		Backend:   "go/api",
+		Frontend:  "next",
 		Preset:    "fullstack-api",
 		Features:  []string{"database", "docker"},
 		Variables: map[string]string{"module_path": "example.com/acme", "package_manager": "pnpm"},

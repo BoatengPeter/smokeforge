@@ -1,9 +1,11 @@
 # Fullstack composition
 
-**Status:** API + Next.js is implemented. `--mobile android/compose` adds a
-native Android target, and `--desktop electron` adds an Electron target with
-offline Library synchronization: local outbox, idempotent mutations, version
-checks, cursors, retries, and manual conflicts.
+**Status:** API + Next.js is implemented when `--frontend next` is explicit.
+`--mobile` is repeatable for Android and iOS. API + mobile without web uses
+`workspace/mobile`; web + mobile uses `workspace/fullstack` plus mobile overlays.
+`--desktop electron` adds an Electron target with offline Library
+synchronization: local outbox, idempotent mutations, version checks, cursors,
+retries, and manual conflicts.
 
 ## Kinds and limits
 
@@ -11,34 +13,38 @@ The registry manifest declares per-kind selection limits:
 
 | Kind | Max in a project | Examples |
 | --- | --- | --- |
-| `backend` | 1 | `go/gin-layered`, `rust/axum`, `python/fastapi` |
+| `backend` | 1 | `go/gin-layered`, `rust/axum` |
 | `frontend` | 1 | `next` |
 | `mobile` | 2 | `ios/swiftui` + `android/compose` |
 | `desktop` | 1 | `desktop/electron`; GPUI/EGUI deferred |
 
-A fullstack project is one API target plus any supported clients. A backend-only
-project is a fullstack project with no clients; a client-only project is one
-without an API.
+Fullstack generates web only when `--frontend next` is explicit. At least one
+client (web, mobile, or desktop) is required.
+
+A fullstack project is one API target plus at least one supported client. API +
+mobile without web uses `workspace/mobile`; web + API uses `workspace/fullstack`.
+Fullstack generates Next.js only when `--frontend next` is explicit. The
+`workspace/mobile` root also supports one or both `apps/android` and `apps/ios`.
 
 ## Monorepo layout
 
 ```text
 acme/
   apps/
-    api/                  # backend target (required for fullstack)
-    web/                  # Next.js target
+    api/                  # backend target (required for API-backed compositions)
+    web/                  # Next.js target (explicit --frontend next)
     ios/                  # SwiftUI target
-    android/              # Android Compose target (implemented)
-    desktop/              # Electron target (optional fullstack client)
+    android/              # Android Compose target
+    desktop/              # Electron target (requires explicit web)
   .github/
     workflows/
       ci.yml
   CONTEXT-MAP.md          # API/web/workspace context routing
-  compose.yaml            # root compose for fullstack-api + docker
+  compose.yaml            # root compose for web fullstack + docker
   .smokeforge.json
   .smokeforge.lock.json
   README.md
-  Makefile                # root entry point; delegates to apps/api and apps/web
+  Makefile                # root entry point; delegates API, web, and mobile targets
 ```
 
 Target paths are fixed by kind (`apps/api`, `apps/web`, `apps/ios`,
@@ -57,7 +63,7 @@ Target paths are fixed by kind (`apps/api`, `apps/web`, `apps/ios`,
      to the web target;
    - `auth:jwt` on the API adds `auth:bff` to Next.js automatically;
    - `docker` applies to both apps and the root; `ci` applies at the root;
-   - client-specific overlays (future) apply to their target.
+   - mobile, desktop, and client-specific overlays apply to their targets.
 4. **Operation ordering** — target bases first, then target overlays, then the
    root base and root overlays. Root operations run last so they can aggregate
    generated services and workflows.
@@ -71,7 +77,7 @@ Clients must not require manual URL hunting. At generation time:
 - The API port is allocated (collision-checked) and recorded in state.
 - Web: `.env.example`/`.env` receives server-only `API_URL=http://localhost:<port>`;
   the browser uses same-origin BFF routes.
-- iOS: a generated `Config.swift` (or xcconfig) contains the base URL for debug.
+- iOS: `project.yml` writes `API_BASE_URL` from the `ios_api_base_url` variable; the app reads it from `Info.plist`.
 - Android: `BuildConfig.API_BASE_URL`; default `http://10.0.2.2:8080`.
 - Desktop: `DESKTOP_API_URL` in the main process; tokens stay in main. SQLite is
   local data/cache, not a second server database.
@@ -89,7 +95,7 @@ fullstack preset, and wires `API_URL=http://api:8080`. The root Makefile runs
 
 `ci` renders `.github/workflows/ci.yml` at the root. It detects Go or Rust,
 installs the corresponding toolchain, runs standard API checks, then runs the
-web install/typecheck/lint/test/build path.
+web install/typecheck/lint/test/build path and conditional Android/iOS jobs.
 
 Overlays patch compose/workflow files through structured YAML operations, not
 string concatenation, so multiple features compose deterministically.

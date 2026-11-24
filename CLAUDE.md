@@ -26,8 +26,8 @@ Module: `github.com/BoatengPeter/smokeforge`
 Status: M1, M2, the M4 lifecycle (add/remove, drift, backups), and M5 release
 engineering are complete. M3 has the Next.js template, the Go/Gin backend
 (four architectures, database/auth/TOTP/Docker/CI overlays), the Rust/Axum
-backend, the Android Compose base, and the desktop bases; Python and iOS remain
-pending. See [STACKS.md](STACKS.md),
+backend, the Android Compose and iOS SwiftUI bases, and the desktop bases;
+Python remains pending. See [STACKS.md](STACKS.md),
 [docs/development/roadmap.md](docs/development/roadmap.md), and
 [docs/development/release.md](docs/development/release.md).
 
@@ -87,8 +87,9 @@ go run ./cmd/smokeforge list stacks --registry ./testdata/registry
 
 ## Scope
 
-Go/Gin, Rust, Android Compose, and desktop internals are implemented. Python and
-iOS internals remain undecided; do not choose those without an approved
+Go/Gin, Rust, Android Compose, iOS SwiftUI, and desktop internals are
+implemented. Python internals remain undecided; do not choose them without an
+approved
 design.
 
 Do not add SSE, search, storage, MySQL/SQLite, Redis Streams, observability,

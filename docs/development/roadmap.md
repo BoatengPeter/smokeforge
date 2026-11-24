@@ -2,8 +2,8 @@
 
 **Status:** M1, M2, the M4 lifecycle, M5 release engineering, and the standalone
 Electron desktop base are complete. M3 has Next.js, the Go/Gin backend, the
-Rust/Axum backend, and the Android Compose base with project-scoped skills;
-Python, iOS, and remaining fullstack targeting remain pending.
+Rust/Axum backend, and the Android Compose and iOS SwiftUI bases with
+project-scoped skills; Python and remaining backend overlays remain pending.
 
 ## Milestones
 
@@ -44,17 +44,19 @@ The Next.js template and the Go/Gin backend are implemented. The Go slice has
 four architecture bases, PostgreSQL/sqlc/goose, JWT auth, TOTP, Redis cache,
 RabbitMQ queue/scheduler, leader election, dedupe, compression, image media,
 Meilisearch search, RabbitMQ search index sync, signed pagination, Docker, CI,
-Swagger UI, all 17 Go skills, the Rust/Axum base, and the Android Compose base
-with Hilt, Retrofit, encrypted DataStore, auth, and fullstack mobile wiring.
-Python, iOS, and remaining backend overlays are still pending.
+Swagger UI, all 17 Go skills, the Rust/Axum base, and the Android Compose and
+iOS SwiftUI bases with project-scoped skills and mobile fullstack wiring.
+Python and remaining backend overlays are still pending.
 
 - [ ] Registry repo governance, layout, release process
 - [x] Go/Gin bases: `go/gin-flat`, `go/gin-layered`, `go/gin-hexagonal`, `go/gin-ddd`
 - [x] Go overlays: `database:postgres`, `auth:jwt`, `totp`, `docker`, `ci:github`
 - [x] Rust base: `rust/axum` with SQLx/Postgres, JWT, Docker, CI, and Rust skills
-- [ ] Base templates: `python/fastapi`, `ios/swiftui`, `desktop/gpui`
+- [ ] Base templates: `python/fastapi`, `desktop/gpui`
 - [x] Android base: `android/compose` with Hilt, Retrofit, encrypted DataStore, auth, and CI
-- [x] Fullstack mobile: `--mobile android/compose` adds `apps/android`
+- [x] iOS base: `ios/swiftui` with XcodeGen, SwiftUI, Keychain, and macOS CI
+- [x] Fullstack mobile: repeatable `--mobile` adds `apps/android` and/or `apps/ios`
+- [x] Optional-web mobile fullstack: API + mobile via `workspace/mobile`
 - [x] Desktop base: `desktop/electron` with secure IPC, SQLite, TanStack, Zustand, and Playwright
 - [x] Overlays: `cache:redis`, `queue:rabbitmq`, `scheduler:leader`, `dedupe:redis`, `compression:gzip`, `media`, `media-provider:minio`, `media-provider:r2`, `search:meilisearch`, `search-sync:rabbitmq`, `pagination`
 - [ ] Contract tests for every overlay×base pair
@@ -63,16 +65,16 @@ Python, iOS, and remaining backend overlays are still pending.
 **Acceptance:** every declared stack builds standalone; every feature overlay
 applies to every supported base and the result builds.
 
-### M4 — Lifecycle and fullstack _(complete for API + web)_
+### M4 — Lifecycle and fullstack _(complete for API + web + mobile)_
 
 - [x] `add` / `remove` with drift detection, backups, automatic rollback
 - [x] `doctor` project-state drift checks
 - [ ] `install` per-stack idempotent setup
 - [ ] Toolchain checks in `doctor`
 - [x] `workspace/fullstack` root base
-- [x] Multi-target monorepo generation (`apps/api`, `apps/web`, optional `apps/desktop`)
-- [x] Client API-URL wiring (`API_URL` + BFF + desktop main-process session)
-- [x] Root compose/CI aggregation
+- [x] Multi-target monorepo generation (`apps/api`, optional `apps/web`, `apps/android`, `apps/ios`, `apps/desktop`)
+- [x] Client API-URL wiring (`API_URL` + BFF, Android BuildConfig, iOS project.yml/Info.plist, desktop main-process session)
+- [x] Root compose/CI aggregation, including conditional Android/iOS CI jobs
 - [ ] End-to-end matrix for every fullstack combo
 
 **Acceptance (lifecycle):** generate, add, and remove reversible features;
@@ -109,11 +111,10 @@ tag, release review, Homebrew tap, and the remaining v1 scope.
 
 ## Pending decisions (future templates)
 
-These remain open for Python, iOS, and remaining overlays:
+These remain open for Python and remaining overlays:
 
 - Python HTTP framework and project layout.
 - Python database, Redis, and queue conventions.
-- iOS UI approach and project scaffolding.
 - Remaining backend overlays and cross-target feature wiring.
 - Dependency management and formatting conventions inside future generated apps.
 

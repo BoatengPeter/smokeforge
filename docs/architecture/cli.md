@@ -42,9 +42,9 @@ smokeforge new [dir] [flags]
 ```
 
 If `dir` is omitted, it defaults to the slug of the project name. The target must
-not exist or must be empty. `new` supports backend, frontend, and fullstack
-(API + Next.js); `add`/`remove` remain single-target. Other kinds and
-multi-client selection are planned for M4.
+not exist or must be empty. `new` supports backend, frontend, mobile, fullstack,
+and desktop projects. Fullstack can combine an API with explicit web, one or two
+mobile clients, and desktop. `add`/`remove` remain single-target.
 
 The command prints a boxed summary, asks for confirmation in a TTY, and reports
 successful stages with checkmarks. `--no-input` produces the same output without
@@ -54,7 +54,8 @@ prompts, and `NO_COLOR=1` disables color.
 
 1. **Kind** — every registry kind whose `max` is at least 1 and that has a
    stack.
-2. **Stack** — filtered to the chosen kind; one stack for M2.
+2. **Stack** — filtered to the chosen kind. Repeatable `--mobile` selections are
+   available for fullstack projects.
 3. **Name** — the display name; `project_slug` is derived from it.
 4. **Preset** — when the registry declares presets, choose a starting bundle.
    Presets may declare kinds; the default preset for the selected kind is

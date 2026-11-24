@@ -23,7 +23,7 @@ type WizardResult struct {
 	Backend   string
 	Frontend  string
 	Desktop   string
-	Mobile    string
+	Mobiles   []string
 	Name      string
 	Preset    string
 	Features  []string
@@ -131,7 +131,7 @@ func (w *Wizard) Run(ctx context.Context) error {
 		result.Backend = selectedStackID
 		result.Frontend = frontend
 		result.Desktop = w.Result.Desktop
-		result.Mobile = w.Result.Mobile
+		result.Mobiles = append([]string{}, w.Result.Mobiles...)
 		result.Stack = ""
 	}
 

@@ -2,8 +2,8 @@
 
 The stacks, versions, and defaults smokeforge targets. Next.js and the Go/Gin
 backend, the Rust/Axum backend, the Electron desktop base, the native egui
-desktop base, and the Android Compose base are implemented; Python, iOS, and
-GPUI remain provisional.
+desktop base, and the Android Compose and iOS SwiftUI bases are implemented;
+Python and GPUI remain provisional.
 Items marked **deferred** are not yet shipped and require the decisions noted.
 
 ## Status legend
@@ -130,20 +130,23 @@ They are scoped to the generated frontend app, not the smokeforge CLI repo.
 | BFF | `apps/web/src/app/api/auth/*` | Same-origin auth routes; HttpOnly cookies |
 | Hooks | `apps/web/src/lib/query/hooks.ts` | `useAuthSession`, `useLogin`, `useRegister`, `useLogout` |
 
-Fullstack preset: `fullstack-api` = API + Next.js + Postgres/JWT + TanStack Query
-+ Docker + CI. `smokeforge new` accepts `--backend`, `--frontend`, and optional
-`--desktop electron`; `--frontend` defaults to `next`.
+Fullstack presets: `fullstack-api` = API + explicit Next.js + Postgres/JWT +
+TanStack Query + Docker + CI; `mobile-api` = API + one or both mobile clients,
+Postgres/JWT, and CI. `smokeforge new` accepts `--backend`, explicit
+`--frontend next`, repeatable `--mobile`, and optional `--desktop electron`.
+API + mobile without web uses `workspace/mobile`.
 
-With `--desktop electron`, the workspace also gets `apps/desktop`: the React
-Router app shell, Drizzle-backed SQLite, TanStack Query, Zustand, main-process
+With `--desktop electron` and explicit `--frontend next`, the workspace also
+gets `apps/desktop`: the React Router app shell, Drizzle-backed SQLite, TanStack Query, Zustand, main-process
 API auth, safeStorage refresh tokens, and a root desktop CI job. Optional
 `shell:tray` and `auth:oauth-pkce` features are available. Offline Library sync
 is included with idempotency, version checks, retries, and manual conflicts.
 
 Root compose extends the generated API/web compose files, adds Postgres and the
 migration service for the fullstack preset, and wires `API_URL=http://api:8080`.
-Root CI detects Go or Rust and runs API checks plus the web CI target. Root
-`CONTEXT-MAP.md` points at the API and web `CONTEXT.md` files.
+Root CI detects Go or Rust and runs API checks plus conditional web, Android,
+and iOS jobs. Root `CONTEXT-MAP.md` points at the API, web, and mobile
+`CONTEXT.md` files.
 
 ## Backend — Go/Gin
 
@@ -269,13 +272,15 @@ search sync, retry queues, and imgproxy/nginx minio transformations.
 | Stack ID | Platform | UI | Status |
 | --- | --- | --- | --- |
 | `android/compose` | Kotlin/Android | Jetpack Compose, Hilt, Retrofit, DataStore | Implemented |
-| `ios/swiftui` | Swift/iOS | SwiftUI | Provisional |
+| `ios/swiftui` | Swift/iOS | SwiftUI, XcodeGen, Swift Testing | Implemented |
 
 The Android base is a modular Compose app with build-logic convention plugins,
 Hilt/KSP, Retrofit/OkHttp, encrypted DataStore tokens, email/password auth with
 refresh rotation, debug/staging/release variants, R8, project-scoped Kotlin and
-Android skills, and fullstack `apps/android` composition. Offline sync, OAuth,
-and TOTP are future overlays.
+Android skills, and fullstack `apps/android` composition. The iOS base uses
+SwiftUI, local Swift packages, XcodeGen, Keychain, and Swift Testing on macOS CI,
+and fullstack `apps/ios` composition. Both can coexist in an API-backed mobile
+workspace. Offline sync, OAuth, and TOTP are future overlays.
 
 ## Desktop
 
@@ -297,6 +302,12 @@ Zod-validated preload IPC bridge, electron-vite, and electron-builder. The
 default `desktop` preset includes TanStack Query, Zustand, and SQLite; Playwright
 Electron and GitHub Actions are optional. Package manager is selectable (pnpm,
 npm, or bun).
+
+| Desktop stack | Dev reload | Command |
+| --- | --- | --- |
+| `desktop/electron` | electron-vite 6 `--watch`: renderer HMR/React Fast Refresh, preload reload, main restart; dev-only CSP from `src/shared/csp.ts` | `make dev`, `make dev-inspect` |
+| `desktop/egui` | cargo-watch 8.5.3 rebuild + restart | `make dev-tools` once, then `make dev`, `make watch-check`, `make watch-test` |
+| `desktop/gpui` | cargo-watch 8.5.3 rebuild + restart | `make dev-tools` once, then `make dev`, `make watch-check`, `make watch-test` |
 
 ## Infrastructure
 

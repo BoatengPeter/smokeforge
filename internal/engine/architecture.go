@@ -19,6 +19,7 @@ const (
 	kindFrontend     = "frontend"
 	kindFullstack    = "fullstack"
 	kindMobile       = "mobile"
+	iosStackID       = "ios/swiftui"
 )
 
 type capability struct {
@@ -187,12 +188,21 @@ func writeSystemDiagram(b *strings.Builder, plan *resolve.Plan) {
 
 	switch plan.Kind {
 	case kindFullstack:
-		b.WriteString("    Browser[Browser] -->|HttpOnly session| Web[Next.js web + BFF]\n")
-		b.WriteString("    Web -->|Bearer token| API[API service]\n")
+		if slices.Contains(paths, "apps/web") {
+			b.WriteString("    Browser[Browser] -->|HttpOnly session| Web[Next.js web + BFF]\n")
+			b.WriteString("    Web -->|Bearer token| API[API service]\n")
+		} else {
+			b.WriteString("    Client[API client] --> API[API service]\n")
+		}
+
 		b.WriteString("    API --> DB[(PostgreSQL)]\n")
 
 		if slices.Contains(paths, "apps/android") {
 			b.WriteString("    Android[Android app] -->|authenticated API| API\n")
+		}
+
+		if slices.Contains(paths, "apps/ios") {
+			b.WriteString("    iOS[iOS app] -->|authenticated API| API\n")
 		}
 
 		if slices.Contains(paths, "apps/desktop") {
@@ -200,7 +210,22 @@ func writeSystemDiagram(b *strings.Builder, plan *resolve.Plan) {
 			b.WriteString("    Desktop -->|sync| API\n")
 		}
 	case kindMobile:
-		b.WriteString("    Android[Android app] -->|authenticated API| API[API service]\n")
+		switch {
+		case slices.Contains(paths, "apps/api"):
+			if slices.Contains(paths, "apps/android") {
+				b.WriteString("    Android[Android app] -->|authenticated API| API[API service]\n")
+			}
+
+			if slices.Contains(paths, "apps/ios") {
+				b.WriteString("    iOS[iOS app] -->|authenticated API| API[API service]\n")
+			}
+
+			b.WriteString("    API --> DB[(PostgreSQL)]\n")
+		case targetStackKind(plan, kindMobile) == iosStackID:
+			b.WriteString("    iOS[iOS app]\n")
+		default:
+			b.WriteString("    Android[Android app]\n")
+		}
 	case kindDesktop:
 		if desktopStack(plan) == "desktop/electron" {
 			b.WriteString("    Renderer[React renderer] -->|typed IPC| Main[Electron main]\n")
@@ -298,7 +323,11 @@ func layoutEntries(root string, target resolve.TargetPlan) []string {
 	case kindFrontend:
 		candidates = append(candidates, "src/app/", "src/components/", "src/lib/", "public/")
 	case kindMobile:
-		candidates = append(candidates, "app/", "core/", "feature/", "build-logic/", "gradle/")
+		if target.Stack.ID == iosStackID {
+			candidates = append(candidates, "project.yml", "Makefile", "App/", "Packages/", "Config/", "DESIGN.md", "skills-lock.json")
+		} else {
+			candidates = append(candidates, "app/", "core/", "feature/", "build-logic/", "gradle/")
+		}
 	case kindDesktop:
 		if target.Stack.ID == "desktop/electron" {
 			candidates = append(candidates, "src/main/", "src/preload/", "src/renderer/", "tests/", "assets/")
@@ -343,9 +372,16 @@ func writeSingleAppRows(b *strings.Builder, target resolve.TargetPlan) {
 		b.WriteString("| Pages and layouts | `src/app/`, `src/components/`, `README.md` |\n")
 		b.WriteString("| Data fetching and BFF | `src/lib/`, `src/app/api/`, `CONTEXT.md` |\n")
 	case kindMobile:
-		b.WriteString("| Screens and navigation | `app/`, `feature/`, `docs/UI.md` |\n")
-		b.WriteString("| Auth and network | `core/network/`, `core/data/`, `docs/AUTH.md` |\n")
-		b.WriteString("| Secure local settings | `core/datastore/`, `docs/STORAGE.md` |\n")
+		if target.Stack.ID == iosStackID {
+			b.WriteString("| Screens and navigation | `App/`, `Packages/*Feature/`, `DESIGN.md` |\n")
+			b.WriteString("| Auth and network | `Packages/Networking/`, `Packages/Data/`, `docs/AUTH.md`, `docs/NETWORK.md` |\n")
+			b.WriteString("| Secure token storage | `Packages/Storage/`, `docs/STORAGE.md` |\n")
+			b.WriteString("| Xcode project and configs | `project.yml`, `Config/`, `Makefile` |\n")
+		} else {
+			b.WriteString("| Screens and navigation | `app/`, `feature/`, `docs/ARCHITECTURE.md` |\n")
+			b.WriteString("| Auth and network | `core/network/`, `core/data/`, `docs/AUTH.md`, `docs/NETWORK.md` |\n")
+			b.WriteString("| Secure token storage | `core/datastore/`, `docs/STORAGE.md` |\n")
+		}
 	case kindDesktop:
 		if target.Stack.ID == "desktop/electron" {
 			b.WriteString("| UI | `src/renderer/`, `docs/UI.md` |\n")
@@ -367,10 +403,25 @@ func writeTargetRows(b *strings.Builder, target resolve.TargetPlan) {
 	case kindFrontend:
 		fmt.Fprintf(b, "| Web app and BFF | `%s/README.md`, `%s/CONTEXT.md` |\n", target.Path, target.Path)
 	case kindMobile:
-		fmt.Fprintf(b, "| Android app | `%s/README.md`, `%s/CONTEXT.md` |\n", target.Path, target.Path)
+		label := "Android app"
+		if target.Stack.ID == iosStackID {
+			label = "iOS app"
+		}
+
+		fmt.Fprintf(b, "| %s | `%s/README.md`, `%s/CONTEXT.md` |\n", label, target.Path, target.Path)
 	case kindDesktop:
 		fmt.Fprintf(b, "| Desktop app | `%s/README.md`, `%s/CONTEXT.md` |\n", target.Path, target.Path)
 	}
+}
+
+func targetStackKind(plan *resolve.Plan, kind string) string {
+	for _, target := range allPlanTargets(plan) {
+		if target.Stack.Kind == kind {
+			return target.Stack.ID
+		}
+	}
+
+	return ""
 }
 
 func desktopStack(plan *resolve.Plan) string {

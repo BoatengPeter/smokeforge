@@ -14,8 +14,8 @@ Docker, CI) as declarative overlays.
 - **Binary:** `smokeforge`
 - **Language:** Go 1.26.11+
 - **Template registry:** separate repo,
-  `github.com/BoatengPeter/smokeforge-registry` (planned)
-- **Status:** M1, M2, the M4 lifecycle, and M5 release engineering are complete. M3 has the Next.js template, the Go/Gin backend, the Rust/Axum backend, the Android Compose base, and the desktop bases; Python and iOS remain pending.
+  `github.com/BoatengPeter/smokeforge-registry`
+- **Status:** M1, M2, the M4 lifecycle, and M5 release engineering are complete. M3 has the Next.js template, the Go/Gin backend, the Rust/Axum backend, the Android Compose and iOS SwiftUI bases, and the desktop bases; Python remains pending.
 
 ## Read order (agents)
 
@@ -93,9 +93,10 @@ Full details: [architecture overview](docs/architecture/overview.md).
 | `add`, `remove`, drift, backups, rollback, project doctor | Done (M4 lifecycle) |
 | Version metadata, goreleaser, release workflow, release docs | Done (M5 engineering) |
 | Cross-platform CI matrix, cross-build, govulncheck, security policy | Done |
-| Registry templates/overlays | Next.js and Go/Gin implemented; other stacks pending |
-| `install`, fullstack | Planned (M4 remainder) |
-| Release/distribution | Planned (M5) |
+| Registry templates/overlays | Next.js, Go/Gin, Rust/Axum, Android, iOS, and desktop implemented; Python pending |
+| `install` | Planned (M4 remainder) |
+| Fullstack generation | Implemented for web, mobile, and desktop compositions |
+| Release/distribution | M5 engineering complete; publishing pending |
 
 If the table and code disagree, the code wins — update the table.
 
@@ -206,8 +207,8 @@ touches the network. `registry` depends on `manifest`.
 ## Scope discipline
 
 The Go/Gin, Rust/Axum, Android Compose, Electron, egui, and GPUI internals are
-decided and implemented. Python and iOS frameworks, ORMs, clients, migration
-tools, and layouts remain undecided. Do not choose those without an approved
+decided and implemented. Python frameworks, ORMs, clients, migration tools, and
+layouts remain undecided. Do not choose those without an approved
 design.
 
 In v1: Go/Rust/Python backends, Next.js, SwiftUI, Compose, GPUI/EGUI, Postgres,

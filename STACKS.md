@@ -292,10 +292,18 @@ workspace. Offline sync, OAuth, and TOTP are future overlays.
 
 The egui base is a Cargo workspace with `core`, `api-client`, `storage`, `app`,
 and `desktop` crates. It uses exact-pinned egui/eframe 0.37, rusqlite/refinery,
-eframe layout persistence, the near-black egui desktop theme tokens, egui_tiles, English and
-Spanish locales, and `egui_kittest`/Rust skills. Generate it with
+eframe layout persistence, egui_tiles, English and Spanish locales, and
+`egui_kittest`/Rust skills. Generate it with
 `--kind desktop --stack desktop/egui --preset desktop-egui`. Fullstack egui
 composition is tracked separately.
+
+Both Rust desktop bases (egui and GPUI) share one design system: a light and a
+dark Smokeforge palette with WCAG-tested contrast (plus high contrast in
+egui), the embedded Inter font, code-drawn icons (egui) or GPUI Kit Lucide
+icons (GPUI), reusable components, and documented app states (startup
+failure, database unavailable, not found, degraded notices, confirmations).
+Each generated app's `DESIGN.md`, `docs/UI.md`, and `docs/STATES.md` explain how
+to extend them.
 
 The Electron base uses React + Vite + TypeScript, a sandboxed renderer, a typed
 Zod-validated preload IPC bridge, electron-vite, and electron-builder. The

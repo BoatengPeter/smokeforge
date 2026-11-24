@@ -180,11 +180,12 @@ Presets are starting points. Required companions are added automatically.
 | `fullstack-api` | Next.js + a Go or Rust API | Next.js BFF + API + Postgres/JWT + TanStack Query + Docker + CI |
 | `mobile` | A production-shaped Android or iOS app | Android Compose/Hilt or iOS SwiftUI with API auth |
 | `mobile-api` | API + mobile clients | Postgres/JWT API + Android/iOS with CI |
+| `workspace-api` | API + any client mix | Postgres/JWT API foundation with CI |
 | `desktop` | A secure Electron desktop app | Electron + React Router + shadcn/ui + TanStack Query + Zustand + SQLite + Drizzle |
 | `api` | A backend API with persistence and accounts | Backend + Postgres + JWT auth |
 | `api-custom` | Choosing your own backend features | Select database, cache, queue, scheduler, dedupe, compression, auth, TOTP, media, search, search sync, pagination, Docker, and CI |
 
-Defaults are shape-aware: web fullstack uses `fullstack-api`, API + mobile uses `mobile-api`, backend uses `api`, and a client-only mobile project uses `mobile`.
+Defaults are shape-aware: web fullstack uses `fullstack-api`, API + mobile uses `mobile-api`, workspace with an API uses `workspace-api`, backend uses `api`, and a client-only mobile project uses `mobile`.
 
 ```bash
 smokeforge new my-frontend --preset frontend
@@ -214,6 +215,15 @@ smokeforge new my-mobile --kind fullstack --backend go/gin-layered --mobile andr
 # API + Next.js + both mobile clients
 smokeforge new my-product --kind fullstack --backend go/gin-layered --frontend next --mobile android/compose --mobile ios/swiftui
 
+# Composable workspace: API + web + desktop + both mobile clients
+smokeforge new my-product --kind workspace --backend go/gin-layered --frontend next --desktop electron --mobile android/compose --mobile ios/swiftui
+
+# API + desktop, no web
+smokeforge new my-desktop-api --kind workspace --backend rust/axum --desktop egui
+
+# Client-only workspace
+smokeforge new my-clients --kind workspace --frontend next --mobile ios/swiftui
+
 # Go API: choose an architecture and start from the backend preset
 smokeforge new my-api --kind backend --stack go/gin-layered --preset api
 
@@ -235,13 +245,15 @@ Feature dependencies are automatic:
 
 ## Run a fullstack app locally
 
-There are three composition shapes:
+There are four composition shapes:
 
 - `fullstack`: Next.js owns auth and the database through Route Handlers.
 - `fullstack-api`: Next.js is the BFF and a Go or Rust API owns JWT auth and
   persistence.
 - API + mobile: a `workspace/mobile` project with one or both native apps and no
   web target.
+- `workspace`: a composable `workspace/monorepo` with an optional API and any
+  non-conflicting mix of web, desktop, Android, and iOS clients.
 
 Add `--frontend next` explicitly for the web app. Add `--desktop electron`, `--desktop egui`, or `--mobile <stack>` (repeatable) to generate the matching client targets. The
 desktop main process owns the API session; Drizzle-backed SQLite is local
@@ -409,8 +421,9 @@ Restart your shell after installing completion.
 | Mobile | `ios/swiftui` | Implemented |
 | Desktop | `desktop/electron` (Electron + React + TypeScript) | Implemented |
 | Desktop | `desktop/egui` (Rust + eframe/egui + SQLite) | Implemented |
-| Desktop | `desktop/gpui` | Deferred |
+| Desktop | `desktop/gpui` | Implemented |
 | Workspace | `workspace/fullstack` | Implemented for API + Next.js |
+| Workspace | `workspace/monorepo` | Implemented for optional API + web/desktop/mobile |
 
 ## Supported features
 

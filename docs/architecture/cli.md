@@ -49,8 +49,10 @@ variables are checked against their `choices` and `pattern` the same way.
 
 If `dir` is omitted, it defaults to the slug of the project name. The target must
 not exist or must be empty. `new` supports backend, frontend, mobile, fullstack,
-and desktop projects. Fullstack can combine an API with explicit web, one or two
-mobile clients, and desktop. `add`/`remove` remain single-target.
+workspace, and desktop projects. Fullstack can combine an API with explicit web,
+one or two mobile clients, and desktop. Workspace can generate an optional API
+plus any non-conflicting mix of web, desktop, Android, and iOS clients. `add` and
+`remove` remain single-target.
 
 The command prints a boxed summary, asks for confirmation in a TTY, and reports
 successful stages with checkmarks. `--no-input` produces the same output without

@@ -126,6 +126,7 @@ projects only. Adding client targets and multi-target mutation remain planned.
 
 ## Related documents
 
+- [Composable workspace](workspace.md)
 - [CLI lifecycle](cli.md)
 - [Registry manifest](../registry/manifest.md)
 - [Overlay model](../registry/overlays.md)

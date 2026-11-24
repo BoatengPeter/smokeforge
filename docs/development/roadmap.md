@@ -57,6 +57,7 @@ Python and remaining backend overlays are still pending.
 - [x] iOS base: `ios/swiftui` with XcodeGen, SwiftUI, Keychain, and macOS CI
 - [x] Fullstack mobile: repeatable `--mobile` adds `apps/android` and/or `apps/ios`
 - [x] Optional-web mobile fullstack: API + mobile via `workspace/mobile`
+- [x] Composable workspace: `--kind workspace` with optional API and optional web/desktop/mobile lanes
 - [x] Desktop base: `desktop/electron` with secure IPC, SQLite, TanStack, Zustand, and Playwright
 - [x] Overlays: `cache:redis`, `queue:rabbitmq`, `scheduler:leader`, `dedupe:redis`, `compression:gzip`, `media`, `media-provider:minio`, `media-provider:r2`, `search:meilisearch`, `search-sync:rabbitmq`, `pagination`
 - [ ] Contract tests for every overlay×base pair
@@ -75,6 +76,7 @@ applies to every supported base and the result builds.
 - [x] Multi-target monorepo generation (`apps/api`, optional `apps/web`, `apps/android`, `apps/ios`, `apps/desktop`)
 - [x] Client API-URL wiring (`API_URL` + BFF, Android BuildConfig, iOS project.yml/Info.plist, desktop main-process session)
 - [x] Root compose/CI aggregation, including conditional Android/iOS CI jobs
+- [x] Composable workspace root with cross-cutting skills and agent routing
 - [ ] End-to-end matrix for every fullstack combo
 
 **Acceptance (lifecycle):** generate, add, and remove reversible features;

@@ -2,8 +2,8 @@
 
 The stacks, versions, and defaults smokeforge targets. Next.js and the Go/Gin
 backend, the Rust/Axum backend, the Electron desktop base, the native egui
-desktop base, and the Android Compose and iOS SwiftUI bases are implemented;
-Python and GPUI remain provisional.
+desktop base, the Android Compose and iOS SwiftUI bases, and the composable
+workspace root are implemented; Python and GPUI remain provisional.
 Items marked **deferred** are not yet shipped and require the decisions noted.
 
 ## Status legend

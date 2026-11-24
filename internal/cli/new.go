@@ -25,6 +25,7 @@ var errProjectAborted = errors.New("project creation aborted")
 const (
 	fullstackKind = "fullstack"
 	mobileKind    = "mobile"
+	workspaceKind = "workspace"
 )
 
 type newOptions struct {
@@ -55,6 +56,7 @@ func newNewCmd(opts *options) *cobra.Command {
 Presets:
   frontend       Next.js app with shadcn/ui, SEO, API helpers, and Jest
   fullstack      API + explicit Next.js/web and optional mobile/desktop clients
+  workspace      API and optional web/desktop/Android/iOS monorepo
   mobile         Android Compose or iOS SwiftUI client
   mobile-api     API with Postgres/JWT plus Android/iOS clients
   desktop        Secure Electron + React app with SQLite, TanStack Query, and Zustand
@@ -70,6 +72,7 @@ E2E. Use --feature to select individual features instead of a preset.`,
   smokeforge new my-saas --kind fullstack --backend go/gin-layered --frontend next --desktop electron
   smokeforge new my-saas --kind fullstack --backend rust/axum --frontend next --desktop egui
   smokeforge new my-saas --kind fullstack --backend go/gin-layered --mobile android/compose --mobile ios/swiftui
+  smokeforge new my-product --kind workspace --backend go/gin-layered --frontend next --desktop electron --mobile android/compose --mobile ios/swiftui
   smokeforge new my-ios --kind mobile --stack ios/swiftui
   smokeforge new my-ios --kind mobile --stack ios/swiftui --backend go/gin-layered
   smokeforge new my-app --kind desktop --stack desktop/electron
@@ -91,12 +94,12 @@ E2E. Use --feature to select individual features instead of a preset.`,
 	}
 
 	flags := cmd.Flags()
-	flags.StringVar(&newOpts.kind, "kind", "", "project kind (backend, frontend, fullstack, mobile, desktop)")
+	flags.StringVar(&newOpts.kind, "kind", "", "project kind (backend, frontend, fullstack, workspace, mobile, desktop)")
 	flags.StringVar(&newOpts.stack, "stack", "", "stack ID")
-	flags.StringVar(&newOpts.backend, "backend", "", "backend stack ID for fullstack or mobile+API projects")
-	flags.StringVar(&newOpts.frontend, "frontend", "", "frontend stack ID for fullstack projects (use next to include web)")
-	flags.StringVar(&newOpts.desktop, "desktop", "", "optional desktop stack for fullstack projects (electron or egui)")
-	flags.StringArrayVar(&newOpts.mobiles, "mobile", nil, "optional mobile stack for fullstack projects (repeatable: android/compose, ios/swiftui)")
+	flags.StringVar(&newOpts.backend, "backend", "", "backend stack ID for fullstack, workspace, or mobile+API projects")
+	flags.StringVar(&newOpts.frontend, "frontend", "", "frontend stack ID for fullstack or workspace projects (use next to include web)")
+	flags.StringVar(&newOpts.desktop, "desktop", "", "optional desktop stack for fullstack or workspace projects (electron, egui, or gpui)")
+	flags.StringArrayVar(&newOpts.mobiles, "mobile", nil, "optional mobile stack for fullstack or workspace projects (repeatable: android/compose, ios/swiftui)")
 	flags.StringVar(&newOpts.name, "name", "", "project name")
 	flags.StringVar(&newOpts.preset, "preset", "", "feature preset")
 	flags.StringArrayVar(&newOpts.features, "feature", nil, "feature selection (repeatable, id[:variant])")
@@ -274,8 +277,8 @@ func validateSelection(selection *resolve.Selection) error {
 		return errors.New("kind is required (use --kind)")
 	}
 
-	if selection.Kind != fullstackKind && strings.TrimSpace(selection.Desktop) != "" {
-		return errors.New("--desktop is only valid with --kind fullstack")
+	if selection.Kind != fullstackKind && selection.Kind != workspaceKind && strings.TrimSpace(selection.Desktop) != "" {
+		return errors.New("--desktop is only valid with --kind fullstack or --kind workspace")
 	}
 
 	if selection.Kind == mobileKind && len(selection.Mobiles) > 0 {
@@ -283,11 +286,19 @@ func validateSelection(selection *resolve.Selection) error {
 	}
 
 	if selection.Kind == mobileKind && strings.TrimSpace(selection.Frontend) != "" {
-		return errors.New("--frontend is only valid with --kind fullstack")
+		return errors.New("--frontend is only valid with --kind fullstack or --kind workspace")
 	}
 
-	if selection.Kind != fullstackKind && selection.Kind != mobileKind && len(selection.Mobiles) > 0 {
-		return errors.New("--mobile is only valid with --kind fullstack")
+	if selection.Kind != fullstackKind && selection.Kind != workspaceKind && len(selection.Mobiles) > 0 {
+		return errors.New("--mobile is only valid with --kind fullstack or --kind workspace")
+	}
+
+	if selection.Kind == workspaceKind {
+		if strings.TrimSpace(selection.Stack) != "" {
+			return errors.New("--stack is not valid with --kind workspace; use --backend")
+		}
+
+		return validateProjectName(selection)
 	}
 
 	if selection.Kind != fullstackKind {
@@ -359,7 +370,10 @@ func runWizard(
 		Stack:     wizard.Result.Stack,
 		Backend:   wizard.Result.Backend,
 		Frontend:  wizard.Result.Frontend,
+		Desktop:   wizard.Result.Desktop,
+		Mobiles:   append([]string{}, wizard.Result.Mobiles...),
 		Name:      wizard.Result.Name,
+		Preset:    wizard.Result.Preset,
 		Features:  wizard.Result.Features,
 		Variables: wizard.Result.Variables,
 	}, nil
@@ -371,6 +385,8 @@ func withDefaultPreset(selection resolve.Selection, m *manifest.Manifest) resolv
 	}
 
 	switch {
+	case selection.Kind == workspaceKind && strings.TrimSpace(selection.Backend) != "":
+		selection.Preset = existingPresetID(m, "workspace-api")
 	case selection.Kind == mobileKind && strings.TrimSpace(selection.Backend) != "":
 		selection.Preset = existingPresetID(m, "mobile-api")
 	case selection.Kind == fullstackKind:
@@ -453,14 +469,20 @@ func fullstackSummaryLines(plan *resolve.Plan, dir, registryTag string) []string
 		targets = append(targets, target.Path+" ("+target.Stack.ID+")")
 	}
 
-	return []string{
+	lines := []string{
 		tui.Field("Name", plan.Name),
 		tui.Field("Kind", plan.Kind),
-		tui.Field("API", plan.Target.Stack.Name+" ("+plan.Target.Stack.ID+")"),
+	}
+
+	if plan.API != nil {
+		lines = append(lines, tui.Field("API", plan.API.Stack.Name+" ("+plan.API.Stack.ID+")"))
+	}
+
+	return append(lines,
 		tui.Field("Targets", strings.Join(targets, ", ")),
 		tui.Field("Target", dir),
 		tui.Field("Registry", registryTag),
-	}
+	)
 }
 
 func confirmGeneration(cmd *cobra.Command, opts *options) (bool, error) {
@@ -520,7 +542,6 @@ func printSuccess(
 	return err
 }
 
-//nolint:gocyclo // Next steps branch by selected targets.
 func nextStepLines(plan *resolve.Plan, path string, dockerInstalled bool) []string {
 	lines := []string{
 		tui.Muted("Next steps:"),
@@ -528,41 +549,7 @@ func nextStepLines(plan *resolve.Plan, path string, dockerInstalled bool) []stri
 	}
 
 	if plan.Root != nil {
-		lines = append(lines,
-			"  make install",
-			"  make api-dev        # API",
-		)
-
-		if targetByPath(plan, "apps/web") != nil {
-			lines = append(lines, "  make web-dev        # Next.js")
-		}
-
-		mobiles := make([]string, 0, 2)
-
-		for _, path := range []string{"apps/android", "apps/ios"} {
-			if target := targetByPath(plan, path); target != nil {
-				mobiles = append(mobiles, target.Stack.Name)
-			}
-		}
-
-		if len(mobiles) > 0 {
-			lines = append(lines, "  make mobile-build    # "+strings.Join(mobiles, ", "))
-		}
-
-		if target := targetByPath(plan, "apps/desktop"); target != nil {
-			label := "Electron"
-
-			switch target.Stack.ID {
-			case "desktop/egui":
-				label = "egui"
-			case "desktop/gpui":
-				label = "GPUI"
-			}
-
-			lines = append(lines, "  make desktop-dev    # "+label)
-		}
-
-		return append(lines, "  make test")
+		return workspaceNextSteps(plan, lines)
 	}
 
 	if plan.Target.Stack.Kind == "mobile" {
@@ -620,6 +607,45 @@ func nextStepLines(plan *resolve.Plan, path string, dockerInstalled bool) []stri
 	return append(lines, "  make dev")
 }
 
+func workspaceNextSteps(plan *resolve.Plan, lines []string) []string {
+	lines = append(lines, "  make install")
+
+	if plan.API != nil {
+		lines = append(lines, "  make api-dev        # API")
+	}
+
+	if targetByPath(plan, "apps/web") != nil {
+		lines = append(lines, "  make web-dev        # Next.js")
+	}
+
+	mobiles := make([]string, 0, 2)
+
+	for _, path := range []string{"apps/android", "apps/ios"} {
+		if target := targetByPath(plan, path); target != nil {
+			mobiles = append(mobiles, target.Stack.Name)
+		}
+	}
+
+	if len(mobiles) > 0 {
+		lines = append(lines, "  make mobile-build    # "+strings.Join(mobiles, ", "))
+	}
+
+	if target := targetByPath(plan, "apps/desktop"); target != nil {
+		label := "Electron"
+
+		switch target.Stack.ID {
+		case "desktop/egui":
+			label = "egui"
+		case "desktop/gpui":
+			label = "GPUI"
+		}
+
+		lines = append(lines, "  make desktop-dev    # "+label)
+	}
+
+	return append(lines, "  make test")
+}
+
 func desktopNextSteps(plan *resolve.Plan, lines []string) ([]string, bool) {
 	switch plan.Target.Stack.ID {
 	case "desktop/electron":
@@ -672,6 +698,14 @@ func targetByPath(plan *resolve.Plan, targetPath string) *resolve.TargetPlan {
 }
 
 func hasFeature(plan *resolve.Plan, featureID string) bool {
+	for _, target := range plan.Targets {
+		for _, overlay := range target.Overlays {
+			if overlay.FeatureID == featureID {
+				return true
+			}
+		}
+	}
+
 	for _, overlay := range plan.Target.Overlays {
 		if overlay.FeatureID == featureID {
 			return true

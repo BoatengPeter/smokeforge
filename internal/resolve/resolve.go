@@ -13,6 +13,8 @@ import (
 	"github.com/BoatengPeter/smokeforge/internal/patch"
 )
 
+const workspaceKind = "workspace"
+
 // Selection is the user's project choice before validation.
 type Selection struct {
 	Name      string
@@ -32,6 +34,7 @@ type Plan struct {
 	Name    string
 	Kind    string
 	Target  TargetPlan
+	API     *TargetPlan
 	Targets []TargetPlan
 	Root    *TargetPlan
 }
@@ -82,6 +85,10 @@ func Resolve(m *manifest.Manifest, registryDir string, sel Selection) (*Plan, er
 		return resolveFullstack(m, registryDir, sel)
 	}
 
+	if sel.Kind == workspaceKind {
+		return resolveWorkspace(m, registryDir, sel)
+	}
+
 	if sel.Kind == "mobile" && strings.TrimSpace(sel.Backend) != "" {
 		return resolveMobileBackend(m, registryDir, sel)
 	}
@@ -120,6 +127,211 @@ func resolveMobileBackend(m *manifest.Manifest, registryDir string, sel Selectio
 	sel.Mobiles = []string{sel.Stack}
 
 	return resolveMultiTarget(m, registryDir, sel, "mobile")
+}
+
+func resolveWorkspace(m *manifest.Manifest, registryDir string, sel Selection) (*Plan, error) {
+	stacks, err := workspaceStacks(m, sel)
+	if err != nil {
+		return nil, err
+	}
+
+	provided, err := workspaceVariables(
+		stacks.backend,
+		stacks.frontend,
+		stacks.root,
+		stacks.desktop,
+		stacks.mobiles,
+		sel.Variables,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	requested, err := requestedFeatures(m, sel)
+	if err != nil {
+		return nil, err
+	}
+
+	apiFeatures, webFeatures, mobileFeatures, desktopFeatures, rootFeatures, err := routeCompositionFeatures(
+		m,
+		requested,
+		stacks.backend,
+		stacks.frontend,
+		stacks.mobiles,
+		stacks.desktop,
+		stacks.root,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if stacks.frontend != nil {
+		webFeatures = fullstackWebFeatures(apiFeatures, webFeatures)
+	}
+
+	desktopFeatures = fullstackDesktopFeatures(apiFeatures, desktopFeatures, stacks.desktop)
+	apiFeatures = fullstackSyncAPIFeatures(apiFeatures, stacks.desktop)
+
+	if err := validateWorkspaceFeatures(apiFeatures, stacks.backend, stacks.mobiles, rootFeatures); err != nil {
+		return nil, err
+	}
+
+	return buildWorkspacePlan(
+		m,
+		registryDir,
+		sel,
+		stacks,
+		provided,
+		apiFeatures,
+		webFeatures,
+		mobileFeatures,
+		desktopFeatures,
+		rootFeatures,
+	)
+}
+
+type workspaceStackSet struct {
+	backend  *manifest.Stack
+	frontend *manifest.Stack
+	mobiles  []manifest.Stack
+	desktop  *manifest.Stack
+	root     manifest.Stack
+}
+
+//nolint:gocyclo // Workspace selection validates five independent lanes.
+func workspaceStacks(m *manifest.Manifest, sel Selection) (workspaceStackSet, error) {
+	if strings.TrimSpace(sel.Stack) != "" {
+		return workspaceStackSet{}, errors.New("--stack is not valid with --kind workspace; use --backend")
+	}
+
+	var backend *manifest.Stack
+
+	if raw := strings.TrimSpace(sel.Backend); raw != "" {
+		found, err := findStackByID(m, raw, "backend")
+		if err != nil {
+			return workspaceStackSet{}, err
+		}
+
+		backend = &found
+	}
+
+	var frontend *manifest.Stack
+
+	if raw := strings.TrimSpace(sel.Frontend); raw != "" {
+		found, err := findStackByID(m, raw, "frontend")
+		if err != nil {
+			return workspaceStackSet{}, err
+		}
+
+		frontend = &found
+	}
+
+	mobileKind, hasMobileKind := m.Kinds["mobile"]
+	if len(sel.Mobiles) > 0 && (!hasMobileKind || mobileKind.Max < 1) {
+		return workspaceStackSet{}, errors.New("kind \"mobile\" is not available")
+	}
+
+	if mobileKind.Max > 0 && len(sel.Mobiles) > mobileKind.Max {
+		return workspaceStackSet{}, fmt.Errorf("at most %d mobile stacks may be selected", mobileKind.Max)
+	}
+
+	mobiles := make([]manifest.Stack, 0, len(sel.Mobiles))
+	seenMobiles := make(map[string]bool, len(sel.Mobiles))
+
+	for _, raw := range sel.Mobiles {
+		mobileID := strings.TrimSpace(raw)
+		if mobileID == "" {
+			return workspaceStackSet{}, errors.New("mobile stack must not be empty")
+		}
+
+		if seenMobiles[mobileID] {
+			return workspaceStackSet{}, fmt.Errorf("duplicate mobile stack %q", mobileID)
+		}
+
+		found, err := findStackByID(m, mobileID, "mobile")
+		if err != nil {
+			return workspaceStackSet{}, err
+		}
+
+		seenMobiles[mobileID] = true
+
+		mobiles = append(mobiles, found)
+	}
+
+	var desktop *manifest.Stack
+
+	if raw := strings.TrimSpace(sel.Desktop); raw != "" {
+		desktopID := raw
+		if !strings.Contains(desktopID, "/") {
+			desktopID = "desktop/" + desktopID
+		}
+
+		found, err := findStackByID(m, desktopID, "desktop")
+		if err != nil {
+			return workspaceStackSet{}, err
+		}
+
+		desktop = &found
+	}
+
+	if backend == nil && frontend == nil && desktop == nil && len(mobiles) == 0 {
+		return workspaceStackSet{}, errors.New(
+			"workspace requires at least one target (use --backend, --frontend, --desktop, or --mobile)",
+		)
+	}
+
+	root, err := findStackByID(m, "workspace/monorepo", "workspace")
+	if err != nil {
+		return workspaceStackSet{}, fmt.Errorf("workspace stack workspace/monorepo: %w", err)
+	}
+
+	return workspaceStackSet{
+		backend:  backend,
+		frontend: frontend,
+		mobiles:  mobiles,
+		desktop:  desktop,
+		root:     root,
+	}, nil
+}
+
+func workspaceVariables(
+	backend *manifest.Stack,
+	frontend *manifest.Stack,
+	root manifest.Stack,
+	desktop *manifest.Stack,
+	mobiles []manifest.Stack,
+	provided map[string]string,
+) (map[string]string, error) {
+	declared := make(map[string]bool)
+	stacks := []manifest.Stack{root}
+
+	if backend != nil {
+		stacks = append(stacks, *backend)
+	}
+
+	if frontend != nil {
+		stacks = append(stacks, *frontend)
+	}
+
+	stacks = append(stacks, mobiles...)
+
+	if desktop != nil {
+		stacks = append(stacks, *desktop)
+	}
+
+	for _, stack := range stacks {
+		for _, name := range stack.Variables {
+			declared[name] = true
+		}
+	}
+
+	for name := range provided {
+		if !declared[name] {
+			return nil, fmt.Errorf("unknown variable %q", name)
+		}
+	}
+
+	return provided, nil
 }
 
 func resolveMultiTarget(
@@ -360,6 +572,25 @@ func validateFullstackFeatures(apiFeatures []string, mobiles []manifest.Stack, r
 	return nil
 }
 
+func validateWorkspaceFeatures(
+	apiFeatures []string,
+	backend *manifest.Stack,
+	mobiles []manifest.Stack,
+	rootFeatures []string,
+) error {
+	if slices.Contains(rootFeatures, "docker") {
+		if backend == nil || !featureSelected(apiFeatures, "database", "") {
+			return errors.New("workspace docker requires a backend with database:postgres")
+		}
+	}
+
+	if backend != nil && len(mobiles) > 0 && !featureSelected(apiFeatures, "auth", "jwt") {
+		return errors.New("mobile composition requires auth:jwt for the API")
+	}
+
+	return nil
+}
+
 //nolint:gocyclo // The plan assembles optional clients and root wiring.
 func buildFullstackPlan(
 	m *manifest.Manifest,
@@ -438,13 +669,189 @@ func buildFullstackPlan(
 		root.Overlays = append(root.Overlays, desktopOverlay)
 	}
 
+	apiCopy := api
+
 	return &Plan{
 		Name:    sel.Name,
 		Kind:    planKind,
 		Target:  api,
+		API:     &apiCopy,
 		Targets: targets,
 		Root:    &root,
 	}, nil
+}
+
+func buildWorkspacePlan(
+	m *manifest.Manifest,
+	registryDir string,
+	sel Selection,
+	stacks workspaceStackSet,
+	provided map[string]string,
+	apiFeatures, webFeatures, mobileFeatures, desktopFeatures, rootFeatures []string,
+) (*Plan, error) {
+	targets, api, err := resolveWorkspaceTargets(
+		m,
+		registryDir,
+		stacks,
+		provided,
+		apiFeatures,
+		webFeatures,
+		mobileFeatures,
+		desktopFeatures,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	root, err := resolveTargetWithFeatures(m, registryDir, stacks.root, ".", provided, rootFeatures, true)
+	if err != nil {
+		return nil, err
+	}
+
+	if stacks.backend != nil {
+		overlay, err := loadRootOverlay(registryDir, "overlays/workspace/monorepo/api", "api")
+		if err != nil {
+			return nil, err
+		}
+
+		root.Overlays = append(root.Overlays, overlay)
+	}
+
+	if stacks.frontend != nil {
+		overlay, err := loadRootOverlay(registryDir, "overlays/workspace/monorepo/web", "web")
+		if err != nil {
+			return nil, err
+		}
+
+		root.Overlays = append(root.Overlays, overlay)
+	}
+
+	if len(stacks.mobiles) > 0 {
+		overlay, err := loadRootOverlay(registryDir, "overlays/workspace/monorepo/mobile", "mobile")
+		if err != nil {
+			return nil, err
+		}
+
+		root.Overlays = append(root.Overlays, overlay)
+	}
+
+	if stacks.desktop != nil {
+		overlayPath, overlayID := workspaceDesktopOverlay(*stacks.desktop)
+
+		overlay, err := loadRootOverlay(registryDir, overlayPath, overlayID)
+		if err != nil {
+			return nil, err
+		}
+
+		root.Overlays = append(root.Overlays, overlay)
+	}
+
+	return &Plan{
+		Name:    sel.Name,
+		Kind:    workspaceKind,
+		API:     api,
+		Targets: targets,
+		Root:    &root,
+	}, nil
+}
+
+func resolveWorkspaceTargets(
+	m *manifest.Manifest,
+	registryDir string,
+	stacks workspaceStackSet,
+	provided map[string]string,
+	apiFeatures, webFeatures, mobileFeatures, desktopFeatures []string,
+) ([]TargetPlan, *TargetPlan, error) {
+	targets := make([]TargetPlan, 0, 5)
+
+	var api *TargetPlan
+
+	if stacks.backend != nil {
+		resolved, err := resolveTargetWithFeatures(
+			m,
+			registryDir,
+			*stacks.backend,
+			"apps/api",
+			provided,
+			apiFeatures,
+			true,
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		targets = append(targets, resolved)
+		api = &resolved
+	}
+
+	if stacks.frontend != nil {
+		web, err := resolveTargetWithFeatures(
+			m,
+			registryDir,
+			*stacks.frontend,
+			"apps/web",
+			provided,
+			webFeatures,
+			true,
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		targets = append(targets, web)
+	}
+
+	for _, mobileStack := range stacks.mobiles {
+		path, err := mobileTargetPath(mobileStack)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		mobile, err := resolveTargetWithFeatures(
+			m,
+			registryDir,
+			mobileStack,
+			path,
+			provided,
+			mobileFeatures,
+			true,
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		targets = append(targets, mobile)
+	}
+
+	if stacks.desktop != nil {
+		desktop, err := resolveTargetWithFeatures(
+			m,
+			registryDir,
+			*stacks.desktop,
+			"apps/desktop",
+			provided,
+			desktopFeatures,
+			true,
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		targets = append(targets, desktop)
+	}
+
+	return targets, api, nil
+}
+
+func workspaceDesktopOverlay(desktop manifest.Stack) (path, featureID string) {
+	switch desktop.ID {
+	case "desktop/egui":
+		return "overlays/workspace/monorepo/desktop-egui", "desktop-egui"
+	case "desktop/gpui":
+		return "overlays/workspace/monorepo/desktop-gpui", "desktop-gpui"
+	default:
+		return "overlays/workspace/monorepo/desktop", "desktop"
+	}
 }
 
 func mobileTargetPath(stack manifest.Stack) (string, error) {
@@ -627,11 +1034,31 @@ func filterVariables(stack manifest.Stack, provided map[string]string) map[strin
 	return filtered
 }
 
-//nolint:gocyclo // Routing covers API, optional web, mobile, desktop, and workspace targets.
 func routeFullstackFeatures(
 	m *manifest.Manifest,
 	requested []string,
 	backend manifest.Stack,
+	frontend *manifest.Stack,
+	mobiles []manifest.Stack,
+	desktop *manifest.Stack,
+	root manifest.Stack,
+) (api, web, mobileFeatures, desktopFeatures, rootFeatures []string, err error) {
+	return routeCompositionFeatures(
+		m,
+		requested,
+		&backend,
+		frontend,
+		mobiles,
+		desktop,
+		root,
+	)
+}
+
+//nolint:gocyclo // Routing covers optional API, web, mobile, desktop, and workspace targets.
+func routeCompositionFeatures(
+	m *manifest.Manifest,
+	requested []string,
+	backend *manifest.Stack,
 	frontend *manifest.Stack,
 	mobiles []manifest.Stack,
 	desktop *manifest.Stack,
@@ -645,7 +1072,7 @@ func routeFullstackFeatures(
 			return nil, nil, nil, nil, nil, fmt.Errorf("unknown feature %q", featureID)
 		}
 
-		apiOK := stackSupportsFeature(feature, variantID, backend)
+		apiOK := backend != nil && stackSupportsFeature(feature, variantID, *backend)
 		webOK := frontend != nil && stackSupportsFeature(feature, variantID, *frontend)
 		mobileOK := false
 
@@ -704,7 +1131,7 @@ func routeFullstackFeatures(
 
 		if !routed {
 			return nil, nil, nil, nil, nil, fmt.Errorf(
-				"feature %q does not support the selected API, web, mobile, or workspace stack",
+				"feature %q does not support the selected API, web, mobile, desktop, or workspace stack",
 				raw,
 			)
 		}

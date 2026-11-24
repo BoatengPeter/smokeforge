@@ -236,7 +236,7 @@ flowchart TD
     wizard --> ios["apps/ios\nSwiftUI"]
     wizard --> android["apps/android\nCompose"]
     wizard --> desktop["apps/desktop\nElectron (standalone implemented)"]
-    wizard --> root["workspace/fullstack or workspace/mobile"]
+    wizard --> root["workspace/fullstack, workspace/mobile, or workspace/monorepo"]
 
     api --> apiFeatures["database, cache, queue,\nauth, totp"]
     root --> repoFeatures["docker, ci"]

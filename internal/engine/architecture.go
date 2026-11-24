@@ -19,6 +19,7 @@ const (
 	kindFrontend     = "frontend"
 	kindFullstack    = "fullstack"
 	kindMobile       = "mobile"
+	kindWorkspace    = "workspace"
 	iosStackID       = "ios/swiftui"
 )
 
@@ -242,6 +243,8 @@ func writeSystemDiagram(b *strings.Builder, plan *resolve.Plan) {
 				b.WriteString("    Services -->|authenticated API| API[API service]\n")
 			}
 		}
+	case kindWorkspace:
+		writeWorkspaceSystemDiagram(b, paths)
 	case kindBackend:
 		b.WriteString("    Client[API client] --> API[API service]\n")
 		b.WriteString("    API --> DB[(PostgreSQL)]\n")
@@ -258,6 +261,51 @@ func writeSystemDiagram(b *strings.Builder, plan *resolve.Plan) {
 	}
 
 	b.WriteString("```\n\n")
+}
+
+func writeWorkspaceSystemDiagram(b *strings.Builder, paths []string) {
+	hasAPI := slices.Contains(paths, "apps/api")
+	hasWeb := slices.Contains(paths, "apps/web")
+
+	if hasWeb {
+		b.WriteString("    Browser[Browser] --> Web[Next.js app]\n")
+
+		if hasAPI {
+			b.WriteString("    Web -->|Bearer token| API[API service]\n")
+		}
+	}
+
+	if hasAPI && !hasWeb {
+		b.WriteString("    Client[API client] --> API[API service]\n")
+	}
+
+	if hasAPI {
+		b.WriteString("    API --> DB[(PostgreSQL)]\n")
+	}
+
+	if slices.Contains(paths, "apps/android") {
+		if hasAPI {
+			b.WriteString("    Android[Android app] -->|authenticated API| API\n")
+		} else {
+			b.WriteString("    Android[Android app]\n")
+		}
+	}
+
+	if slices.Contains(paths, "apps/ios") {
+		if hasAPI {
+			b.WriteString("    iOS[iOS app] -->|authenticated API| API\n")
+		} else {
+			b.WriteString("    iOS[iOS app]\n")
+		}
+	}
+
+	if slices.Contains(paths, "apps/desktop") {
+		b.WriteString("    Desktop[Desktop app] --> Local[(SQLite)]\n")
+
+		if hasAPI {
+			b.WriteString("    Desktop -->|sync| API\n")
+		}
+	}
 }
 
 func dependencyNodes(plan *resolve.Plan) []string {
@@ -318,6 +366,8 @@ func layoutEntries(root string, target resolve.TargetPlan) []string {
 	switch target.Stack.Kind {
 	case kindFullstack:
 		candidates = append(candidates, "CONTEXT-MAP.md", "Makefile", "compose.yaml", ".github/")
+	case kindWorkspace:
+		candidates = append(candidates, "CONTEXT-MAP.md", "Makefile", "ARCHITECTURE.md", ".agents/", ".claude/", "skills-lock.json", ".github/")
 	case kindBackend:
 		candidates = append(candidates, "cmd/", "internal/", "src/", "migrations/", "tests/")
 	case kindFrontend:
@@ -365,6 +415,10 @@ func writeChangeMap(b *strings.Builder, plan *resolve.Plan) {
 
 func writeSingleAppRows(b *strings.Builder, target resolve.TargetPlan) {
 	switch target.Stack.Kind {
+	case kindWorkspace:
+		b.WriteString("| Workspace boundaries | `CONTEXT.md`, `CONTEXT-MAP.md`, `docs/CLIENTS.md` |\n")
+		b.WriteString("| Agent routing | `AGENTS.md`, `CLAUDE.md`, `docs/SKILLS.md` |\n")
+		b.WriteString("| Shared skills | `.agents/skills/`, `.claude/skills/`, `skills-lock.json` |\n")
 	case kindBackend:
 		b.WriteString("| HTTP/API behavior | `README.md`, `CONTEXT.md`, `docs/API.md` |\n")
 		b.WriteString("| Domain and persistence | `CONTEXT.md`, `migrations/`, `internal/` or `src/` |\n")

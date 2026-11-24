@@ -94,7 +94,7 @@ func (w *Wizard) Run(ctx context.Context) error {
 	}
 
 	groups := w.basicGroups(kinds, &kind, &selectedStackID, &name)
-	groups = append(groups, w.workspaceGroups(&kind, &workspaceTargets, &workspaceAPIStackID, &workspaceDesktopStackID, variableValues)...)
+	groups = append(groups, w.workspaceGroups(&kind, &workspaceTargets, &workspaceAPIStackID, &workspaceDesktopStackID, &features, variableValues)...)
 	groups = append(groups, w.presetGroup(&kind, &selectedStackID, &presetID, &features, &lastPresetID, explicitFeatures))
 	groups = append(groups, w.featureGroup(&kind, &selectedStackID, &features))
 	groups = append(groups, w.mediaProviderGroup(&kind, &selectedStackID, &features, &mediaProvider))
@@ -107,13 +107,21 @@ func (w *Wizard) Run(ctx context.Context) error {
 	}
 
 	if kind == workspaceKind {
+		workspacePreset := presetID
+		workspaceFeatures := features
+
+		if !slices.Contains(workspaceTargets, "api") && len(w.Result.Features) == 0 {
+			workspacePreset = ""
+			workspaceFeatures = nil
+		}
+
 		result, err := w.workspaceResult(
 			workspaceTargets,
 			workspaceAPIStackID,
 			workspaceDesktopStackID,
 			strings.TrimSpace(name),
-			w.Result.Preset,
-			w.Result.Features,
+			workspacePreset,
+			workspaceFeatures,
 			variableValues,
 		)
 		if err != nil {
@@ -329,6 +337,7 @@ func (w *Wizard) workspaceGroups(
 	kind *string,
 	targets *[]string,
 	apiStackID, desktopStackID *string,
+	features *[]string,
 	variableValues map[string][]wizardVariable,
 ) []*huh.Group {
 	apiStacks := stacksForKind(w.Manifest, "backend")
@@ -350,6 +359,26 @@ func (w *Wizard) workspaceGroups(
 			Title("Which API stack should it use?").
 			Options(stackOptions(apiStacks)...).
 			Value(apiStackID),
+	).WithHideFunc(func() bool {
+		return *kind != workspaceKind || !slices.Contains(*targets, "api")
+	}))
+
+	groups = append(groups, huh.NewGroup(
+		huh.NewMultiSelect[string]().
+			Title("Which API overlays should it use?").
+			Description("Required companions are added automatically. Choose one variant per feature.").
+			OptionsFunc(func() []huh.Option[string] {
+				stack, ok := findStackByID(w.Manifest, *apiStackID)
+				if !ok || stack.Kind != "backend" {
+					return nil
+				}
+
+				options := featureOptions(w.Manifest, stack)
+				*features = filterFeatureValues(*features, options)
+
+				return options
+			}, apiStackID).
+			Value(features),
 	).WithHideFunc(func() bool {
 		return *kind != workspaceKind || !slices.Contains(*targets, "api")
 	}))
@@ -403,7 +432,7 @@ func wizardVariableFields(variables []wizardVariable) []huh.Field {
 func (w *Wizard) workspaceResult(
 	targets []string,
 	apiStackID, desktopStackID, name, preset string,
-	explicitFeatures []string,
+	features []string,
 	variableValues map[string][]wizardVariable,
 ) (WizardResult, error) {
 	if len(targets) == 0 {
@@ -419,7 +448,7 @@ func (w *Wizard) workspaceResult(
 		Kind:     workspaceKind,
 		Name:     name,
 		Preset:   preset,
-		Features: slices.Clone(explicitFeatures),
+		Features: slices.Clone(features),
 	}
 
 	activeStacks := []manifest.Stack{root}

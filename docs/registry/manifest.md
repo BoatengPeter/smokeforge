@@ -52,8 +52,13 @@ overlay directory contains `overlay.yaml` and optional `files/`.
 - The tarball must contain a top-level `registry/` directory; extraction strips
   it into the cache entry.
 - No symlinks or hard links are allowed in the archive.
-- Templates are versioned with the registry; the CLI does not maintain a
-  separate compatibility matrix beyond `schemaVersion`.
+- Templates are versioned with the registry. Compatibility with the CLI is
+  expressed by `schemaVersion` and the optional `minCliVersion`: when a
+  registry starts using a field or rule that older CLIs reject (for example
+  template variable `pattern`), set `minCliVersion` to the first CLI release
+  that understands it. The CLI reads `minCliVersion` leniently before the
+  strict parse, so an older CLI prints "run `smokeforge update`" instead of a
+  YAML error. Development builds (`dev`, `(devel)`) skip the check.
 
 ## Top-level manifest
 
@@ -171,6 +176,7 @@ features:
 | Field | Type | Rules |
 | --- | --- | --- |
 | `schemaVersion` | int | Must be `1`. |
+| `minCliVersion` | string | Optional semantic version (`0.4.0` or `v0.4.0`). CLIs older than this refuse the registry with an upgrade message. |
 | `name` | string | Non-empty. |
 | `kinds` | map[string]Kind | Non-empty; keys are kind names. |
 | `stacks` | []Stack | Non-empty; IDs unique. |
@@ -244,7 +250,7 @@ feature requires fails unless `smokeforge remove --cascade` is used.
 Loading is strict: unknown YAML fields are rejected (`KnownFields(true)`), and
 `Validate()` additionally enforces:
 
-1. `schemaVersion == 1`.
+1. `schemaVersion == 1`; `minCliVersion`, when set, is a semantic version.
 2. Non-empty `name`, `kinds`, and `stacks`.
 3. Unique stack IDs; stack kinds exist; templates and variables non-empty.
 4. Unique feature IDs; `kinds`/`stacks` references exist.

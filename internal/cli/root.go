@@ -7,21 +7,41 @@ import (
 	"io"
 
 	"github.com/BoatengPeter/smokeforge/internal/registry"
+	"github.com/BoatengPeter/smokeforge/internal/version"
 	"github.com/spf13/cobra"
 )
 
 type options struct {
-	out      io.Writer
-	errOut   io.Writer
-	registry string
-	tag      string
-	cacheDir string
-	offline  bool
+	out        io.Writer
+	errOut     io.Writer
+	registry   string
+	tag        string
+	cacheDir   string
+	offline    bool
+	cliVersion string
+}
+
+// registryOptions builds registry load options for source and tag with the
+// shared cache, offline, and CLI version settings.
+func (o *options) registryOptions(source, tag string) registry.Options {
+	return registry.Options{
+		Source:     source,
+		Tag:        tag,
+		CacheDir:   o.cacheDir,
+		Offline:    o.offline,
+		CLIVersion: o.cliVersion,
+	}
 }
 
 // NewRootCmd builds the smokeforge command tree with the given output writers.
 func NewRootCmd(out, errOut io.Writer) *cobra.Command {
-	opts := &options{out: out, errOut: errOut}
+	return newRootCmd(out, errOut, version.Current().Version)
+}
+
+// newRootCmd builds the command tree for an explicit CLI version, which is
+// compared against a registry's minCliVersion.
+func newRootCmd(out, errOut io.Writer, cliVersion string) *cobra.Command {
+	opts := &options{out: out, errOut: errOut, cliVersion: cliVersion}
 
 	root := &cobra.Command{
 		Use:   "smokeforge",
@@ -71,12 +91,7 @@ Documentation: https://github.com/BoatengPeter/smokeforge`,
 }
 
 func loadRegistry(ctx context.Context, opts *options) (*registry.Result, error) {
-	return registry.Load(ctx, registry.Options{
-		Source:   opts.registry,
-		Tag:      opts.tag,
-		CacheDir: opts.cacheDir,
-		Offline:  opts.offline,
-	})
+	return registry.Load(ctx, opts.registryOptions(opts.registry, opts.tag))
 }
 
 func writef(out io.Writer, format string, args ...any) error {

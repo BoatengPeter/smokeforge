@@ -47,10 +47,5 @@ func loadMutationRegistry(
 		return nil, errors.New("project does not record a registry source; pass --registry")
 	}
 
-	return registry.Load(ctx, registry.Options{
-		Source:   source,
-		Tag:      projectContext.lock.Registry.Tag,
-		CacheDir: opts.cacheDir,
-		Offline:  opts.offline,
-	})
+	return registry.Load(ctx, opts.registryOptions(source, projectContext.lock.Registry.Tag))
 }

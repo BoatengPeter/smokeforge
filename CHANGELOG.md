@@ -8,6 +8,10 @@ semantic versioning with pre-1.0 releases using `v0.x.y`.
 
 ### Added
 
+- Registry manifests accept an optional `minCliVersion`. The CLI checks it
+  before strict parsing, so an older CLI facing a newer registry reports
+  "run `smokeforge update`" instead of a schema error. Development builds skip
+  the check.
 - Template variables accept an optional `pattern` (anchored RE2). The CLI
   validates patterns and defaults when loading a registry, rejects
   non-matching `--var` values before writing, and validates wizard input.

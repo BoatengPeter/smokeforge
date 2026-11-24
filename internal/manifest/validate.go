@@ -18,6 +18,12 @@ func (m *Manifest) Validate() error {
 		return fmt.Errorf("unsupported schema version %d: expected 1", m.SchemaVersion)
 	}
 
+	if m.MinCLIVersion != "" {
+		if _, err := canonicalVersion(m.MinCLIVersion); err != nil {
+			return err
+		}
+	}
+
 	if strings.TrimSpace(m.Name) == "" {
 		return errors.New("name must not be empty")
 	}

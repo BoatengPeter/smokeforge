@@ -25,6 +25,10 @@ type Options struct {
 	CacheDir string
 	// Offline forbids network access and requires a warm cache.
 	Offline bool
+	// CLIVersion is the running smokeforge version, checked against the
+	// registry's minCliVersion. Empty or non-semver (development) versions
+	// skip the check.
+	CLIVersion string
 }
 
 // Result is a validated registry manifest together with its origin.
@@ -45,7 +49,7 @@ func Load(ctx context.Context, opts Options) (*Result, error) {
 	}
 
 	if isLocalSource(source) {
-		return loadLocal(source)
+		return loadLocal(source, opts.CLIVersion)
 	}
 
 	opts.Source = source
@@ -62,7 +66,7 @@ func isLocalSource(source string) bool {
 	return !strings.Contains(source, "://")
 }
 
-func loadLocal(dir string) (*Result, error) {
+func loadLocal(dir, cliVersion string) (*Result, error) {
 	absolute, err := filepath.Abs(dir)
 	if err != nil {
 		return nil, fmt.Errorf("resolve local registry %q: %w", dir, err)
@@ -72,7 +76,7 @@ func loadLocal(dir string) (*Result, error) {
 
 	path := filepath.Join(dir, "manifest.yaml")
 
-	m, err := manifest.LoadFile(path)
+	m, err := loadManifest(path, cliVersion)
 	if err != nil {
 		return nil, fmt.Errorf("load local registry %q: %w", dir, err)
 	}
@@ -87,4 +91,26 @@ func loadLocal(dir string) (*Result, error) {
 		Tag:      "local",
 		Dir:      dir,
 	}, nil
+}
+
+// loadManifest checks minCliVersion before the strict parse, so an older CLI
+// reports "upgrade smokeforge" rather than a schema error for fields it does
+// not know yet.
+func loadManifest(path, cliVersion string) (*manifest.Manifest, error) {
+	//nolint:gosec // path is the manifest inside a local or verified cache registry.
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read manifest %q: %w", path, err)
+	}
+
+	if err := manifest.CheckCompatibility(data, cliVersion); err != nil {
+		return nil, err
+	}
+
+	m, err := manifest.Parse(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return m, nil
 }

@@ -16,7 +16,10 @@ import (
 // Manifest describes a template registry: its stack catalog, feature catalog,
 // and per-kind selection limits.
 type Manifest struct {
-	SchemaVersion int             `yaml:"schemaVersion"`
+	SchemaVersion int `yaml:"schemaVersion"`
+	// MinCLIVersion is the oldest smokeforge release that can load this
+	// registry. See CheckCompatibility.
+	MinCLIVersion string          `yaml:"minCliVersion"`
 	Name          string          `yaml:"name"`
 	Kinds         map[string]Kind `yaml:"kinds"`
 	Stacks        []Stack         `yaml:"stacks"`

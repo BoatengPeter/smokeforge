@@ -251,6 +251,17 @@ Homebrew is configured but commented out in `.goreleaser.yaml`.
 The registry is versioned separately from the CLI. Current latest is
 `v0.9.3`.
 
+CLIs download the `latest` registry by default and parse it strictly. If a
+registry change uses a field or rule that the currently released CLI does not
+understand (for example template variable `pattern`):
+
+1. Release the CLI that supports it first.
+2. Set `minCliVersion` in the registry `manifest.yaml` to that CLI version.
+3. Then tag the registry release.
+
+CLIs from before `minCliVersion` support still fail with a parse error; every
+CLI from then on prints an upgrade message instead.
+
 ### Recommended: tag-driven workflow
 
 In the registry repository:

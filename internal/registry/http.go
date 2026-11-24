@@ -15,8 +15,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-
-	"github.com/BoatengPeter/smokeforge/internal/manifest"
 )
 
 const (
@@ -111,7 +109,7 @@ func Refresh(ctx context.Context, opts Options) (*Result, error) {
 	}
 
 	if isLocalSource(source) {
-		return loadLocal(source)
+		return loadLocal(source, opts.CLIVersion)
 	}
 
 	opts.Source = source
@@ -141,7 +139,7 @@ func Refresh(ctx context.Context, opts Options) (*Result, error) {
 }
 
 func resultFromManifest(opts Options, dir string, fromCache bool) (*Result, error) {
-	m, err := manifest.LoadFile(filepath.Join(dir, "manifest.yaml"))
+	m, err := loadManifest(filepath.Join(dir, "manifest.yaml"), opts.CLIVersion)
 	if err != nil {
 		return nil, fmt.Errorf("load cached registry: %w", err)
 	}

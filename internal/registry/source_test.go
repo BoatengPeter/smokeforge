@@ -1,10 +1,13 @@
 package registry
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/BoatengPeter/smokeforge/internal/manifest"
 )
 
 const localManifest = `schemaVersion: 1
@@ -107,5 +110,25 @@ func TestLoadLocalDirUsesAbsolutePath(t *testing.T) {
 
 	if res.Dir != dir {
 		t.Fatalf("dir = %q, want %q", res.Dir, dir)
+	}
+}
+
+func TestLoadLocalDirRejectsTooOldCLI(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	data := strings.Replace(localManifest, "schemaVersion: 1\n", "schemaVersion: 1\nminCliVersion: 9.0.0\nnewSchemaField: true\n", 1)
+
+	if err := os.WriteFile(filepath.Join(dir, "manifest.yaml"), []byte(data), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Load(t.Context(), Options{Source: dir, CLIVersion: "0.3.7"})
+	if !errors.Is(err, manifest.ErrCLITooOld) {
+		t.Fatalf("error = %v, want ErrCLITooOld", err)
+	}
+
+	if _, err := Load(t.Context(), Options{Source: dir, CLIVersion: "dev"}); errors.Is(err, manifest.ErrCLITooOld) {
+		t.Fatalf("dev builds must skip the version check, got %v", err)
 	}
 }

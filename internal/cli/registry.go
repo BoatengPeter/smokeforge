@@ -73,12 +73,7 @@ func newRegistryUpdateCmd(opts *options) *cobra.Command {
   smokeforge registry update --tag v0.1.0`,
 
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			res, err := registry.Refresh(cmd.Context(), registry.Options{
-				Source:   opts.registry,
-				Tag:      opts.tag,
-				CacheDir: opts.cacheDir,
-				Offline:  opts.offline,
-			})
+			res, err := registry.Refresh(cmd.Context(), opts.registryOptions(opts.registry, opts.tag))
 			if err != nil {
 				return err
 			}

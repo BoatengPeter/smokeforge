@@ -112,3 +112,68 @@ func TestPresetsForStackFiltersUnsupportedFeatures(t *testing.T) {
 		t.Fatalf("egui presets = %+v, want desktop-egui only", got)
 	}
 }
+
+func workspaceWizardManifest() *manifest.Manifest {
+	return &manifest.Manifest{
+		Kinds: map[string]manifest.Kind{
+			"backend":   {Max: 1},
+			"frontend":  {Max: 1},
+			"desktop":   {Max: 1},
+			"mobile":    {Max: 2},
+			"workspace": {Max: 1},
+		},
+		Stacks: []manifest.Stack{
+			{ID: "go/api", Kind: "backend", Name: "Go API"},
+			{ID: "next", Kind: "frontend", Name: "Next.js"},
+			{ID: "android/compose", Kind: "mobile", Name: "Android"},
+			{ID: "ios/swiftui", Kind: "mobile", Name: "iOS"},
+			{ID: "desktop/electron", Kind: "desktop", Name: "Electron"},
+			{ID: "workspace/monorepo", Kind: "workspace", Name: "Composable workspace"},
+		},
+		Presets: []manifest.Preset{{ID: "workspace-api", Kinds: []string{"workspace"}}},
+	}
+}
+
+func TestWorkspaceWizardResultUsesTargetsWithoutStack(t *testing.T) {
+	t.Parallel()
+
+	wizard := &Wizard{Manifest: workspaceWizardManifest()}
+
+	result, err := wizard.workspaceResult(
+		[]string{"api", "web", "android", "ios"},
+		"go/api",
+		"",
+		"Acme Workspace",
+		"",
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("workspace result: %v", err)
+	}
+
+	if result.Kind != workspaceKind || result.Stack != "" {
+		t.Fatalf("result = %+v, want workspace kind without stack", result)
+	}
+
+	if result.Backend != "go/api" || result.Frontend != "next" {
+		t.Fatalf("result = %+v", result)
+	}
+
+	if strings.Join(result.Mobiles, ",") != "android/compose,ios/swiftui" {
+		t.Fatalf("mobiles = %v", result.Mobiles)
+	}
+
+	if result.Preset != "workspace-api" {
+		t.Fatalf("preset = %q, want workspace-api", result.Preset)
+	}
+}
+
+func TestWorkspaceWizardRejectsNoTargets(t *testing.T) {
+	t.Parallel()
+
+	wizard := &Wizard{Manifest: workspaceWizardManifest()}
+	if _, err := wizard.workspaceResult(nil, "", "", "Acme", "", nil, nil); err == nil {
+		t.Fatal("expected an empty workspace target error")
+	}
+}

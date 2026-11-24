@@ -15,7 +15,10 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
-const fullstackKind = "fullstack"
+const (
+	fullstackKind = "fullstack"
+	workspaceKind = "workspace"
+)
 
 // WizardResult holds the choices collected by the interactive wizard.
 type WizardResult struct {
@@ -50,6 +53,8 @@ type wizardVariable struct {
 }
 
 // Run executes the interactive wizard. It aborts cleanly when the user cancels.
+//
+//nolint:gocyclo // The wizard branches between single-stack, fullstack, and workspace flows.
 func (w *Wizard) Run(ctx context.Context) error {
 	kinds := availableKinds(w.Manifest)
 	if len(kinds) == 0 {
@@ -67,6 +72,9 @@ func (w *Wizard) Run(ctx context.Context) error {
 	}
 
 	selectedStackID := initialStackID(w.Manifest, kind, initialStack)
+	workspaceTargets := defaultWorkspaceTargets(w.Manifest, w.Result)
+	workspaceAPIStackID := defaultWorkspaceStackID(stacksForKind(w.Manifest, "backend"), w.Result.Backend)
+	workspaceDesktopStackID := defaultWorkspaceStackID(stacksForKind(w.Manifest, "desktop"), w.Result.Desktop)
 	name := w.Result.Name
 	presetID := initialPresetID(w.Manifest, kind, w.Result.Preset)
 	explicitFeatures := len(w.Result.Features) > 0
@@ -86,15 +94,35 @@ func (w *Wizard) Run(ctx context.Context) error {
 	}
 
 	groups := w.basicGroups(kinds, &kind, &selectedStackID, &name)
+	groups = append(groups, w.workspaceGroups(&kind, &workspaceTargets, &workspaceAPIStackID, &workspaceDesktopStackID, variableValues)...)
 	groups = append(groups, w.presetGroup(&kind, &selectedStackID, &presetID, &features, &lastPresetID, explicitFeatures))
 	groups = append(groups, w.featureGroup(&kind, &selectedStackID, &features))
-	groups = append(groups, w.mediaProviderGroup(&selectedStackID, &features, &mediaProvider))
-	groups = append(groups, w.compressionGroup(&features, &compressionEnabled))
-	groups = append(groups, w.variableGroups(selectableStacks(w.Manifest, kinds), variableValues, &selectedStackID)...)
+	groups = append(groups, w.mediaProviderGroup(&kind, &selectedStackID, &features, &mediaProvider))
+	groups = append(groups, w.compressionGroup(&kind, &features, &compressionEnabled))
+	groups = append(groups, w.variableGroups(&kind, selectableStacks(w.Manifest, kinds), variableValues, &selectedStackID)...)
 
 	form := newForm(w, groups...)
 	if err := form.RunWithContext(ctx); err != nil {
 		return fmt.Errorf("wizard: %w", err)
+	}
+
+	if kind == workspaceKind {
+		result, err := w.workspaceResult(
+			workspaceTargets,
+			workspaceAPIStackID,
+			workspaceDesktopStackID,
+			strings.TrimSpace(name),
+			w.Result.Preset,
+			w.Result.Features,
+			variableValues,
+		)
+		if err != nil {
+			return err
+		}
+
+		w.Result = result
+
+		return nil
 	}
 
 	stack, ok := findStackByID(w.Manifest, selectedStackID)
@@ -165,7 +193,9 @@ func (w *Wizard) basicGroups(
 					return stackOptions(stacks)
 				}, kind).
 				Value(selectedStackID),
-		),
+		).WithHideFunc(func() bool {
+			return *kind == workspaceKind
+		}),
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Project name").
@@ -175,6 +205,293 @@ func (w *Wizard) basicGroups(
 				WithWidth(60),
 		),
 	}
+}
+
+//nolint:gocyclo // Workspace target defaults reflect every optional client lane.
+func defaultWorkspaceTargets(m *manifest.Manifest, result WizardResult) []string {
+	available := workspaceTargetMap(m)
+	targets := make([]string, 0, 5)
+
+	if result.Backend != "" && available["api"] {
+		targets = append(targets, "api")
+	}
+
+	if result.Frontend != "" && available["web"] {
+		targets = append(targets, "web")
+	}
+
+	if result.Desktop != "" && available["desktop"] {
+		targets = append(targets, "desktop")
+	}
+
+	for _, mobile := range result.Mobiles {
+		switch mobile {
+		case "android/compose":
+			if available["android"] {
+				targets = append(targets, "android")
+			}
+		case "ios/swiftui":
+			if available["ios"] {
+				targets = append(targets, "ios")
+			}
+		}
+	}
+
+	if len(targets) > 0 {
+		return targets
+	}
+
+	for _, target := range []string{"api", "web", "desktop", "android", "ios"} {
+		if available[target] {
+			targets = append(targets, target)
+		}
+	}
+
+	if len(targets) > 1 {
+		return targets[:2]
+	}
+
+	return targets
+}
+
+func workspaceTargetMap(m *manifest.Manifest) map[string]bool {
+	available := make(map[string]bool)
+	available["api"] = len(stacksForKind(m, "backend")) > 0
+	available["web"] = len(stacksForKind(m, "frontend")) > 0
+	available["desktop"] = len(stacksForKind(m, "desktop")) > 0
+
+	for _, stack := range stacksForKind(m, "mobile") {
+		switch stack.ID {
+		case "android/compose":
+			available["android"] = true
+		case "ios/swiftui":
+			available["ios"] = true
+		}
+	}
+
+	return available
+}
+
+func workspaceTargetOptions(m *manifest.Manifest) []huh.Option[string] {
+	available := workspaceTargetMap(m)
+	options := make([]huh.Option[string], 0, 5)
+
+	for _, target := range []string{"api", "web", "desktop", "android", "ios"} {
+		if available[target] {
+			options = append(options, huh.NewOption(workspaceTargetLabel(target), target))
+		}
+	}
+
+	return options
+}
+
+func workspaceTargetLabel(target string) string {
+	switch target {
+	case "api":
+		return "API"
+	case "web":
+		return "Web (Next.js)"
+	case "desktop":
+		return "Desktop"
+	case "android":
+		return "Android"
+	case "ios":
+		return "iOS"
+	default:
+		return target
+	}
+}
+
+func defaultWorkspaceStackID(stacks []manifest.Stack, selected string) string {
+	selected = strings.TrimSpace(selected)
+	if selected != "" {
+		if stackIDIn(selected, stacks) {
+			return selected
+		}
+
+		if !strings.Contains(selected, "/") {
+			for _, stack := range stacks {
+				if stack.ID == "desktop/"+selected {
+					return stack.ID
+				}
+			}
+		}
+	}
+
+	if len(stacks) == 0 {
+		return ""
+	}
+
+	return stacks[0].ID
+}
+
+func (w *Wizard) workspaceGroups(
+	kind *string,
+	targets *[]string,
+	apiStackID, desktopStackID *string,
+	variableValues map[string][]wizardVariable,
+) []*huh.Group {
+	apiStacks := stacksForKind(w.Manifest, "backend")
+	desktopStacks := stacksForKind(w.Manifest, "desktop")
+	groups := make([]*huh.Group, 0, 4)
+
+	groups = append(groups, huh.NewGroup(
+		huh.NewMultiSelect[string]().
+			Title("Which targets should the workspace include?").
+			Description("Select an API and any combination of web, desktop, Android, and iOS.").
+			Options(workspaceTargetOptions(w.Manifest)...).
+			Value(targets),
+	).WithHideFunc(func() bool {
+		return *kind != workspaceKind
+	}))
+
+	groups = append(groups, huh.NewGroup(
+		huh.NewSelect[string]().
+			Title("Which API stack should it use?").
+			Options(stackOptions(apiStacks)...).
+			Value(apiStackID),
+	).WithHideFunc(func() bool {
+		return *kind != workspaceKind || !slices.Contains(*targets, "api")
+	}))
+
+	groups = append(groups, huh.NewGroup(
+		huh.NewSelect[string]().
+			Title("Which desktop stack should it use?").
+			Options(stackOptions(desktopStacks)...).
+			Value(desktopStackID),
+	).WithHideFunc(func() bool {
+		return *kind != workspaceKind || !slices.Contains(*targets, "desktop")
+	}))
+
+	if root, ok := findStackByID(w.Manifest, "workspace/monorepo"); ok {
+		fields := wizardVariableFields(variableValues[root.ID])
+		if len(fields) > 0 {
+			groups = append(groups, huh.NewGroup(fields...).WithHideFunc(func() bool {
+				return *kind != workspaceKind
+			}))
+		}
+	}
+
+	return groups
+}
+
+func wizardVariableFields(variables []wizardVariable) []huh.Field {
+	fields := make([]huh.Field, 0, len(variables))
+	for index := range variables {
+		variable := &variables[index]
+		if len(variable.choices) > 0 {
+			fields = append(fields, huh.NewSelect[string]().
+				Title(variable.prompt).
+				Options(huh.NewOptions(variable.choices...)...).
+				Value(variable.value))
+
+			continue
+		}
+
+		fields = append(fields, huh.NewInput().
+			Title(variable.prompt).
+			Placeholder(variable.defaultValue).
+			Value(variable.value).
+			Validate(variableValidator(variable.spec)).
+			WithWidth(60))
+	}
+
+	return fields
+}
+
+//nolint:gocyclo // Result assembly validates each optional target lane.
+func (w *Wizard) workspaceResult(
+	targets []string,
+	apiStackID, desktopStackID, name, preset string,
+	explicitFeatures []string,
+	variableValues map[string][]wizardVariable,
+) (WizardResult, error) {
+	if len(targets) == 0 {
+		return WizardResult{}, errors.New("wizard: workspace requires at least one target")
+	}
+
+	root, ok := findStackByID(w.Manifest, "workspace/monorepo")
+	if !ok {
+		return WizardResult{}, errors.New("wizard: workspace/monorepo stack is unavailable")
+	}
+
+	result := WizardResult{
+		Kind:     workspaceKind,
+		Name:     name,
+		Preset:   preset,
+		Features: slices.Clone(explicitFeatures),
+	}
+
+	activeStacks := []manifest.Stack{root}
+
+	if slices.Contains(targets, "api") {
+		stack, found := findStackByID(w.Manifest, apiStackID)
+		if !found || stack.Kind != "backend" {
+			return WizardResult{}, errors.New("wizard: choose an API stack")
+		}
+
+		result.Backend = stack.ID
+		activeStacks = append(activeStacks, stack)
+	}
+
+	if slices.Contains(targets, "web") {
+		frontendStacks := stacksForKind(w.Manifest, "frontend")
+		if len(frontendStacks) == 0 {
+			return WizardResult{}, errors.New("wizard: no web stack is available")
+		}
+
+		result.Frontend = frontendStacks[0].ID
+		activeStacks = append(activeStacks, frontendStacks[0])
+	}
+
+	if slices.Contains(targets, "desktop") {
+		stack, found := findStackByID(w.Manifest, desktopStackID)
+		if !found || stack.Kind != "desktop" {
+			return WizardResult{}, errors.New("wizard: choose a desktop stack")
+		}
+
+		result.Desktop = stack.ID
+		activeStacks = append(activeStacks, stack)
+	}
+
+	for _, target := range []string{"android", "ios"} {
+		if !slices.Contains(targets, target) {
+			continue
+		}
+
+		stackID := "android/compose"
+		if target == "ios" {
+			stackID = "ios/swiftui"
+		}
+
+		stack, found := findStackByID(w.Manifest, stackID)
+		if !found || stack.Kind != "mobile" {
+			return WizardResult{}, fmt.Errorf("wizard: %s stack is unavailable", target)
+		}
+
+		result.Mobiles = append(result.Mobiles, stack.ID)
+		activeStacks = append(activeStacks, stack)
+	}
+
+	if result.Backend != "" && result.Preset == "" && len(result.Features) == 0 {
+		if w.Manifest.FindPreset("workspace-api") != nil {
+			result.Preset = "workspace-api"
+		}
+	}
+
+	result.Variables = make(map[string]string)
+
+	for _, stack := range activeStacks {
+		for _, variable := range variableValues[stack.ID] {
+			if _, exists := result.Variables[variable.name]; exists {
+				continue
+			}
+
+			result.Variables[variable.name] = strings.TrimSpace(*variable.value)
+		}
+	}
+
+	return result, nil
 }
 
 func (w *Wizard) presetGroup(
@@ -210,6 +527,10 @@ func (w *Wizard) presetGroup(
 			}{*kind, *selectedStackID}).
 			Value(presetID),
 	).WithHideFunc(func() bool {
+		if *kind == workspaceKind {
+			return true
+		}
+
 		stack, ok := findStackByID(w.Manifest, *selectedStackID)
 		if !ok {
 			return true
@@ -238,6 +559,10 @@ func (w *Wizard) featureGroup(kind, selectedStackID *string, features *[]string)
 			Value(features).
 			Validate(validateFeatureVariants),
 	).WithHideFunc(func() bool {
+		if *kind == workspaceKind {
+			return true
+		}
+
 		stack, ok := findStackByID(w.Manifest, *selectedStackID)
 
 		return !ok || len(wizardFeatureOptions(w.Manifest, *kind, stack)) == 0
@@ -245,7 +570,7 @@ func (w *Wizard) featureGroup(kind, selectedStackID *string, features *[]string)
 }
 
 func (w *Wizard) mediaProviderGroup(
-	selectedStackID *string,
+	kind, selectedStackID *string,
 	features *[]string,
 	mediaProvider *string,
 ) *huh.Group {
@@ -263,24 +588,29 @@ func (w *Wizard) mediaProviderGroup(
 			}, features).
 			Value(mediaProvider),
 	).WithHideFunc(func() bool {
+		if *kind == workspaceKind {
+			return true
+		}
+
 		stack, ok := findStackByID(w.Manifest, *selectedStackID)
 
 		return !ok || !slices.Contains(*features, "media") || len(variantOptions(w.Manifest, "media-provider", stack)) == 0
 	})
 }
 
-func (w *Wizard) compressionGroup(features *[]string, enabled *bool) *huh.Group {
+func (w *Wizard) compressionGroup(kind *string, features *[]string, enabled *bool) *huh.Group {
 	return huh.NewGroup(
 		huh.NewConfirm().
 			Title("Enable gzip queue compression?").
 			Description("Only available with the RabbitMQ queue.").
 			Value(enabled),
 	).WithHideFunc(func() bool {
-		return !slices.Contains(*features, "queue:rabbitmq")
+		return *kind == workspaceKind || !slices.Contains(*features, "queue:rabbitmq")
 	})
 }
 
 func (w *Wizard) variableGroups(
+	kind *string,
 	stacks []manifest.Stack,
 	variableValues map[string][]wizardVariable,
 	selectedStackID *string,
@@ -317,7 +647,7 @@ func (w *Wizard) variableGroups(
 		groupStackID := stack.ID
 
 		groups = append(groups, huh.NewGroup(fields...).WithHideFunc(func() bool {
-			return *selectedStackID != groupStackID
+			return *kind == workspaceKind || *selectedStackID != groupStackID
 		}))
 	}
 
